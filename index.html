@@ -12,15 +12,16 @@
     .page-view.active { display: block; }
     .scan-area { background: #000; border-radius: 8px; overflow: hidden; position: relative; width: 100%; min-height: 220px; }
     .badge-counter { font-size: 1.6rem; font-weight: bold; }
-    .scan-tag { font-family: monospace; font-size: 0.95rem; }
+    .scan-tag { font-family: monospace; font-size: 0.92rem; }
     .table-container { max-height: 48vh; overflow-y: auto; }
     
+    /* 專屬操作浮動提示 Toast */
     #myScanToast {
       position: fixed;
-      top: 65px;
+      top: 60px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 1060;
+      z-index: 1080;
       min-width: 90%;
       max-width: 420px;
       display: none;
@@ -31,6 +32,20 @@
       font-size: 0.85rem;
       padding: 6px 10px;
       margin-bottom: 6px;
+    }
+
+    /* 雙層即時動態卡片樣式 */
+    .feed-container {
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .feed-item {
+      padding: 6px 10px;
+      border-bottom: 1px dashed #dee2e6;
+      font-size: 0.88rem;
+    }
+    .feed-item:last-child {
+      border-bottom: none;
     }
   </style>
 
@@ -51,10 +66,10 @@
   </div>
 </nav>
 
-<!-- 專屬浮動即時提示卡 -->
+<!-- 專屬浮動即時提示卡 (成功/非庫存警告) -->
 <div id="myScanToast" class="alert alert-success alert-dismissible fade show mb-0" role="alert">
   <div class="d-flex align-items-center">
-    <div class="fs-4 me-2">✅</div>
+    <div class="fs-4 me-2" id="toastIcon">✅</div>
     <div>
       <strong id="toastTitle">已盤入商品！</strong>
       <div id="toastDetail" class="small"></div>
@@ -219,8 +234,9 @@
     </div>
   </div>
 
-  <!-- ================= 視圖 3: 盤點作業畫面 ================= -->
+  <!-- ================= 視圖 3: 盤點作業畫面 (上下雙畫面設計) ================= -->
   <div id="viewScanning" class="page-view">
+    <!-- 最頂層：剩餘庫存動態統計 -->
     <div class="card bg-dark text-white shadow-sm mb-3">
       <div class="card-body py-2 px-3">
         <div class="d-flex justify-content-between align-items-center">
@@ -241,23 +257,35 @@
       <button class="btn btn-outline-info btn-sm ms-auto" onclick="showUncountedModal()">📋 查看未盤庫存品項</button>
     </div>
 
-    <div class="card mb-3 border-success bg-light shadow-sm">
-      <div class="card-body py-2">
-        <div class="d-flex justify-content-between align-items-center">
-          <span class="small text-muted">⚡ 全門市最新盤點動態：</span>
-          <span class="badge bg-success small" style="font-size: 0.7rem;">即時連線中</span>
-        </div>
-        <div id="lastRecordDisplay" class="scan-tag fw-bold text-success text-truncate mt-1">
-          尚未開始掃描
-        </div>
+    <!-- 上畫面：全體成員即時動態 (最新盤點廣播) -->
+    <div class="card mb-2 border-primary shadow-sm">
+      <div class="card-header bg-primary text-white py-1 px-3 d-flex justify-content-between align-items-center">
+        <span class="small fw-bold">👥 全員即時盤點動態</span>
+        <span class="badge bg-light text-primary small" style="font-size: 0.7rem;">即時連線</span>
+      </div>
+      <div class="card-body p-0 feed-container" id="globalFeedContainer">
+        <div class="text-center text-muted small py-3">尚無盤點紀錄</div>
       </div>
     </div>
 
+    <!-- 下畫面：個人即時盤點紀錄 (可瀏覽與點 X 刪除撤回) -->
+    <div class="card mb-3 border-success shadow-sm">
+      <div class="card-header bg-success text-white py-1 px-3 d-flex justify-content-between align-items-center">
+        <span class="small fw-bold">👤 我的即時盤點紀錄 (最新在前)</span>
+        <span class="badge bg-light text-success small" id="myScanCountBadge">共 0 筆</span>
+      </div>
+      <div class="card-body p-0 feed-container" id="myFeedContainer" style="max-height: 180px;">
+        <div class="text-center text-muted small py-3">您尚未掃描任何商品</div>
+      </div>
+    </div>
+
+    <!-- 相機掃描視窗 -->
     <div id="scannerContainer" class="mb-3" style="display: none;">
       <div id="reader" class="scan-area"></div>
       <button class="btn btn-sm btn-secondary w-100 mt-1" onclick="stopScanner()">關閉相機視窗</button>
     </div>
 
+    <!-- 輸入區塊 -->
     <div class="card shadow-sm mb-5">
       <div class="card-header bg-white py-2">
         <div class="d-flex justify-content-between align-items-center">
@@ -358,7 +386,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  // ================= 1. FIREBASE 配置與初始化 (專屬東南亞節點) =================
+  // ================= 1. FIREBASE 配置與初始化 =================
   const firebaseConfig = {
     apiKey: "AIzaSyCRjfKZskiwLBMDmMQJ0Vd-29e4vD14wRM",
     authDomain: "inventory0088.firebaseapp.com",
@@ -398,7 +426,6 @@
     colorName: "顏色"
   };
 
-  // 清洗不可見控制字元 (如 ASCII 128 ,  , ​ 等)
   function cleanString(str) {
     if (str === undefined || str === null) return "";
     return String(str).replace(/[\x00-\x1F\x7F-\x9F\u200B\u00A0]/g, '').trim();
@@ -474,10 +501,82 @@
       recalculateStats();
     });
 
-    logsRef.limitToLast(1).on("child_added", snap => {
-      const log = snap.val();
-      if (log && log.displayTag) {
-        document.getElementById("lastRecordDisplay").innerText = log.displayTag;
+    // 監聽盤點紀錄 (即時渲染全員動態與個人動態)
+    logsRef.limitToLast(50).on("value", snap => {
+      const logsData = snap.val() || {};
+      renderLiveFeeds(logsData);
+    });
+  }
+
+  // 渲染上下雙層即時動態
+  function renderLiveFeeds(logsData) {
+    const globalContainer = document.getElementById("globalFeedContainer");
+    const myContainer = document.getElementById("myFeedContainer");
+
+    const logsArray = Object.entries(logsData).map(([logId, log]) => ({
+      logId,
+      ...log
+    })).reverse(); // 最新在前
+
+    // 1. 全員即時動態
+    if (logsArray.length === 0) {
+      globalContainer.innerHTML = `<div class="text-center text-muted small py-3">尚無盤點紀錄</div>`;
+    } else {
+      globalContainer.innerHTML = logsArray.slice(0, 20).map(log => {
+        const timeStr = log.timestamp ? new Date(log.timestamp).toTimeString().slice(0, 8) : "";
+        return `
+          <div class="feed-item d-flex justify-content-between align-items-center">
+            <span class="scan-tag text-truncate me-2">${log.displayTag || log.barcode}</span>
+            <span class="badge bg-light text-secondary border">${timeStr}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // 2. 個人即時動態 (只過濾當前登入者，最右側有 X 刪除按鈕)
+    const myLogs = logsArray.filter(log => log.staff === boundUser);
+    document.getElementById("myScanCountBadge").innerText = `共 ${myLogs.length} 筆`;
+
+    if (myLogs.length === 0) {
+      myContainer.innerHTML = `<div class="text-center text-muted small py-3">您尚未掃描任何商品</div>`;
+    } else {
+      myContainer.innerHTML = myLogs.map(log => {
+        const timeStr = log.timestamp ? new Date(log.timestamp).toTimeString().slice(0, 8) : "";
+        return `
+          <div class="feed-item d-flex justify-content-between align-items-center bg-white">
+            <div class="text-truncate me-2">
+              <span class="scan-tag fw-bold text-success">${log.displayTag || log.barcode}</span>
+              <small class="text-muted ms-1">(${timeStr})</small>
+            </div>
+            <button class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold" onclick="undoScanLog('${log.logId}', '${log.itemKey || ''}', '${log.barcode || ''}', ${log.qty || 1})" title="撤銷此筆盤點">
+              ❌
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  // 撤銷/刪除個人盤點紀錄 (扣回實盤數量)
+  function undoScanLog(logId, itemKey, barcode, qty) {
+    if (!confirm(`確定要刪除這筆盤點紀錄嗎？\n系統將自動扣回該商品數量 (-${qty})。`)) return;
+
+    // 1. 取得該商品的 Key
+    const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
+    const itemRef = invRef.child(safeKey);
+
+    // 2. 扣減數量
+    itemRef.transaction(current => {
+      if (current) {
+        current.countedQty = Math.max(0, (current.countedQty || 0) - qty);
+      }
+      return current;
+    }, (error, committed) => {
+      if (committed) {
+        // 3. 刪除該筆 Log
+        logsRef.child(logId).remove().then(() => {
+          showOperatorToast("已成功撤銷紀錄", `商品已扣回 -${qty} 件`, "warning");
+        });
       }
     });
   }
@@ -677,8 +776,12 @@
     return `${staffLast}-${codePart}-${namePart}-${qty}件`;
   }
 
-  function showOperatorToast(title, detail) {
+  function showOperatorToast(title, detail, type = "success") {
     const toast = document.getElementById("myScanToast");
+    const icon = document.getElementById("toastIcon");
+    
+    toast.className = `alert alert-${type === 'warning' ? 'warning' : (type === 'danger' ? 'danger' : 'success')} alert-dismissible fade show mb-0`;
+    icon.innerText = type === "warning" ? "⚠️" : (type === "danger" ? "❌" : "✅");
     document.getElementById("toastTitle").innerText = title;
     document.getElementById("toastDetail").innerText = detail;
     toast.style.display = "block";
@@ -686,10 +789,10 @@
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       toast.style.display = "none";
-    }, 3200);
+    }, 2200); // 2.2 秒自動消失不遮擋
   }
 
-  // ================= 5. 核心盤點寫入 =================
+  // ================= 5. 核心盤點寫入 (查無商品不寫入，僅快速提示) =================
   function executeScan(forcedBarcode, forcedQty) {
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(forcedBarcode || inputEl.value);
@@ -700,35 +803,37 @@
     inputEl.value = "";
     document.getElementById("inputQty").value = "1";
 
-    const safeKey = barcodeToKeyMap[barcode] || toSafeDbKey(barcode);
+    // 1. 檢查是否存在於庫存
+    const safeKey = barcodeToKeyMap[barcode];
+    const existingItem = safeKey ? fullInventory[safeKey] : null;
+
+    if (!existingItem) {
+      // 查無商品：不寫入資料庫，直接提示非庫存商品並快速消失
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      showOperatorToast("非本庫存商品", `條碼/貨號【${barcode}】不在庫存清單中，未寫入。`, "warning");
+      return;
+    }
+
+    // 2. 存在商品：原子累加實盤數量
     const itemRef = invRef.child(safeKey);
 
     itemRef.transaction(current => {
-      if (current === null) {
-        return {
-          barcode: barcode,
-          itemCode: barcode,
-          name: "未在庫品項",
-          systemQty: 0,
-          countedQty: addQty,
-          reservedQty: 0,
-          lastStaff: boundUser
-        };
-      } else {
+      if (current) {
         current.countedQty = (current.countedQty || 0) + addQty;
         current.lastStaff = boundUser;
-        return current;
       }
+      return current;
     }, (error, committed, snapshot) => {
       if (committed && snapshot) {
         const val = snapshot.val();
-        if (navigator.vibrate) navigator.vibrate(100);
+        if (navigator.vibrate) navigator.vibrate(80);
 
         const formattedTag = formatScanTag(boundUser, val.itemCode || val.barcode, val.name, addQty);
         
-        showOperatorToast(`已盤入：${val.name || barcode} (+${addQty})`, `條碼: ${barcode} | 累計實盤: ${val.countedQty} (系統庫存: ${val.systemQty})`);
+        showOperatorToast(`已盤入：${val.name || barcode} (+${addQty})`, `條碼: ${barcode} | 累計實盤: ${val.countedQty} (系統庫存: ${val.systemQty})`, "success");
 
         logsRef.push({
+          itemKey: safeKey,
           barcode: barcode,
           staff: boundUser,
           qty: addQty,
@@ -772,17 +877,23 @@
         } else {
           if (!scanThrottle) {
             scanThrottle = true;
+            const safeKey = barcodeToKeyMap[cleanedText];
+            const existingItem = safeKey ? fullInventory[safeKey] : null;
+
+            if (!existingItem) {
+              if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+              showOperatorToast("非本庫存商品", `條碼【${cleanedText}】不在清單中`, "warning");
+              setTimeout(() => { scanThrottle = false; }, 1200);
+              return;
+            }
+
             if (navigator.vibrate) navigator.vibrate(60);
             document.getElementById("inputBarcode").value = cleanedText;
             const targetQtyInput = document.getElementById("inputQty");
             targetQtyInput.focus();
             targetQtyInput.select();
 
-            const safeKey = barcodeToKeyMap[cleanedText] || toSafeDbKey(cleanedText);
-            const existingItem = fullInventory[safeKey];
-            const pName = existingItem ? existingItem.name : "已讀取條碼";
-            showOperatorToast(`已讀取：${pName}`, `條碼: ${cleanedText}，請在下方輸入數量後按送出`);
-
+            showOperatorToast(`已讀取：${existingItem.name}`, `條碼: ${cleanedText}，請輸入數量後送出`, "success");
             setTimeout(() => { scanThrottle = false; }, 1500);
           }
         }
@@ -877,7 +988,7 @@
     });
   }
 
-  // ================= 9. 極速分批上傳引擎 (徹底清洗不可見控制字元) =================
+  // ================= 9. 極速分批上傳引擎 =================
   function getRowValue(row, possibleKeys) {
     const rowKeys = Object.keys(row);
     for (let pKey of possibleKeys) {
@@ -937,7 +1048,7 @@
         }
       });
 
-      // 2. 構建庫存清單 (自動清洗  隱藏字元並確保所有行完整匯入)
+      // 2. 構建庫存清單
       const allItems = [];
       const usedKeys = {};
       let totalStockSum = 0;
@@ -1024,8 +1135,7 @@
       progressBar.style.width = "100%";
       progressBar.innerText = "100% 匯入完成！";
       status.innerHTML = `<span class="text-success fw-bold">✅ 成功載入！共 <strong>${totalItems}</strong> 種商品品項，庫存總量共 <strong>${totalStockSum}</strong> 件（盤點時間：${timeStr}）。</span>`;
-      alert(`🎉 庫存解析匯入成功！
-共載入 ${totalItems} 種商品品項，庫存總量共 ${totalStockSum} 件。`);
+      alert(`🎉 庫存解析匯入成功！\n共載入 ${totalItems} 種商品品項，庫存總量共 ${totalStockSum} 件。`);
 
     } catch (e) {
       console.error(e);
