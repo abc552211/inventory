@@ -2084,18 +2084,107 @@
     tbody.innerHTML = "";
 
     const filterMode = document.querySelector('input[name="reportPrintFilter"]:checked').value;
+    const isDaily = (metaData.mode || "full") === "daily";
     
-    // 依目前模式（全盤 / 日常）自動過濾資料
+    // 取得符合當前條件的商品清單
     const items = Object.values(fullInventory).filter(item => isItemInCurrentTask(item));
 
-    let displayList = items.map(item => {
-      const sys = item.systemQty || 0;
-      const cnt = item.countedQty || 0;
-      const diff = cnt - sys;
-      const res = item.reservedQty || 0;
-      return { ...item, sys, cnt, diff, res };
-    });
+    if (items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-3">無符合列印條件的資料。</td></tr>`;
+      return;
+    }
 
+    if (items[0] && items[0].warehouse) {
+      document.getElementById("rptWarehouseName").innerText = items[0].warehouse;
+    }
+
+    let displayList = [];
+
+    // ================= 判斷是否為「日常模式 ＋ 品牌大總數模式」 =================
+    if (isDaily) {
+      // 找出所有勾選了「總數盤點」的品牌規則
+      const brandTotalRules = Object.values(filterRules).filter(r => r.field === "brand" && r.isBrandTotalMode);
+      
+      if (brandTotalRules.length > 0) {
+        const brandSummaryMap = {};
+        const normalItems = [];
+
+        items.forEach(item => {
+          // 檢查是否命中任一品牌總數規則
+          const matchedRule = brandTotalRules.find(r => cleanString(item.brand).toLowerCase().includes(cleanString(r.keyword).toLowerCase()));
+          
+          if (matchedRule) {
+            const brandGroupKey = cleanString(item.brand) || matchedRule.keyword;
+            if (!brandSummaryMap[brandGroupKey]) {
+              brandSummaryMap[brandGroupKey] = {
+                isBrandGroup: true,
+                brandName: brandGroupKey,
+                barcode: `BRAND-${brandGroupKey}`,
+                name: `【${brandGroupKey}】全品項品牌總數彙整`,
+                sys: 0,
+                cnt: 0,
+                res: 0,
+                staffSet: new Set(),
+                locBreakdown: { "架上": 0, "櫃內": 0, "彌留": 0, "已取": 0 },
+                skuCount: 0
+              };
+            }
+            const g = brandSummaryMap[brandGroupKey];
+            g.sys += (item.systemQty || 0);
+            g.cnt += (item.countedQty || 0);
+            g.res += (item.reservedQty || 0);
+            g.skuCount++;
+            if (item.lastStaff) g.staffSet.add(cleanString(item.lastStaff));
+
+            if (item.locBreakdown) {
+              Object.entries(item.locBreakdown).forEach(([loc, q]) => {
+                g.locBreakdown[loc] = (g.locBreakdown[loc] || 0) + q;
+              });
+            }
+          } else {
+            // 未啟用大總數的其他一般品項
+            normalItems.push(item);
+          }
+        });
+
+        // 組合「品牌總數彙整列」
+        Object.values(brandSummaryMap).forEach(g => {
+          const diff = g.cnt - g.sys;
+          const staffNames = Array.from(g.staffSet).join("、");
+          displayList.push({
+            ...g,
+            diff: diff,
+            brand: g.brandName,
+            itemCode: `共 ${g.skuCount} 種品項`,
+            lastStaff: staffNames
+          });
+        });
+
+        // 補入其他非總量模式的項目
+        normalItems.forEach(item => {
+          const sys = item.systemQty || 0;
+          const cnt = item.countedQty || 0;
+          displayList.push({ ...item, sys, cnt, diff: cnt - sys, res: item.reservedQty || 0 });
+        });
+
+      } else {
+        // 一般日常條件（無總數模式）
+        displayList = items.map(item => {
+          const sys = item.systemQty || 0;
+          const cnt = item.countedQty || 0;
+          return { ...item, sys, cnt, diff: cnt - sys, res: item.reservedQty || 0 };
+        });
+      }
+    } else {
+      // ================= 全盤點模式：100% 保持原有細項輸出，完全不受影響 =================
+      displayList = items.map(item => {
+        const sys = item.systemQty || 0;
+        const cnt = item.countedQty || 0;
+        return { ...item, sys, cnt, diff: cnt - sys, res: item.reservedQty || 0 };
+      });
+    }
+
+    // 盤差篩選
     if (filterMode === "diff") {
       displayList = displayList.filter(item => item.diff !== 0);
     }
@@ -2105,10 +2194,7 @@
       return;
     }
 
-    if (displayList[0] && displayList[0].warehouse) {
-      document.getElementById("rptWarehouseName").innerText = displayList[0].warehouse;
-    }
-
+    // 渲染表格內容
     displayList.forEach((item, index) => {
       const tr = document.createElement("tr");
       const isDiff = item.diff !== 0;
@@ -2123,17 +2209,17 @@
         ? `${safeCode} (${item.itemCode})` 
         : safeCode;
 
-      // 1. 品牌在上列
+      // 1. 品牌標籤
       const brandHtml = item.brand ? `<div class="fw-bold text-primary mb-1" style="font-size: 0.82rem;">[${item.brand}]</div>` : '';
       
-      // 2. 中文品名
-      const nameHtml = `<div style="line-height: 1.25;">${item.name || '-'}</div>`;
+      // 2. 中文品名 / 品牌總計名稱
+      const nameHtml = `<div style="line-height: 1.25; ${item.isBrandGroup ? 'font-weight: bold; font-size: 0.92rem;' : ''}">${item.name || '-'}</div>`;
 
       // 3. 中文品名下方：灰色小字顯示盤點人員名單
       const staffName = item.lastStaff ? cleanString(item.lastStaff) : '';
       const staffHtml = staffName ? `<div style="font-size: 0.72rem; color: #777; line-height: 1.2; margin-top: 2px;">${staffName}</div>` : '';
 
-      // 4. 實盤欄位：上列為實盤大字，下方固定高度俐落接續各分區數量 (例: 架5 櫃2 彌1)
+      // 4. 實盤欄位：上列大字實盤總數，下方俐落呈現分區總量 (例: 架50 櫃20 彌10)
       let locSummary = `<div style="font-size: 0.68rem; color: #aaa; line-height: 1.1; margin-top: 2px;">-</div>`;
       if (item.cnt > 0 && item.locBreakdown) {
         const parts = [];
@@ -2151,20 +2237,22 @@
       tr.innerHTML = `
         <td class="text-center">${index + 1}</td>
         <td class="text-center">
-          <svg id="${svgId}" class="barcode-svg"></svg>
-          <div class="small fw-bold" style="font-size: 0.75rem;">${codeSubText}</div>
+          ${item.isBrandGroup 
+            ? `<div class="badge bg-dark px-2 py-1 mb-1">品牌總量</div><div class="small font-monospace fw-bold text-muted">${item.itemCode}</div>` 
+            : `<svg id="${svgId}" class="barcode-svg"></svg><div class="small fw-bold" style="font-size: 0.75rem;">${codeSubText}</div>`
+          }
         </td>
         <td>
           ${brandHtml}
           ${nameHtml}
           ${staffHtml}
         </td>
-        <td class="text-center fw-bold">${item.sys}</td>
-        <td class="text-center fw-bold">
+        <td class="text-center fw-bold fs-6">${item.sys}</td>
+        <td class="text-center fw-bold fs-6">
           <div>${item.cnt}</div>
           ${locSummary}
         </td>
-        <td class="text-center">${diffHtml}</td>
+        <td class="text-center fs-6">${diffHtml}</td>
         <td class="text-center">${item.res > 0 ? `<span class="badge bg-warning text-dark">${item.res}</span>` : '0'}</td>
         <td class="text-center" style="background-color: #fffde7; font-weight: bold; border-left: 2px solid #ffc107 !important;">
           ${isDiff ? '___________' : ''}
@@ -2175,17 +2263,20 @@
       `;
       tbody.appendChild(tr);
 
-      setTimeout(() => {
-        try {
-          JsBarcode(`#${svgId}`, safeCode, {
-            format: "CODE128",
-            width: 1.05,
-            height: 24,
-            displayValue: false,
-            margin: 0
-          });
-        } catch (e) {}
-      }, 10);
+      // 非總量彙整列才產生個別條碼圖案
+      if (!item.isBrandGroup) {
+        setTimeout(() => {
+          try {
+            JsBarcode(`#${svgId}`, safeCode, {
+              format: "CODE128",
+              width: 1.05,
+              height: 24,
+              displayValue: false,
+              margin: 0
+            });
+          } catch (e) {}
+        }, 10);
+      }
     });
   }
 
