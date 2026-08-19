@@ -3,36 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>門市多人即時盤點與智慧補貨系統</title>
+  <title>即時盤點與智慧補貨系統</title>
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background-color: #f4f6f9; font-size: 15px; user-select: none; }
+    body { background-color: #f4f6f9; font-size: 14px; user-select: none; }
     .page-view { display: none; }
     .page-view.active { display: block; }
-    /* 相機畫面緊湊縮小，適合手機操作 */
-    .scan-area { background: #000; border-radius: 6px; overflow: hidden; position: relative; width: 100%; min-height: 140px; height: 150px; }
-    .badge-counter { font-size: 1.25rem; font-weight: bold; line-height: 1.2; }
-    .scan-tag { font-family: monospace; font-size: 0.88rem; }
+
+    /* 相機視窗：高度固定 140px，影像滿版置中自適應 */
+    .scan-area {
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+      width: 100%;
+      height: 140px !important;
+      min-height: 140px !important;
+    }
+    #reader video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+    #reader__scan_region {
+      min-height: auto !important;
+    }
+    #reader__dashboard_section, #reader__header_message {
+      display: none !important;
+    }
+
+    /* 手機極致緊湊與自適應字體 */
+    .badge-counter { font-size: 1.15rem; font-weight: bold; line-height: 1.1; }
+    .scan-tag { font-family: monospace; font-size: 0.82rem; }
     .table-container { max-height: 48vh; overflow-y: auto; }
     
-    /* 彈出提示改為「螢幕下方浮動彈出」 */
     #myScanToast {
       position: fixed;
-      bottom: 25px;
+      bottom: 18px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1080;
-      min-width: 88%;
-      max-width: 420px;
+      min-width: 86%;
+      max-width: 380px;
       display: none;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
       border-radius: 8px;
+      padding: 8px 12px !important;
     }
 
-    .filter-rule-badge { font-size: 0.85rem; padding: 6px 10px; margin-bottom: 6px; }
-    .feed-container { max-height: 150px; overflow-y: auto; }
-    .feed-item { padding: 6px 10px; border-bottom: 1px dashed #dee2e6; font-size: 0.88rem; }
+    .feed-container { max-height: 160px; overflow-y: auto; }
+    .feed-item { padding: 4px 6px; border-bottom: 1px dashed #e9ecef; font-size: 0.8rem; }
     .feed-item:last-child { border-bottom: none; }
 
     .barcode-svg {
@@ -1656,12 +1677,24 @@
   function startScanner() {
     document.getElementById("scannerContainer").style.display = "block";
     document.getElementById("btnToggleCam").innerText = "⏹️ 關閉相機";
-    document.getElementById("btnToggleCam").className = "btn btn-outline-danger w-100 btn-sm py-2";
+    document.getElementById("btnToggleCam").className = "btn btn-outline-danger btn-sm py-1 px-3 fw-bold";
 
     html5QrCode = new Html5Qrcode("reader");
+
+    // 動態計算取景框尺寸，使其精準居中且符合 140px 的緊湊高度
+    const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
+      const w = Math.floor(viewfinderWidth * 0.85);
+      const h = Math.floor(Math.min(viewfinderHeight * 0.75, 105));
+      return { width: Math.max(w, 200), height: Math.max(h, 75) };
+    };
+
     html5QrCode.start(
       { facingMode: "environment" },
-      { fps: 12, qrbox: { width: 260, height: 140 } },
+      { 
+        fps: 15,
+        qrbox: qrboxFunction,
+        aspectRatio: 2.2 // 寬螢幕橫向比例，符合緊湊視窗
+      },
       (decodedText) => {
         const cleanedText = cleanString(decodedText);
         const mode = document.querySelector('input[name="camScanMode"]:checked').value;
