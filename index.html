@@ -20,6 +20,20 @@
       width: 100%;
       height: 140px !important;
       min-height: 140px !important;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      border: 2px solid transparent;
+    }
+
+    /* 刷入成功：相機框與全螢幕邊緣瞬間綠光閃爍 */
+    .scan-flash-success {
+      border-color: #28a745 !important;
+      box-shadow: 0 0 18px rgba(40, 167, 69, 0.9), inset 0 0 15px rgba(40, 167, 69, 0.6) !important;
+    }
+
+    /* 查無商品：相機框瞬間紅光閃爍 */
+    .scan-flash-warning {
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 18px rgba(220, 53, 69, 0.9), inset 0 0 15px rgba(220, 53, 69, 0.6) !important;
     }
     #reader video {
       width: 100% !important;
@@ -153,6 +167,7 @@
         padding: 3px 4px !important;
         font-size: 10.5px !important;
         vertical-align: middle !important;
+        height: 46px !important; /* 每列固定高度，排版俐落一致 */
       }
       .barcode-svg {
         max-width: 105px !important;
@@ -189,6 +204,9 @@
     </div>
   </div>
 </div>
+
+<!-- 專門觸發 iOS Safari 原生 Taptic Engine 微震動的隱藏開關 -->
+<input type="checkbox" id="iosHapticTrigger" style="position: fixed; opacity: 0; pointer-events: none; z-index: -999; bottom: 0;">
 
 <div class="container pt-3 pb-5">
 
@@ -397,13 +415,33 @@
       <button class="btn btn-outline-info btn-sm py-0 px-2 ms-auto" style="font-size: 0.8rem;" onclick="showUncountedModal()">📋 未盤清單</button>
     </div>
 
-    <!-- 1. 最上方：相機掃描與輸入操作區 (置頂且縮小) -->
+    <!-- 1. 最上方：相機掃描、位置切換與輸入操作區 (移除重複關閉鈕 + 4 位置切換) -->
     <div class="card shadow-sm mb-2 border-primary">
       <div class="card-body p-2">
-        <!-- 相機視窗 (高度縮小緊湊) -->
+        <!-- 盤點位置快速切換膠囊 (加大尺寸 / 預設不選取 / 暫存改為彌留) -->
+        <div class="mb-2 bg-light p-2 rounded border">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-dark fw-bold" style="font-size: 0.82rem;">📍 請選擇盤點分區 (必選)：</span>
+            <span id="currentLocDisplay" class="badge bg-warning text-dark" style="font-size: 0.75rem;">尚未選擇分區</span>
+          </div>
+          <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="invLocationOption" id="locRack" value="架上" onchange="updateSelectedLocLabel('架上')">
+            <label class="btn btn-outline-primary py-1 fw-bold" style="font-size: 0.85rem;" for="locRack">架上</label>
+
+            <input type="radio" class="btn-check" name="invLocationOption" id="locCabinet" value="櫃內" onchange="updateSelectedLocLabel('櫃內')">
+            <label class="btn btn-outline-primary py-1 fw-bold" style="font-size: 0.85rem;" for="locCabinet">櫃內</label>
+
+            <input type="radio" class="btn-check" name="invLocationOption" id="locMiliu" value="彌留" onchange="updateSelectedLocLabel('彌留')">
+            <label class="btn btn-outline-primary py-1 fw-bold" style="font-size: 0.85rem;" for="locMiliu">彌留</label>
+
+            <input type="radio" class="btn-check" name="invLocationOption" id="locTaken" value="已取" onchange="updateSelectedLocLabel('已取')">
+            <label class="btn btn-outline-primary py-1 fw-bold" style="font-size: 0.85rem;" for="locTaken">已取</label>
+          </div>
+        </div>
+
+        <!-- 相機視窗 (已移除下方多餘重複的關閉按鈕) -->
         <div id="scannerContainer" class="mb-2" style="display: none;">
           <div id="reader" class="scan-area"></div>
-          <button class="btn btn-sm btn-secondary w-100 py-0 mt-1" style="font-size: 0.8rem;" onclick="stopScanner()">關閉相機視窗</button>
         </div>
 
         <!-- 條碼輸入與送出 -->
@@ -419,7 +457,7 @@
           </div>
         </div>
 
-        <!-- 相機切換與模式按鈕 -->
+        <!-- 相機切換與連續模式按鈕 -->
         <div class="d-flex justify-content-between align-items-center pt-1 border-top">
           <button class="btn btn-success btn-sm py-1 px-3 fw-bold" id="btnToggleCam" onclick="toggleScanner()" style="font-size: 0.82rem;">📷 開啟相機掃描</button>
           <div class="d-flex gap-2">
@@ -782,22 +820,22 @@
     </div>
   </div>
 </div>
-<!-- 彈出視窗 5: 刪除確認專屬彈出視窗 (不卡相機線程) -->
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 320px;">
-    <div class="modal-content shadow">
-      <div class="modal-header bg-danger text-white py-2">
-        <h6 class="modal-title fw-bold">⚠️ 撤銷盤點紀錄確認</h6>
+<!-- 彈出視窗 5: 刪除確認專屬彈出視窗 (絕對水平與垂直置中) -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered mx-auto p-3" style="max-width: 320px; width: 90%;">
+    <div class="modal-content shadow-lg border-0" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header bg-danger text-white py-2 px-3">
+        <h6 class="modal-title fw-bold mb-0" style="font-size: 0.95rem;">⚠️ 撤銷盤點紀錄確認</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-3 text-center">
+      <div class="modal-body p-3 text-center bg-white">
         <p class="mb-1 text-secondary small">您確定要刪除這筆刷入紀錄嗎？</p>
-        <div class="fw-bold text-dark my-2" id="deleteModalItemName" style="font-size: 0.95rem;">-</div>
-        <div class="text-danger small">系統將自動扣回該商品數量 (-1件)</div>
+        <div class="fw-bold text-dark my-2" id="deleteModalItemName" style="font-size: 0.92rem; word-break: break-all;">-</div>
+        <div class="text-danger small fw-bold">系統將自動扣回該商品數量 (-1件)</div>
       </div>
-      <div class="modal-footer justify-content-center py-2 bg-light">
+      <div class="modal-footer justify-content-center py-2 bg-light border-0 gap-2">
         <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">取消</button>
-        <button type="button" class="btn btn-danger btn-sm px-3 fw-bold" id="btnConfirmDeleteAction">確定刪除扣回</button>
+        <button type="button" class="btn btn-danger btn-sm px-3 fw-bold shadow-sm" id="btnConfirmDeleteAction">確定刪除扣回</button>
       </div>
     </div>
   </div>
@@ -832,38 +870,7 @@
   let staffAccounts = { "8888": "店長" };
   let filterRules = {}; // 盤點條件
 
-  // ================= 原生 POS 機逼逼音效產生器 =================
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   
-  function playBeep(type = "success") {
-    try {
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      if (type === "success") {
-        // 成功刷入：清脆高音 1200Hz, 80ms
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.08);
-      } else {
-        // 警告/非庫存：低沈雙音 400Hz
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(380, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.15);
-      }
-    } catch (e) {}
-  }
   let customReplenishRules = {}; // 補貨獨立多條件庫
   let fullInventory = {}; 
   let barcodeToKeyMap = {};
@@ -1153,7 +1160,17 @@
     }).join("");
   }
 
-  // 點擊 ❌ 按鈕：開啟非阻塞式確認彈出視窗
+
+  // 盤點分區文字即時切換
+  function updateSelectedLocLabel(locName) {
+    const badge = document.getElementById("currentLocDisplay");
+    if (badge) {
+      badge.className = "badge bg-success";
+      badge.innerText = `目前位置：${locName}`;
+    }
+  }
+
+  // 點擊 ❌ 按鈕：開啟非阻塞式確認彈出視窗 (補回完整函式)
   let pendingDeleteData = null;
 
   function openConfirmDeleteModal(itemKey, barcode, logId, qty, itemName) {
@@ -1165,7 +1182,7 @@
     modal.show();
   }
 
-  // 綁定彈出視窗中的「確定刪除扣回」按鈕事件
+  // 單一正確綁定彈出視窗「確定刪除扣回」事件 (移除重複與報錯程式)
   document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.getElementById("btnConfirmDeleteAction");
     if (confirmBtn) {
@@ -1173,58 +1190,15 @@
         if (!pendingDeleteData) return;
         const { itemKey, barcode, logId, qty, itemName } = pendingDeleteData;
         
-        // 關閉 Modal
         const modalEl = document.getElementById('confirmDeleteModal');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
 
-        // 執行扣回與刪除
         undoSingleLog(logId, itemKey, barcode, qty, itemName);
         pendingDeleteData = null;
       });
     }
   });
-
-  // 綁定彈出視窗中的「確定刪除扣回」按鈕事件
-  document.addEventListener('DOMContentLoaded', () => {
-    const confirmBtn = document.getElementById("btnConfirmDeleteAction");
-    if (confirmbtn) {
-      confirmBtn.addEventListener('click', () => {
-        if (!pendingDeleteData) return;
-        const { itemKey, barcode, logId, qty, itemName } = pendingDeleteData;
-        
-        // 關閉 Modal
-        const modalEl = document.getElementById('confirmDeleteModal');
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
-
-        // 執行扣回與刪除
-        undoSingleLog(logId, itemKey, barcode, qty, itemName);
-        pendingDeleteData = null;
-      });
-    }
-  });
-
-  // 執行單筆 Log 刪除並安全扣減庫存
-  function undoSingleLog(logId, itemKey, barcode, qty, itemName) {
-    const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
-    const itemRef = invRef.child(safeKey);
-
-    itemRef.transaction(current => {
-      if (current) {
-        current.countedQty = Math.max(0, (current.countedQty || 0) - qty);
-      }
-      return current;
-    }, (error, committed) => {
-      if (committed) {
-        logsRef.child(logId).remove().then(() => {
-          if (navigator.vibrate) navigator.vibrate(60);
-          const displayName = itemName || barcode;
-          showOperatorToast("已撤銷最後一筆盤點", `已扣回【${displayName}】-${qty} 件`, "warning");
-        });
-      }
-    });
-  }
 
   function verifyAndBindCode() {
     const inputCode = document.getElementById("passCodeInput").value.trim();
@@ -1745,12 +1719,22 @@
     toastTimer = setTimeout(() => { toast.style.display = "none"; }, 2200);
   }
 
-  // ================= 7. 核心盤點寫入 =================
+  // ================= 7. 核心盤點寫入 (未選位置強制阻擋提示) =================
   function executeScan(forcedBarcode, forcedQty) {
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(forcedBarcode || inputEl.value);
     const addQty = forcedQty ? forcedQty : (parseInt(document.getElementById("inputQty").value, 10) || 1);
     if (!barcode) return;
+
+    // 【核心防呆】：未選擇分區時強制阻擋刷入並提示
+    const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
+    if (!locRadio) {
+      playBeep("warning");
+      triggerVisualFlash("warning");
+      showOperatorToast("尚未選擇位置", "⚠️ 請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）！", "warning");
+      return;
+    }
+    const selectedLoc = locRadio.value;
 
     inputEl.value = "";
     document.getElementById("inputQty").value = "1";
@@ -1759,7 +1743,8 @@
     const existingItem = safeKey ? fullInventory[safeKey] : null;
 
     if (!existingItem) {
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      playBeep("warning");
+      triggerVisualFlash("warning");
       showOperatorToast("非本庫存商品", `條碼/貨號【${barcode}】不在庫存清單中，未寫入。`, "warning");
       return;
     }
@@ -1769,18 +1754,23 @@
       if (current) {
         current.countedQty = (current.countedQty || 0) + addQty;
         current.lastStaff = boundUser;
+
+        // 記錄並累計各分區數量
+        if (!current.locBreakdown) current.locBreakdown = {};
+        current.locBreakdown[selectedLoc] = (current.locBreakdown[selectedLoc] || 0) + addQty;
       }
       return current;
     }, (error, committed, snapshot) => {
       if (committed && snapshot) {
         const val = snapshot.val();
-        if (navigator.vibrate) navigator.vibrate(80);
         const formattedTag = formatScanTag(boundUser, val.itemCode || val.barcode, val.name, addQty);
-        showOperatorToast(`已盤入：${val.name || barcode} (+${addQty})`, `條碼: ${barcode} | 累計實盤: ${val.countedQty} (系統庫存: ${val.systemQty})`, "success");
+        showOperatorToast(`已盤入 [${selectedLoc}]：${val.name || barcode} (+${addQty})`, `條碼: ${barcode} | 累計實盤: ${val.countedQty} (系統: ${val.systemQty})`, "success");
+        
         logsRef.push({
           itemKey: safeKey,
           barcode: barcode,
           staff: boundUser,
+          location: selectedLoc,
           qty: addQty,
           displayTag: formattedTag,
           timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -1789,7 +1779,143 @@
     });
   }
 
-  // ================= 8. 相機掃描 (同商品 2.5 秒防重複冷卻 ＋ 有庫存必震動) =================
+  // 執行單筆 Log 刪除並安全扣減庫存 (同步扣除對應分區數量)
+  function undoSingleLog(logId, itemKey, barcode, qty, itemName) {
+    const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
+    const itemRef = invRef.child(safeKey);
+
+    logsRef.child(logId).once("value", snap => {
+      const logData = snap.val() || {};
+      const targetLoc = logData.location || "架上";
+
+      itemRef.transaction(current => {
+        if (current) {
+          current.countedQty = Math.max(0, (current.countedQty || 0) - qty);
+          if (current.locBreakdown && current.locBreakdown[targetLoc]) {
+            current.locBreakdown[targetLoc] = Math.max(0, current.locBreakdown[targetLoc] - qty);
+          }
+        }
+        return current;
+      }, (error, committed) => {
+        if (committed) {
+          logsRef.child(logId).remove().then(() => {
+            const displayName = itemName || barcode;
+            showOperatorToast("已撤銷盤點紀錄", `已扣回【${displayName}】[${targetLoc}] -${qty} 件`, "warning");
+          });
+        }
+      });
+    });
+  }
+
+  
+  // ================= 跨平台震動與觸感提示引擎 (Android / iOS 雙支援) =================
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // 解除瀏覽器對 Audio / Haptic 的安全靜音限制
+  document.addEventListener('touchstart', () => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }, { once: true });
+  document.addEventListener('click', () => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }, { once: true });
+
+  function triggerPhoneHaptic(type = "success") {
+    // 1. iOS 原生開關切換觸發 Taptic 觸覺反饋
+    try {
+      const trigger = document.getElementById("iosHapticTrigger");
+      if (trigger) {
+        trigger.checked = !trigger.checked;
+        trigger.dispatchEvent(new Event("change", { bubbles: true }));
+        trigger.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } catch (e) {}
+
+    // 2. Android 原生硬體震動
+    if (navigator.vibrate) {
+      try {
+        if (type === "success") {
+          navigator.vibrate(100);
+        } else {
+          navigator.vibrate([120, 80, 120]);
+        }
+      } catch (e) {}
+    }
+
+    // 3. 低頻震感音訊脈衝輔助
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const oscHaptic = audioCtx.createOscillator();
+      const gainHaptic = audioCtx.createGain();
+      oscHaptic.type = "triangle";
+      oscHaptic.frequency.setValueAtTime(type === "success" ? 45 : 30, audioCtx.currentTime);
+      gainHaptic.gain.setValueAtTime(0.8, audioCtx.currentTime);
+      gainHaptic.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+      oscHaptic.connect(gainHaptic);
+      gainHaptic.connect(audioCtx.destination);
+      oscHaptic.start();
+      oscHaptic.stop(audioCtx.currentTime + 0.09);
+    } catch (e) {}
+  }
+
+  // 觸發相機邊框視覺閃爍 (綠光 / 紅光)
+  function triggerVisualFlash(type = "success") {
+    const readerEl = document.getElementById("reader");
+    if (!readerEl) return;
+    const flashClass = type === "success" ? "scan-flash-success" : "scan-flash-warning";
+    readerEl.classList.add(flashClass);
+    setTimeout(() => {
+      readerEl.classList.remove(flashClass);
+    }, 200);
+  }
+
+  // 雙音階超商級逼逼聲產生器
+  function playBeep(type = "success") {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+
+      if (type === "success") {
+        // 成功刷入：專業雙音階短音 (880Hz -> 1320Hz，快節奏清脆逼逼聲)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(880, now);
+        gain1.gain.setValueAtTime(0.18, now);
+        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.045);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.045);
+
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(1320, now + 0.045);
+        gain2.gain.setValueAtTime(0.22, now + 0.045);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(now + 0.045);
+        osc2.stop(now + 0.1);
+      } else {
+        // 警告/非庫存：低沉警示雙響 (350Hz 兩次)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(350, now);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
+        gain.gain.setValueAtTime(0.25, now + 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      }
+    } catch (e) {}
+  }
+
+  // ================= 8. 相機掃描 (同商品 2.5 秒防重複冷卻 ＋ 必觸發雙重反饋) =================
   let lastScannedBarcode = "";
   let lastScannedTime = 0;
 
@@ -1821,7 +1947,7 @@
 
         const now = Date.now();
 
-        // 【2.5 秒防狂刷冷卻】：同一個條碼 2.5 秒內不重複刷入；若換不同條碼則立即刷入
+        // 2.5 秒防狂刷冷卻
         if (cleanedText === lastScannedBarcode && (now - lastScannedTime < 2500)) {
           return;
         }
@@ -1833,19 +1959,18 @@
         const safeKey = barcodeToKeyMap[cleanedText];
         const existingItem = safeKey ? fullInventory[safeKey] : null;
 
-        // 1. 查無商品處理 (無庫存)
+        // 1. 查無商品庫存 (紅光閃爍 + 低沉警示雙響)
         if (!existingItem) {
           playBeep("warning");
-          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+          triggerVisualFlash("warning");
           showOperatorToast("非本庫存商品", `條碼【${cleanedText}】不在清單中`, "warning");
           return;
         }
 
-        // 2. 有庫存商品辨識成功：必定震動 80ms + 逼逼聲提示
+        // 2. 刷到庫存商品：雙音階清脆逼逼聲 + 相機邊框瞬間綠光閃爍
         playBeep("success");
-        if (navigator.vibrate) {
-          navigator.vibrate(80);
-        }
+        triggerVisualFlash("success");
+
 
         if (mode === "auto") {
           executeScan(cleanedText, 1);
@@ -1864,6 +1989,7 @@
     });
     isScanning = true;
   }
+
 
   function stopScanner() {
     if (html5QrCode && isScanning) {
@@ -1950,9 +2076,24 @@
       // 2. 中文品名
       const nameHtml = `<div style="line-height: 1.25;">${item.name || '-'}</div>`;
 
-      // 3. 中文品名下方：灰色小小字呈現有盤點到此商品的人員 (不帶標題)
+      // 3. 中文品名下方：灰色小字顯示盤點人員名單
       const staffName = item.lastStaff ? cleanString(item.lastStaff) : '';
       const staffHtml = staffName ? `<div style="font-size: 0.72rem; color: #777; line-height: 1.2; margin-top: 2px;">${staffName}</div>` : '';
+
+      // 4. 實盤欄位：上列為實盤大字，下方固定高度俐落接續各分區數量 (例: 架5 櫃2 彌1)
+      let locSummary = `<div style="font-size: 0.68rem; color: #aaa; line-height: 1.1; margin-top: 2px;">-</div>`;
+      if (item.cnt > 0 && item.locBreakdown) {
+        const parts = [];
+        Object.entries(item.locBreakdown).forEach(([locKey, qtyVal]) => {
+          if (qtyVal > 0) {
+            const shortName = locKey.length > 0 ? locKey.charAt(0) : "位";
+            parts.push(`${shortName}${qtyVal}`);
+          }
+        });
+        if (parts.length > 0) {
+          locSummary = `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; margin-top: 2px; white-space: nowrap;">${parts.join(' ')}</div>`;
+        }
+      }
 
       tr.innerHTML = `
         <td class="text-center">${index + 1}</td>
@@ -1966,7 +2107,10 @@
           ${staffHtml}
         </td>
         <td class="text-center fw-bold">${item.sys}</td>
-        <td class="text-center fw-bold">${item.cnt}</td>
+        <td class="text-center fw-bold">
+          <div>${item.cnt}</div>
+          ${locSummary}
+        </td>
         <td class="text-center">${diffHtml}</td>
         <td class="text-center">${item.res > 0 ? `<span class="badge bg-warning text-dark">${item.res}</span>` : '0'}</td>
         <td class="text-center" style="background-color: #fffde7; font-weight: bold; border-left: 2px solid #ffc107 !important;">
@@ -1982,8 +2126,8 @@
         try {
           JsBarcode(`#${svgId}`, safeCode, {
             format: "CODE128",
-            width: 1.05,        // 最優線條寬度比，縮減橫向寬度且掃描槍可精準讀取
-            height: 24,         // 緊湊高度，不擠壓紙張排版
+            width: 1.05,
+            height: 24,
             displayValue: false,
             margin: 0
           });
