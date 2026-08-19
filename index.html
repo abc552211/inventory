@@ -506,7 +506,22 @@
           <div id="importStatus" class="small text-muted mt-2"></div>
         </div>
 
-        <button class="btn btn-outline-danger btn-sm w-100" onclick="resetOnlyInventory()">🗑️ 僅重置盤點數據 (保留人員與日常條件)</button>
+        <!-- 重置數據雙重專屬操作按鈕 (保留人員與自訂條件) -->
+        <div class="p-3 border rounded bg-light mt-3">
+          <div class="small fw-bold text-secondary mb-2">⚠️ 數據重置管理 (人員名單與日常自訂條件將永久保留)：</div>
+          <div class="row g-2">
+            <div class="col-6">
+              <button class="btn btn-outline-warning text-dark btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetOnlyCountedData()">
+                🧹 僅清除已盤庫存<br><span style="font-size: 0.72rem; font-weight: normal;">(保留匯入商品，數量全歸零)</span>
+              </button>
+            </div>
+            <div class="col-6">
+              <button class="btn btn-outline-danger btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetAllImportedData()">
+                🗑️ 清除所有匯入資料<br><span style="font-size: 0.72rem; font-weight: normal;">(完整清空 Excel 庫存資料庫)</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3044,12 +3059,39 @@
     XLSX.writeFile(wb, `門市盤差比對表_${metaData.mode || 'full'}_${d}.xlsx`);
   }
 
-  function resetOnlyInventory() {
-    if (confirm("⚠️ 確定要清除所有盤點庫存數據與記錄嗎？\n（日常條件與人員名單將會保留）")) {
+  // 1. 僅清除已盤庫存 (重盤專用：保留匯入的商品與帳面庫存，僅將實盤數量與各分區歸零)
+  async function resetOnlyCountedData() {
+    const itemsCount = Object.keys(fullInventory).length;
+    if (itemsCount === 0) return alert("目前資料庫內尚無商品資料。");
+
+    if (confirm(`⚠️ 確定要「僅清除已盤庫存」嗎？\n\n・匯入的商品資料與帳面庫存將完整保留。\n・所有商品的「實盤數量」與「分區記錄」將全部歸零。\n・所有人員的刷入紀錄將會清空。\n・人員名單與自訂條件永久保留。`)) {
+      try {
+        // 清空歷史掃描 logs
+        await logsRef.remove();
+
+        // 將所有商品的 countedQty 歸零，並移除分區與人員紀錄
+        const updatePayload = {};
+        Object.entries(fullInventory).forEach(([key, item]) => {
+          updatePayload[`${key}/countedQty`] = 0;
+          updatePayload[`${key}/lastStaff`] = "";
+          updatePayload[`${key}/locBreakdown`] = null;
+        });
+
+        await invRef.update(updatePayload);
+        alert("✅ 已成功清除所有已盤庫存！目前實盤總量已全數歸零，可重新開始盤點。");
+      } catch (e) {
+        alert("重置失敗: " + e.message);
+      }
+    }
+  }
+
+  // 2. 清除所有匯入資料 (徹底清空庫存商品，回到尚未匯入 Excel 的初始狀態)
+  function resetAllImportedData() {
+    if (confirm("⚠️ 確定要「清除所有匯入資料」嗎？\n\n・資料庫內的所有 Excel 商品、帳面庫存與盤點紀錄將會徹底清空。\n・盤點基準時間將會重置。\n・人員名單與自訂日常條件仍會永久保留。")) {
       invRef.remove();
       logsRef.remove();
       metaRef.child("inventoryTime").remove();
-      alert("盤點數據已清除。");
+      alert("✅ 已清空所有匯入庫存資料。");
     }
   }
 </script>
