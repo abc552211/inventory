@@ -2043,9 +2043,10 @@
     }
   }
 
-  // ================= 計算機鍵盤運算引擎 =================
+  // ================= 計算機鍵盤運算引擎 (修復連續輸入10等數字被洗掉問題) =================
   let calcTargetBarcode = "";
   let calcCurrentFormula = "1";
+  let isNewCalcInput = true; // 初次輸入狀態標記
 
   // 開啟計算機彈窗
   function openCalculatorKeypad(barcode, item) {
@@ -2059,6 +2060,7 @@
 
     calcTargetBarcode = barcode;
     calcCurrentFormula = "1";
+    isNewCalcInput = true; // 重置初次輸入標記
 
     document.getElementById("calcModalLocBadge").innerText = locRadio.value;
     document.getElementById("calcModalTitle").innerText = item.name || "商品";
@@ -2072,17 +2074,20 @@
     modal.show();
   }
 
-  // 按鍵輸入處理
+  // 按鍵輸入處理 (支援 10、100、00 及算式正常連續鍵入)
   function calcInput(key) {
     if (key === 'C') {
       calcCurrentFormula = "1";
+      isNewCalcInput = true;
     } else if (key === 'BACK') {
       if (calcCurrentFormula.length > 1) {
         calcCurrentFormula = calcCurrentFormula.slice(0, -1);
       } else {
         calcCurrentFormula = "0";
+        isNewCalcInput = true;
       }
     } else if (['+', '-', '*', '/'].includes(key)) {
+      isNewCalcInput = false;
       const lastChar = calcCurrentFormula.slice(-1);
       if (['+', '-', '*', '/'].includes(lastChar)) {
         calcCurrentFormula = calcCurrentFormula.slice(0, -1) + key;
@@ -2090,10 +2095,16 @@
         calcCurrentFormula += key;
       }
     } else {
-      if (calcCurrentFormula === "0" || calcCurrentFormula === "1") {
-        calcCurrentFormula = key;
+      // 數字或小數點輸入
+      if (isNewCalcInput) {
+        calcCurrentFormula = (key === '.') ? '0.' : key;
+        isNewCalcInput = false;
       } else {
-        calcCurrentFormula += key;
+        if (calcCurrentFormula === "0" && key !== '.') {
+          calcCurrentFormula = key;
+        } else {
+          calcCurrentFormula += key;
+        }
       }
     }
     updateCalcDisplay();
