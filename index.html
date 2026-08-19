@@ -8,12 +8,13 @@
   <!-- 1. 瀏覽器頁籤圖示 (Favicon) -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%230d6efd'/><rect x='18' y='22' width='7' height='42' rx='3.5' fill='white'/><rect x='31' y='22' width='4' height='42' rx='2' fill='white'/><rect x='41' y='22' width='10' height='42' rx='5' fill='white'/><rect x='57' y='22' width='5' height='42' rx='2.5' fill='white'/><rect x='68' y='22' width='14' height='42' rx='7' fill='white'/><circle cx='38' cy='74' r='4' fill='white'/><circle cx='62' cy='74' r='4' fill='white'/><path d='M44 80 Q50 86 56 80' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/></svg>" type="image/svg+xml">
 
-  <!-- 2. iPhone / iPad 加入主畫面專屬可愛圖示 (Apple Touch Icon 180x180) -->
-  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAADDklEQVR4nO3dSVLbQABAUZNiC0eFs3BV9kA2oZK4YrDVLcn+eW+Lhrb11dV4gLuHp7ePA0T82HsAMJOgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KYImRdCk3O89gE+vL9/fW4/P70PHHd3/XLPOs9V4T9nzcSx1FTP0uRfh0ot1vP3o/mvtd2r7rcY763izHseI3YNe66KNPrmjF2HWebYa79rn3yrq3YOGmQRNiqBJETQpgiZF0KQImhRBkyJoUgRNiqBJETQpgiZF0KQImhRBkyJoUgRNiqBJETQpgiZF0KQImhRBkyJoUgRNiqBJETQpgiZF0KQImhRBkyJoUgRNiqBJETQpgiZF0KQImhRBkyJoUgRNiqBJETQpgiZF0KQImhRBkyJoUgRNiqBJETQpgiZF0KQImhRBkyJoUgRNiqBJETQpgiZF0KQImpTdg358fl9l+1Pbje5/rlnn2Wq8a59/rfEd2z3ow2G9i3a8/Vo3z+h+ozff0u1nH2/W4xhx9/D09rHZ2WBlVzFDwyyCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCn3ew/g2ry+/L7Ht/zq0KVuZZxb8xWsX/4M5Ng1BXMr49yLJQcpgj58Peud8/Ot3Mo49+QZIEXQpAj6cD1/9ec7tzLOPQmaFC/bHbmV13dvZZxbEzQplhykCJoUQZPiw0kL/etduZFfzmYf739lhiZF0BMt/SyFz2DM45lc6NRy4NI4T21vubGMNfQKPiP9Kkqz8jq8sTJojTDNzsuZJgbt/Z+n+JugJ5gVoZjHWXJMtmQJIuR5BL0iX2jdnqBJsYYmRdCkCJoUQZMiaFIETYqgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KYImRdCkCJoUQZMiaFIETYqgSRE0KT8BOuayEgj7/RkAAAAASUVORK5CYII=">
-  
-  <!-- 3. iOS Web App 專屬全螢幕沈浸模式標籤 -->
+  <!-- 2. iOS Apple Touch Icon (高對比藍底可愛條碼，不帶 sizes 讓 iOS 強制抓取) -->
+  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAACjElEQVR42u3cQXaCQBBAQcxzq0fVs3hV9/qyTgQcnMaBnqqlMdCBnxET9XC6PAYY8+MQIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcZDNMXZz99tkbefrs/B7y+85b+l2ovbbdpK339tm5Zg/duVfrdlOzTxR+207Sc2ca8VRMtPUfcqPztKffOl2ovbbdpKoPlxzIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAciAPEgTgQB+JAHIgDcSAOxIE4QByIA3EgDsSBOBAH4kAciAPEgTgQB+JAHIgDcSAOxIE4yp2vz4/v83p7+T2j9hi737aT1E8bv3LMz1T+1Zrt1MwTtd+2k0SVMQzD4XR5WD9xzYE4EAfiQByIA3EgDsSBOEAciANxIA7EgTgQB+IgpeN+R7/f/pQd+NrJ3LPlXzn+Hf3RW8zWYxxTx3oL52DLs+WPY/4otz0HW54tfxwlx7fVOdjybJ6tIA7EgTgQR5Bvvsc802y9rBxfe495stl6eVhZ71M0cs/WyzXH0s+0MNsHfD4Hnq0gDsSBOBAH4mBnjpl+mNdXS3zhDwxNdmrlQByIYyMPNPvavjjCbPkfb+Loa/HIvWy45qCnOEZX9TV+xUe3mekxZcj6L/upGkJO3qobt3Ls+Poj/XVG/pXj7Vn84Lc8fIPi2ME6MXNe67cgjh6fx6YvY+jkNaQrJZI4i44uSNc4i+nLGHp79XnIEtJDFj3GUZlIP1n0G8eiUHoLQhy4IEUciANxIA7EgTgQB+IAcSAOxIE4EAfiQBzs0C9mQ+4NVT4o5QAAAABJRU5ErkJggg==">
+  <link rel="apple-touch-icon-precomposed" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAACjElEQVR42u3cQXaCQBBAQcxzq0fVs3hV9/qyTgQcnMaBnqqlMdCBnxET9XC6PAYY8+MQIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcZDNMXZz99tkbefrs/B7y+85b+l2ovbbdpK339tm5Zg/duVfrdlOzTxR+207Sc2ca8VRMtPUfcqPztKffOl2ovbbdpKoPlxzIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAcIA7EgTgQB+JAHIgDcSAOxAHiQByIA3EgDsSBOBAH4kAciAPEgTgQB+JAHIgDcSAOxIE4QByIA3EgDsSBOBAH4kAciAPEgTgQB+JAHIgDcSAOxIE4yp2vz4/v83p7+T2j9hi737aT1E8bv3LMz1T+1Zrt1MwTtd+2k0SVMQzD4XR5WD9xzYE4EAfiQByIA3EgDsSBOEAciANxIA7EgTgQB+IgpeN+R7/f/pQd+NrJ3LPlXzn+Hf3RW8zWYxxTx3oL52DLs+WPY/4otz0HW54tfxwlx7fVOdjybJ6tIA7EgTgQR5Bvvsc802y9rBxfe495stl6eVhZ71M0cs/WyzXH0s+0MNsHfD4Hnq0gDsSBOBAH4mBnjpl+mNdXS3zhDwxNdmrlQByIYyMPNPvavjjCbPkfb+Loa/HIvWy45qCnOEZX9TV+xUe3mekxZcj6L/upGkJO3qobt3Ls+Poj/XVG/pXj7Vn84Lc8fIPi2ME6MXNe67cgjh6fx6YvY+jkNaQrJZI4i44uSNc4i+nLGHp79XnIEtJDFj3GUZlIP1n0G8eiUHoLQhy4IEUciANxIA7EgTgQB+IAcSAOxIE4EAfiQBzs0C9mQ+4NVT4o5QAAAABJRU5ErkJggg==">
+
+  <!-- 3. iOS Web App 專屬設定 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="門市盤點">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -417,10 +418,25 @@
             </div>
           </div>
           
-          <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex justify-content-between align-items-center mb-3">
             <button class="btn btn-outline-primary btn-sm" onclick="previewCurrentTargetItems()">👁️ 預覽符合商品 (<span id="matchedItemsCount">0</span> 種)</button>
-            <button class="btn btn-outline-danger btn-sm" onclick="clearAllFilterRules()">清空所有條件</button>
+            <div class="d-flex gap-1">
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="saveCurrentRulesAsPackage()">📦 打包目前條件為快選</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="clearAllFilterRules()">清空條件</button>
+            </div>
           </div>
+
+          <!-- 常用快選條件包專區 -->
+          <div class="p-2 border rounded bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="small fw-bold text-secondary">⭐ 我的常用快選條件包 (點擊立即套用)：</span>
+              <span id="presetCountBadge" class="badge bg-secondary small">0 組快選</span>
+            </div>
+            <div id="presetPackagesContainer" class="d-flex flex-wrap gap-1">
+              <span class="text-muted small">尚未儲存常用快選包，設定好條件後點擊上方「打包」即可保存。</span>
+            </div>
+          </div>
+        </div>
         </div>
 
         <!-- 區塊 B: 人員與代碼開通管理 (店長密碼解鎖防護) -->
@@ -1015,9 +1031,12 @@
   const metaRef = db.ref("meta");
   const staffRef = db.ref("staff_accounts");
   const rulesRef = db.ref("filter_rules"); // 盤點條件庫
+  const presetsRef = db.ref("preset_filter_packages"); // 常用快選條件包庫
   const repRulesRef = db.ref("custom_replenish_rules"); // 補貨獨立多條件庫
   const invRef = db.ref("inventory");
   const logsRef = db.ref("logs");
+
+  let presetPackages = {}; // 常用快選條件包資料
 
   let boundUser = localStorage.getItem("inv_bound_user") || "";
   let metaData = {};
@@ -1087,6 +1106,12 @@
       filterRules = snap.val() || {};
       renderFilterRules();
       recalculateStats();
+    });
+
+    // 常用快選條件包監聽
+    presetsRef.on("value", snap => {
+      presetPackages = snap.val() || {};
+      renderPresetPackages();
     });
 
     // 補貨獨立多條件庫監聽
@@ -1860,7 +1885,82 @@
     if (opt) opt.style.display = (fieldVal === "brand") ? "block" : "none";
   }
 
-  // ================= 3. 盤點多條件維護 (支援品牌總數盤點模式) =================
+  // ================= 3. 盤點多條件維護 (支援品牌總數 ＋ 常用快選打包) =================
+  
+  // 1. 將當前自訂條件打包為常用快選
+  function saveCurrentRulesAsPackage() {
+    const ruleKeys = Object.keys(filterRules);
+    if (ruleKeys.length === 0) {
+      return alert("⚠️ 目前沒有任何條件可打包！請先在上方新增至少一條篩選條件。");
+    }
+
+    const pkgName = prompt(`📦 請輸入此快選條件包的自訂名稱：\n（例：博士倫大盤套餐、藥水隱眼組合、酷柏全系列）`, "");
+    if (!pkgName || !cleanString(pkgName)) return;
+
+    const cleanedPkgName = cleanString(pkgName);
+    presetsRef.push({
+      name: cleanedPkgName,
+      rules: filterRules,
+      createdAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+      alert(`🎉 成功儲存快選包【${cleanedPkgName}】（共包含 ${ruleKeys.length} 組條件）！`);
+    });
+  }
+
+  // 2. 一鍵套用指定快選包
+  function applyPresetPackage(pkgId) {
+    const pkg = presetPackages[pkgId];
+    if (!pkg || !pkg.rules) return;
+
+    if (confirm(`確定要套用常用快選【${pkg.name}】嗎？\n（系統將自動載入其設定的條件並切換至日常模式）`)) {
+      rulesRef.set(pkg.rules).then(() => {
+        metaRef.update({ mode: "daily" });
+        showOperatorToast("已套用快選包", `【${pkg.name}】條件已全面生效`, "success");
+      });
+    }
+  }
+
+  // 3. 刪除指定快選包
+  function deletePresetPackage(pkgId, pkgName, event) {
+    if (event) event.stopPropagation(); // 防止觸發套用點擊
+    if (confirm(`確定要刪除常用快選【${pkgName}】嗎？`)) {
+      presetsRef.child(pkgId).remove();
+    }
+  }
+
+  // 4. 渲染常用快選膠囊按鈕清單
+  function renderPresetPackages() {
+    const container = document.getElementById("presetPackagesContainer");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const pkgKeys = Object.keys(presetPackages);
+    const badgeEl = document.getElementById("presetCountBadge");
+    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組快選`;
+
+    if (pkgKeys.length === 0) {
+      container.innerHTML = `<span class="text-muted small">尚未儲存常用快選包，設定好條件後點擊上方「打包」即可保存。</span>`;
+      return;
+    }
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = presetPackages[pkgId];
+      const count = pkg.rules ? Object.keys(pkg.rules).length : 0;
+
+      const btn = document.createElement("div");
+      btn.className = "btn-group btn-group-sm mb-1 shadow-sm";
+      btn.innerHTML = `
+        <button type="button" class="btn btn-outline-dark fw-bold text-truncate" style="max-width: 170px;" onclick="applyPresetPackage('${pkgId}')" title="點擊套用此快選">
+          ⭐ ${pkg.name} <span class="badge bg-secondary" style="font-size:0.68rem;">${count}條</span>
+        </button>
+        <button type="button" class="btn btn-outline-danger px-2 fw-bold" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)" title="刪除此快選">
+          ✖
+        </button>
+      `;
+      container.appendChild(btn);
+    });
+  }
+
   function addFilterRule() {
     const field = document.getElementById("newFilterField").value;
     const keyword = cleanString(document.getElementById("newFilterKeyword").value);
