@@ -5,9 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>門市盤點與補貨系統</title>
   
+  <!-- 可愛條碼專屬網頁頁籤圖示 (Favicon) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%230d6efd'/><rect x='18' y='22' width='7' height='42' rx='3.5' fill='white'/><rect x='31' y='22' width='4' height='42' rx='2' fill='white'/><rect x='41' y='22' width='10' height='42' rx='5' fill='white'/><rect x='57' y='22' width='5' height='42' rx='2.5' fill='white'/><rect x='68' y='22' width='14' height='42' rx='7' fill='white'/><circle cx='38' cy='74' r='4' fill='white'/><circle cx='62' cy='74' r='4' fill='white'/><path d='M44 80 Q50 86 56 80' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/></svg>" type="image/svg+xml">
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { background-color: #f4f6f9; font-size: 14px; user-select: none; }
+
+    /* 全域資料庫讀取遮罩與可愛條碼掃描動畫 */
+    #globalLoadingOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(244, 246, 249, 0.96);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+    #globalLoadingOverlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .cute-barcode-box {
+      width: 110px;
+      height: 90px;
+      background: #ffffff;
+      border: 3px solid #0d6efd;
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(13, 110, 253, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: cuteBounce 1.8s infinite ease-in-out;
+    }
+    /* 條碼線條 */
+    .barcode-bars {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      height: 48px;
+    }
+    .barcode-bar {
+      background: #212529;
+      height: 100%;
+      border-radius: 2px;
+    }
+    /* 紅外線雷射掃描光束 */
+    .laser-beam {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: #ff3b30;
+      box-shadow: 0 0 10px #ff3b30, 0 0 18px #ff3b30;
+      animation: scanLaser 1.5s infinite ease-in-out alternate;
+    }
+    @keyframes scanLaser {
+      0% { top: 10%; opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { top: 85%; opacity: 0.3; }
+    }
+    @keyframes cuteBounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-8px) scale(1.03); }
+    }
     .page-view { display: none; }
     .page-view.active { display: block; }
 
@@ -184,6 +255,26 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 </head>
 <body>
+
+<body>
+
+<!-- 全域資料庫讀取中遮罩 (可愛條碼雷射掃描動畫) -->
+<div id="globalLoadingOverlay" class="no-print">
+  <div class="cute-barcode-box mb-3">
+    <div class="laser-beam"></div>
+    <div class="barcode-bars">
+      <div class="barcode-bar" style="width: 5px;"></div>
+      <div class="barcode-bar" style="width: 3px;"></div>
+      <div class="barcode-bar" style="width: 8px;"></div>
+      <div class="barcode-bar" style="width: 4px;"></div>
+      <div class="barcode-bar" style="width: 10px;"></div>
+      <div class="barcode-bar" style="width: 4px;"></div>
+      <div class="barcode-bar" style="width: 7px;"></div>
+    </div>
+  </div>
+  <h6 class="fw-bold text-dark mb-1">📦 門市庫存資料同步中...</h6>
+  <p class="small text-muted mb-0">正在連線雲端資料庫，請稍候 ✨</p>
+</div>
 
 <!-- 頂部導航列 (精簡標題與小巧切換按鈕) -->
 <nav class="navbar navbar-dark bg-dark sticky-top shadow-sm px-2 py-1 no-print">
@@ -1018,10 +1109,21 @@
       recalculateStats();
     });
 
+    let isFirstDbLoad = true;
+
     invRef.on("value", snap => {
       fullInventory = snap.val() || {};
       barcodeToKeyMap = {};
       const prefixSet = new Set();
+
+      // 首次讀取完成後，自動優雅淡出可愛條碼遮罩
+      if (isFirstDbLoad) {
+        isFirstDbLoad = false;
+        setTimeout(() => {
+          const overlay = document.getElementById("globalLoadingOverlay");
+          if (overlay) overlay.classList.add("hidden");
+        }, 500);
+      }
 
       Object.entries(fullInventory).forEach(([key, item]) => {
         if (item.barcode) barcodeToKeyMap[cleanString(item.barcode)] = key;
