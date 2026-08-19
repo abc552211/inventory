@@ -286,9 +286,9 @@
           </div>
           <p class="small text-muted mb-2">每加入一條條件就會自動保存，系統會將<strong>所有符合條件的商品</strong>全部篩選出來給門市盤點。</p>
           
-          <div class="row g-2 mb-2 bg-light p-2 rounded">
-            <div class="col-4">
-              <select id="newFilterField" class="form-select form-select-sm">
+          <div class="row g-2 mb-2 bg-light p-2 rounded align-items-center">
+            <div class="col-3">
+              <select id="newFilterField" class="form-select form-select-sm" onchange="toggleBrandModeCheckbox(this.value)">
                 <option value="itemCode">貨號</option>
                 <option value="barcode">條碼編號</option>
                 <option value="name">中文品名</option>
@@ -298,11 +298,17 @@
                 <option value="colorName">顏色</option>
               </select>
             </div>
-            <div class="col-5">
-              <input type="text" id="newFilterKeyword" class="form-control form-control-sm" placeholder="關鍵字 (例: 酷柏 或 舒潤液)">
+            <div class="col-4">
+              <input type="text" id="newFilterKeyword" class="form-control form-control-sm" placeholder="關鍵字 (例: 博士倫 或 酷柏)">
             </div>
-            <div class="col-3">
-              <button class="btn btn-success btn-sm w-100" onclick="addFilterRule()">➕ 新增條件</button>
+            <div class="col-3" id="brandTotalModeOption" style="display: none;">
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="checkBrandTotalMode" checked>
+                <label class="form-check-label small fw-bold text-primary" for="checkBrandTotalMode">總數盤點</label>
+              </div>
+            </div>
+            <div class="col-2">
+              <button class="btn btn-success btn-sm w-100" onclick="addFilterRule()">➕ 新增</button>
             </div>
           </div>
 
@@ -409,9 +415,10 @@
       </div>
     </div>
 
-    <!-- 快捷功能列 -->
-    <div class="d-flex gap-2 mb-2">
+    <!-- 快捷功能列與品牌總量模式標籤 -->
+    <div class="d-flex gap-2 mb-2 align-items-center">
       <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.8rem;" onclick="goToDashboard()">⬅️ 返回</button>
+      <span id="brandTotalModeBadge" class="badge bg-warning text-dark px-2 py-1" style="display: none; font-size: 0.78rem;">📦 品牌總量盤點模式已啟用</span>
       <button class="btn btn-outline-info btn-sm py-0 px-2 ms-auto" style="font-size: 0.8rem;" onclick="showUncountedModal()">📋 未盤清單</button>
     </div>
 
@@ -1266,37 +1273,7 @@
     p.style.display = p.style.display === "none" ? "block" : "none";
   }
 
-  // ================= 3. 盤點多條件維護 =================
-  function addFilterRule() {
-    const field = document.getElementById("newFilterField").value;
-    const keyword = cleanString(document.getElementById("newFilterKeyword").value);
-    if (!keyword) return alert("請輸入要篩選的關鍵字！");
-
-    rulesRef.push({ field, keyword, createdAt: firebase.database.ServerValue.TIMESTAMP }).then(() => {
-      document.getElementById("newFilterKeyword").value = "";
-      metaRef.update({ mode: "daily" });
-    });
-  }
-
-  function deleteFilterRule(ruleId) { rulesRef.child(ruleId).remove(); }
-  function clearAllFilterRules() { if (confirm("確定要清空所有日常盤點條件嗎？")) rulesRef.remove(); }
-
-  function renderFilterRules() {
-    const container = document.getElementById("filterRuleListContainer");
-    container.innerHTML = "";
-    const ruleKeys = Object.keys(filterRules);
-    if (ruleKeys.length === 0) {
-      container.innerHTML = `<span class="text-muted small">尚無自訂條件（若切換日常模式將盤點 0 筆）。</span>`;
-      return;
-    }
-    ruleKeys.forEach(key => {
-      const rule = filterRules[key];
-      const span = document.createElement("span");
-      span.className = "badge bg-primary filter-rule-badge d-inline-flex align-items-center gap-2";
-      span.innerHTML = `<span><strong>${fieldLabels[rule.field] || rule.field}</strong> 含 <em>"${rule.keyword}"</em></span><button type="button" class="btn-close btn-close-white" style="font-size: 0.65rem;" onclick="deleteFilterRule('${key}')"></button>`;
-      container.appendChild(span);
-    });
-  }
+  
 
   function toggleTaskModeSwitch(isChecked) {
     metaRef.update({ mode: isChecked ? "daily" : "full" });
@@ -1719,7 +1696,77 @@
     toastTimer = setTimeout(() => { toast.style.display = "none"; }, 2200);
   }
 
-  // ================= 7. 核心盤點寫入 (未選位置強制阻擋提示) =================
+  // 切換條件欄位時，若是「品牌」自動顯示「總數盤點模式」勾選框
+  function toggleBrandModeCheckbox(fieldVal) {
+    const opt = document.getElementById("brandTotalModeOption");
+    if (opt) opt.style.display = (fieldVal === "brand") ? "block" : "none";
+  }
+
+  // ================= 3. 盤點多條件維護 (支援品牌總數盤點模式) =================
+  function addFilterRule() {
+    const field = document.getElementById("newFilterField").value;
+    const keyword = cleanString(document.getElementById("newFilterKeyword").value);
+    const isBrandTotalMode = (field === "brand") && document.getElementById("checkBrandTotalMode").checked;
+
+    if (!keyword) return alert("請輸入要篩選的關鍵字！");
+
+    rulesRef.push({ 
+      field, 
+      keyword, 
+      isBrandTotalMode: isBrandTotalMode,
+      createdAt: firebase.database.ServerValue.TIMESTAMP 
+    }).then(() => {
+      document.getElementById("newFilterKeyword").value = "";
+      metaRef.update({ mode: "daily" });
+    });
+  }
+
+  function deleteFilterRule(ruleId) { rulesRef.child(ruleId).remove(); }
+  function clearAllFilterRules() { if (confirm("確定要清空所有日常盤點條件嗎？")) rulesRef.remove(); }
+
+  function renderFilterRules() {
+    const container = document.getElementById("filterRuleListContainer");
+    container.innerHTML = "";
+    const ruleKeys = Object.keys(filterRules);
+    
+    let hasBrandTotalMode = false;
+
+    if (ruleKeys.length === 0) {
+      container.innerHTML = `<span class="text-muted small">尚無自訂條件（若切換日常模式將盤點 0 筆）。</span>`;
+    } else {
+      ruleKeys.forEach(key => {
+        const rule = filterRules[key];
+        if (rule.isBrandTotalMode) hasBrandTotalMode = true;
+        const totalTag = rule.isBrandTotalMode ? `<span class="badge bg-warning text-dark ms-1">總數模式</span>` : "";
+
+        const span = document.createElement("span");
+        span.className = "badge bg-primary filter-rule-badge d-inline-flex align-items-center gap-2";
+        span.innerHTML = `<span><strong>${fieldLabels[rule.field] || rule.field}</strong> 含 <em>"${rule.keyword}"</em>${totalTag}</span><button type="button" class="btn-close btn-close-white" style="font-size: 0.65rem;" onclick="deleteFilterRule('${key}')"></button>`;
+        container.appendChild(span);
+      });
+    }
+
+    // 盤點畫面頂端提示標籤
+    const badgeEl = document.getElementById("brandTotalModeBadge");
+    if (badgeEl) badgeEl.style.display = (hasBrandTotalMode && (metaData.mode === "daily")) ? "inline-block" : "none";
+  }
+
+  // 檢查某商品是否屬於「品牌總量模式」
+  function getBrandTotalRule(item) {
+    if ((metaData.mode || "full") !== "daily") return null;
+    const ruleKeys = Object.keys(filterRules);
+    for (let k of ruleKeys) {
+      const r = filterRules[k];
+      if (r.field === "brand" && r.isBrandTotalMode) {
+        if (cleanString(item.brand).toLowerCase().includes(cleanString(r.keyword).toLowerCase())) {
+          return r;
+        }
+      }
+    }
+    return null;
+  }
+
+  // ================= 7. 核心盤點寫入 (支援品牌總數累計模式) =================
   function executeScan(forcedBarcode, forcedQty) {
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(forcedBarcode || inputEl.value);
@@ -1749,13 +1796,15 @@
       return;
     }
 
+    // 檢查是否觸發「品牌總數盤點模式」
+    const brandRule = getBrandTotalRule(existingItem);
+
     const itemRef = invRef.child(safeKey);
     itemRef.transaction(current => {
       if (current) {
         current.countedQty = (current.countedQty || 0) + addQty;
         current.lastStaff = boundUser;
 
-        // 記錄並累計各分區數量
         if (!current.locBreakdown) current.locBreakdown = {};
         current.locBreakdown[selectedLoc] = (current.locBreakdown[selectedLoc] || 0) + addQty;
       }
@@ -1763,12 +1812,16 @@
     }, (error, committed, snapshot) => {
       if (committed && snapshot) {
         const val = snapshot.val();
+        const brandMsg = brandRule ? ` [品牌總量模式: ${val.brand}]` : "";
         const formattedTag = formatScanTag(boundUser, val.itemCode || val.barcode, val.name, addQty);
-        showOperatorToast(`已盤入 [${selectedLoc}]：${val.name || barcode} (+${addQty})`, `條碼: ${barcode} | 累計實盤: ${val.countedQty} (系統: ${val.systemQty})`, "success");
+        
+        showOperatorToast(`已盤入 [${selectedLoc}]：${val.name || barcode} (+${addQty})`, `條碼: ${barcode}${brandMsg} | 累計實盤: ${val.countedQty}`, "success");
         
         logsRef.push({
           itemKey: safeKey,
           barcode: barcode,
+          brand: val.brand || "",
+          isBrandTotal: !!brandRule,
           staff: boundUser,
           location: selectedLoc,
           qty: addQty,
