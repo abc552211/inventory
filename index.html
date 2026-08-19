@@ -1115,13 +1115,12 @@
     }).join("");
   }
 
-  // 點擊品項右側 ❌ 刪除：預設直接扣回「最後刷入的一筆」
+  // 點擊品項右側 ❌ 刪除：無阻斷直接扣回最後 1 筆 (避免相機串流 Hang 住)
   function undoLastScanOfGroup(itemKey, barcode, logId, qty) {
-    if (!confirm(`確定要撤銷此商品最後刷入的一筆紀錄嗎？\n（系統將自動扣回 -${qty} 件）`)) return;
     undoSingleLog(logId, itemKey, barcode, qty);
   }
 
-  // 執行單筆 Log 刪除並安全扣減庫存
+  // 執行單筆 Log 刪除並安全扣減庫存 (不卡相機線程)
   function undoSingleLog(logId, itemKey, barcode, qty) {
     const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
     const itemRef = invRef.child(safeKey);
@@ -1134,7 +1133,8 @@
     }, (error, committed) => {
       if (committed) {
         logsRef.child(logId).remove().then(() => {
-          showOperatorToast("已成功撤銷紀錄", `商品已扣回 -${qty} 件`, "warning");
+          if (navigator.vibrate) navigator.vibrate(60);
+          showOperatorToast("已扣回該筆紀錄", `商品已扣除 -${qty} 件`, "warning");
         });
       }
     });
@@ -1703,9 +1703,9 @@
     });
   }
 
-  // ================= 8. 相機掃描 (防連刷鎖定 + 移開相機自動解鎖機制) =================
-  let activeLockedBarcode = null; // 當前鎖定的條碼
-  let framesWithoutBarcode = 0;   // 未讀取到條碼的連續幀計數
+  // ================= 8. 相機掃描 (同商品 1.5 秒防重複冷卻機制) =================
+  let lastScannedBarcode = "";
+  let lastScannedTime = 0;
 
   function toggleScanner() { isScanning ? stopScanner() : startScanner(); }
 
@@ -1733,15 +1733,15 @@
         const cleanedText = cleanString(decodedText);
         if (!cleanedText) return;
 
-        framesWithoutBarcode = 0; // 重置離開計數器
+        const now = Date.now();
 
-        // 【核心防呆鎖定】：如果鏡頭一直停留在同一個條碼上，直接忽略不重複刷入
-        if (activeLockedBarcode === cleanedText) {
+        // 【1.5 秒防狂刷冷卻】：同一個條碼 1.5 秒內不重複刷入；若換不同條碼則可立即刷
+        if (cleanedText === lastScannedBarcode && (now - lastScannedTime < 1500)) {
           return;
         }
 
-        // 鎖定當前條碼，防止連續觸發
-        activeLockedBarcode = cleanedText;
+        lastScannedBarcode = cleanedText;
+        lastScannedTime = now;
 
         const mode = document.querySelector('input[name="camScanMode"]:checked').value;
         const safeKey = barcodeToKeyMap[cleanedText];
@@ -1750,7 +1750,7 @@
         // 1. 查無商品處理
         if (!existingItem) {
           playBeep("warning");
-          if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+          if (navigator.vibrate) navigator.vibrate(100);
           showOperatorToast("非本庫存商品", `條碼【${cleanedText}】不在清單中`, "warning");
           return;
         }
@@ -1760,10 +1760,8 @@
         if (navigator.vibrate) navigator.vibrate(80);
 
         if (mode === "auto") {
-          // 自動連續模式 (+1)
           executeScan(cleanedText, 1);
         } else {
-          // 單刷手動數量模式
           document.getElementById("inputBarcode").value = cleanedText;
           const targetQtyInput = document.getElementById("inputQty");
           targetQtyInput.focus();
@@ -1771,13 +1769,7 @@
           showOperatorToast(`已讀取：${existingItem.name}`, `條碼: ${cleanedText}，請輸入數量後按送出`, "success");
         }
       },
-      (errorMessage) => {
-        // 【鏡頭移開判定】：當相機連續 4 幀未看見任何條碼（約 0.25 秒），代表條碼已移開，自動解鎖！
-        framesWithoutBarcode++;
-        if (framesWithoutBarcode > 4) {
-          activeLockedBarcode = null;
-        }
-      }
+      () => {}
     ).catch(err => {
       alert("相機啟動失敗: " + err);
       stopScanner();
