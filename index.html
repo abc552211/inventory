@@ -689,8 +689,8 @@
               <div id="pivotSeriesBadges" class="flex-wrap gap-1 mt-2" style="display: flex;"></div>
             </div>
 
-            <!-- 2. 真實商品勾選與獨立修改表格 (高度加大至 48vh，視野大幅加強) -->
-            <div class="border rounded bg-white mb-2 shadow-inner" style="max-height: 48vh; min-height: 260px; overflow-y: auto;">
+            <!-- 2. 真實商品勾選與獨立修改表格 (支援自由上下拉大高度) -->
+            <div class="border rounded bg-white mb-2 shadow-inner" style="height: 48vh; min-height: 200px; max-height: 85vh; overflow-y: auto; resize: vertical;">
               <table class="table table-sm table-hover mb-0 align-middle small text-nowrap">
                 <thead class="table-light sticky-top shadow-sm">
                   <tr>
@@ -717,9 +717,9 @@
             </div>
           </div>
 
-          <!-- 已建立的補貨條件規則清單 -->
+          <!-- 已建立的補貨條件規則清單 (支援自由上下拉大高度) -->
           <div class="fw-bold small text-secondary mb-1">已設定的補貨條件規則清單：</div>
-          <div class="border rounded p-2 bg-light mb-2" style="max-height: 180px; overflow-y: auto;">
+          <div class="border rounded p-2 bg-light mb-2" style="height: 180px; min-height: 100px; max-height: 60vh; overflow-y: auto; resize: vertical;">
             <div id="repRuleCardsContainer" class="d-flex flex-column gap-2">
               <span class="text-muted small">尚未建立專屬補貨條件。</span>
             </div>
@@ -737,12 +737,15 @@
 
           <!-- 補貨專屬常用快選條件包專區 -->
           <div class="p-2 border rounded bg-white mt-2">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="small fw-bold text-secondary">⭐ 我的補貨常用快選包 (點擊立即套用)：</span>
-              <span id="repPresetCountBadge" class="badge bg-secondary small">0 組快選</span>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="small fw-bold text-secondary">我的補貨常用快選包：</span>
+              <div class="d-flex gap-1 align-items-center">
+                <button class="btn btn-outline-success btn-sm py-0 fw-bold" onclick="openCreateGroupModal()">合成廠商大群組</button>
+                <span id="repPresetCountBadge" class="badge bg-secondary small">0 組</span>
+              </div>
             </div>
             <div id="repPresetPackagesContainer" class="d-flex flex-wrap gap-1">
-              <span class="text-muted small">尚未儲存補貨快選包，設定好條件後點擊上方「打包」即可保存。</span>
+              <span class="text-muted small">尚未儲存補貨快選包。</span>
             </div>
           </div>
         </div>
@@ -1102,6 +1105,38 @@
   </div>
 </div>
 
+<!-- 彈出視窗 8: 合成廠商大群組包彈窗 -->
+<div class="modal fade" id="createGroupModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-success text-white py-2 px-3">
+        <h6 class="modal-title fw-bold mb-0">合成廠商大群組包</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="mb-3">
+          <label class="form-label small fw-bold">1. 大群組名稱：</label>
+          <input type="text" id="newGroupPkgName" class="form-control form-control-sm" placeholder="例: 美若康全系列、嬌生常態組合">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-danger">2. 該大群組出貨合併門檻 (盒數)：</label>
+          <input type="number" id="newGroupVendorMoq" class="form-control form-control-sm fw-bold text-danger" value="4" min="1">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-bold">3. 請勾選要納入此大群組的小包：</label>
+          <div id="groupSelectableList" class="border rounded p-2 bg-light" style="max-height: 180px; overflow-y: auto;">
+            <!-- 自動帶出小包供勾選 -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer py-2 bg-light border-0">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-success btn-sm fw-bold px-3" onclick="saveCombinedGroupPackage()">確認合成並打包</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
@@ -1190,18 +1225,18 @@
       renderPresetPackages();
     });
 
-    // 【單一且純淨的補貨條件庫監聽】聯動所有狀態與顏色
+    // 補貨獨立條件庫監聽 (收到雲端異動時精準同步)
     repRulesRef.on("value", snap => {
       customReplenishRules = snap.val() || {};
       renderReplenishRulesList();
-      if (typeof renderRepPresetPackages === 'function') renderRepPresetPackages();
-      if (document.getElementById("viewReplenish").classList.contains("active")) calculateReplenishment();
+      renderRepPresetPackages();
+      calculateReplenishment();
     });
 
     // 補貨快選包庫監聽
     repPresetsRef.on("value", snap => {
       repPresetPackages = snap.val() || {};
-      if (typeof renderRepPresetPackages === 'function') renderRepPresetPackages();
+      renderRepPresetPackages();
     });
 
     metaRef.on("value", snap => {
@@ -1820,7 +1855,7 @@
     if (checkboxes.length === 0) return alert("請至少勾選一項商品！");
 
     const vendorMoq = parseFloat(document.getElementById("batchVendorMoqVal").value) || 1;
-    const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "預設廠商";
+    const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "常用廠商";
     const updatePayload = {};
 
     checkboxes.forEach(cb => {
@@ -1836,8 +1871,9 @@
         field: "barcode",
         keyword: code,
         barcode: code,
+        itemCode: cleanString(item.itemCode) || code,
         name: cleanString(item.name) || "-",
-        brand: searchKw, // 強制使用搜尋關鍵字作為品牌分類，確保合併計算精準
+        brand: searchKw,
         warehouse: cleanString(item.warehouse) || "",
         safety: parseFloat(safetyInput ? safetyInput.value : 1) || 0,
         moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
@@ -1848,7 +1884,7 @@
     });
 
     repRulesRef.update(updatePayload).then(() => {
-      alert(`🎉 成功儲存 ${checkboxes.length} 筆真實商品！(廠商合併出貨門檻: ${vendorMoq} 盒)`);
+      alert(`成功儲存 ${checkboxes.length} 筆商品條件！(出貨門檻: ${vendorMoq} 盒)`);
     }).catch(err => alert("儲存失敗: " + err.message));
   }
 
@@ -1859,15 +1895,91 @@
     return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
   }
 
-  // 1. 打包或原位覆蓋更新快選包 (純文字提示)
+  // 開啟合成大群組彈窗
+  function openCreateGroupModal() {
+    const container = document.getElementById("groupSelectableList");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const pkgKeys = Object.keys(repPresetPackages);
+    if (pkgKeys.length === 0) return alert("目前尚未建立任何快選小包，請先在上方打包小包！");
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = repPresetPackages[pkgId];
+      const count = getRulesArrayFromPackage(pkg).length;
+      const isGroup = pkg.isGroup ? " [大群組]" : "";
+      
+      const div = document.createElement("div");
+      div.className = "form-check mb-1";
+      div.innerHTML = `
+        <input class="form-check-input group-pkg-checkbox" type="checkbox" value="${pkgId}" id="chk_grp_${pkgId}">
+        <label class="form-check-label small" for="chk_grp_${pkgId}">
+          <strong>${pkg.name}</strong> <span class="text-muted">(${count}款商品${isGroup})</span>
+        </label>
+      `;
+      container.appendChild(div);
+    });
+
+    document.getElementById("newGroupPkgName").value = "";
+    document.getElementById("newGroupVendorMoq").value = 4;
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('createGroupModal'));
+    modal.show();
+  }
+
+  // 儲存合成大群組包
+  function saveCombinedGroupPackage() {
+    const groupName = cleanString(document.getElementById("newGroupPkgName").value);
+    const vendorMoq = parseFloat(document.getElementById("newGroupVendorMoq").value) || 1;
+    const checkedBoxes = document.querySelectorAll(".group-pkg-checkbox:checked");
+
+    if (!groupName) return alert("請輸入大群組名稱！");
+    if (checkedBoxes.length === 0) return alert("請至少勾選一個要納入的小包！");
+
+    let combinedRules = {};
+    checkedBoxes.forEach(cb => {
+      const pkgId = cb.value;
+      const pkg = repPresetPackages[pkgId];
+      if (pkg && pkg.rules) {
+        const ruleList = getRulesArrayFromPackage(pkg);
+        ruleList.forEach(r => {
+          const code = cleanString(r.barcode || r.itemCode);
+          if (code) {
+            combinedRules[toSafeDbKey(code)] = {
+              ...r,
+              barcode: code,
+              itemCode: cleanString(r.itemCode) || code,
+              vendorMoq: vendorMoq,
+              groupPkgName: groupName
+            };
+          }
+        });
+      }
+    });
+
+    const totalCount = Object.keys(combinedRules).length;
+    repPresetsRef.push({
+      name: groupName,
+      rules: combinedRules,
+      vendorMoq: vendorMoq,
+      isGroup: true,
+      createdAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+      alert(`成功合成大群組【${groupName}】！（共整合 ${checkedBoxes.length} 個小包，合計 ${totalCount} 款商品，出貨門檻：${vendorMoq} 盒）`);
+      const modal = bootstrap.Modal.getInstance(document.getElementById('createGroupModal'));
+      if (modal) modal.hide();
+    }).catch(err => alert("合成失敗: " + err.message));
+  }
+
+  // 1. 打包或原位覆蓋更新快選包
   function saveCurrentReplenishPackage() {
     const editPkgId = document.getElementById("editingRepPackageId").value;
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     let rulesToSave = {};
 
+    const vendorMoq = parseFloat(document.getElementById("batchVendorMoqVal").value) || 1;
+    const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "預設廠商";
+
     if (checkboxes.length > 0) {
-      const vendorMoq = parseFloat(document.getElementById("batchVendorMoqVal").value) || 1;
-      const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "預設廠商";
       checkboxes.forEach(cb => {
         const idx = cb.getAttribute("data-index");
         const item = currentSearchedItems[idx];
@@ -1877,12 +1989,18 @@
         const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
         
         rulesToSave[toSafeDbKey(code)] = {
-          field: "barcode", keyword: code, barcode: code,
-          name: cleanString(item.name) || "-", brand: searchKw,
+          field: "barcode",
+          keyword: code,
+          barcode: code,
+          itemCode: cleanString(item.itemCode) || code,
+          name: cleanString(item.name) || "-",
+          brand: searchKw,
           warehouse: cleanString(item.warehouse) || "",
           safety: parseFloat(safetyInput ? safetyInput.value : 1) || 0,
           moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
-          vendorMoq: vendorMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP
+          vendorMoq: vendorMoq,
+          isDirectBound: true,
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
         };
       });
     } else {
@@ -1901,8 +2019,16 @@
       pkgName = cleanString(inputName);
     }
 
-    const payload = { name: pkgName, rules: rulesToSave, updatedAt: firebase.database.ServerValue.TIMESTAMP };
-    const savePromise = editPkgId ? repPresetsRef.child(editPkgId).update(payload) : repPresetsRef.push({ ...payload, createdAt: firebase.database.ServerValue.TIMESTAMP });
+    const payload = {
+      name: pkgName,
+      rules: rulesToSave,
+      vendorMoq: vendorMoq,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    const savePromise = editPkgId 
+      ? repPresetsRef.child(editPkgId).update(payload) 
+      : repPresetsRef.push({ ...payload, createdAt: firebase.database.ServerValue.TIMESTAMP });
 
     savePromise.then(() => {
       alert(`成功儲存快選包【${pkgName}】！`);
@@ -1918,10 +2044,14 @@
 
     if (confirm(`確定要載入快選包【${pkg.name}】至上方編輯區修改嗎？`)) {
       const firstRule = ruleList[0] || {};
-      if (firstRule.vendorMoq) document.getElementById("batchVendorMoqVal").value = firstRule.vendorMoq;
-      if (firstRule.brand) document.getElementById("directItemSearchKw").value = firstRule.brand;
+      if (pkg.vendorMoq || firstRule.vendorMoq) {
+        document.getElementById("batchVendorMoqVal").value = pkg.vendorMoq || firstRule.vendorMoq;
+      }
+      if (firstRule.brand) {
+        document.getElementById("directItemSearchKw").value = firstRule.brand;
+      }
 
-      const targetCodes = new Set(ruleList.map(r => cleanString(r.barcode || r.keyword)));
+      const targetCodes = new Set(ruleList.map(r => cleanString(r.barcode || r.keyword || r.itemCode)));
       allSearchedRawItems = Object.values(fullInventory).filter(item => targetCodes.has(cleanString(item.barcode || item.itemCode)));
       
       buildPivotSeriesBadges();
@@ -1930,7 +2060,7 @@
       setTimeout(() => {
         currentSearchedItems.forEach((item, idx) => {
           const code = cleanString(item.barcode || item.itemCode);
-          const matchedRule = ruleList.find(r => cleanString(r.barcode || r.keyword) === code);
+          const matchedRule = ruleList.find(r => cleanString(r.barcode || r.keyword || r.itemCode) === code);
           if (matchedRule) {
             const sInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
             const mInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
@@ -1958,49 +2088,87 @@
   }
 
   function isPackageActive(pkg) {
-    if (!pkg || !pkg.rules || !customReplenishRules) return false;
+    if (!pkg || !pkg.rules || !customReplenishRules || Object.keys(customReplenishRules).length === 0) return false;
     const ruleList = getRulesArrayFromPackage(pkg);
     if (ruleList.length === 0) return false;
-    const activeCodeSet = new Set(Object.keys(customReplenishRules));
+
+    const activeBarcodes = new Set();
+    Object.values(customReplenishRules).forEach(r => {
+      if (r.barcode) activeBarcodes.add(cleanString(r.barcode));
+      if (r.keyword) activeBarcodes.add(cleanString(r.keyword));
+      if (r.itemCode) activeBarcodes.add(cleanString(r.itemCode));
+    });
+
     let matchCount = 0;
     ruleList.forEach(r => {
-      if (activeCodeSet.has(toSafeDbKey(cleanString(r.barcode || r.keyword)))) matchCount++;
+      const target = cleanString(r.barcode || r.keyword || r.itemCode);
+      if (target && activeBarcodes.has(target)) matchCount++;
     });
+
     return matchCount > 0 && (matchCount >= Math.ceil(ruleList.length * 0.5));
   }
 
   function toggleApplyRepPresetPackage(pkgId) {
     const pkg = repPresetPackages[pkgId];
+    if (!pkg || !pkg.rules) return;
+
     const ruleList = getRulesArrayFromPackage(pkg);
     if (ruleList.length === 0) return alert("此快選包無商品內容！");
 
-    if (isPackageActive(pkg)) {
-      if (confirm(`確定要收回/停用快選包【${pkg.name}】嗎？`)) {
-        const updatePayload = {};
-        ruleList.forEach(r => {
-          const code = cleanString(r.barcode || r.keyword || r.itemCode);
-          if (code) updatePayload[toSafeDbKey(code)] = null;
-        });
-        repRulesRef.update(updatePayload).then(() => showOperatorToast("已收回", `已停用【${pkg.name}】`, "warning"));
-      }
-    } else {
-      if (confirm(`確定要啟用/加入快選包【${pkg.name}】嗎？`)) {
+    const currentlyActive = isPackageActive(pkg);
+
+    if (currentlyActive) {
+      if (confirm(`確定要停用快選包【${pkg.name}】嗎？`)) {
         const updatePayload = {};
         ruleList.forEach(r => {
           const code = cleanString(r.barcode || r.keyword || r.itemCode);
           if (code) {
+            updatePayload[toSafeDbKey(code)] = null;
+          }
+        });
+
+        repRulesRef.update(updatePayload).then(() => {
+          showOperatorToast("已停用", `已收回【${pkg.name}】`, "warning");
+        }).catch(err => {
+          alert("操作失敗: " + err.message);
+        });
+      }
+    } else {
+      if (confirm(`確定要啟用快選包【${pkg.name}】嗎？`)) {
+        const updatePayload = {};
+        const vMoq = parseFloat(pkg.vendorMoq) || parseFloat(ruleList[0].vendorMoq) || 1;
+        ruleList.forEach(r => {
+          const code = cleanString(r.barcode || r.keyword || r.itemCode);
+          if (code) {
             updatePayload[toSafeDbKey(code)] = {
-              field: "barcode", keyword: code, barcode: code,
-              name: cleanString(r.name) || "-", brand: cleanString(r.brand) || "預設廠商",
+              field: "barcode",
+              keyword: code,
+              barcode: code,
+              itemCode: cleanString(r.itemCode) || code,
+              name: cleanString(r.name) || "-",
+              brand: cleanString(pkg.name),
               warehouse: cleanString(r.warehouse) || "",
-              safety: parseFloat(r.safety) || 1, moq: parseFloat(r.moq) || 1, vendorMoq: parseFloat(r.vendorMoq) || 1,
-              isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP
+              safety: parseFloat(r.safety) || 1,
+              moq: parseFloat(r.moq) || 1,
+              vendorMoq: vMoq,
+              isDirectBound: true,
+              updatedAt: firebase.database.ServerValue.TIMESTAMP
             };
           }
         });
-        repRulesRef.update(updatePayload).then(() => showOperatorToast("已啟用", `【${pkg.name}】已加入補貨條件`, "success"));
+
+        repRulesRef.update(updatePayload).then(() => {
+          showOperatorToast("已啟用", `【${pkg.name}】已生效`, "success");
+        }).catch(err => {
+          alert("操作失敗: " + err.message);
+        });
       }
     }
+  }
+
+  function deleteRepPresetPackage(pkgId, pkgName, event) {
+    if (event) event.stopPropagation();
+    if (confirm(`確定要永久刪除快選包【${pkgName}】嗎？`)) repPresetsRef.child(pkgId).remove();
   }
 
   function renderRepPresetPackages() {
@@ -2023,10 +2191,11 @@
       const btn = document.createElement("div");
       btn.className = "btn-group btn-group-sm mb-1 shadow-sm";
       const activeBtnClass = isActive ? "btn btn-success text-white fw-bold shadow-sm" : "btn btn-outline-warning text-dark fw-bold bg-white";
+      const prefixText = isActive ? "✅️ " : "";
       
       btn.innerHTML = `
         <button type="button" class="${activeBtnClass} text-truncate" style="max-width: 175px;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="${isActive ? '點擊停用' : '點擊啟用'}">
-          ${isActive ? '[已啟用]' : '[+]'} ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'}" style="font-size:0.68rem;">${count}款</span>
+          ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'}" style="font-size:0.68rem;">${count}款</span>
         </button>
         <button type="button" class="btn btn-outline-primary px-2 fw-bold" onclick="editRepPresetPackage('${pkgId}', event)" title="載入編輯區">編輯</button>
         <button type="button" class="btn btn-outline-danger px-2 fw-bold" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
@@ -2035,124 +2204,45 @@
     });
   }
 
-  // ================= 5. 智慧補貨全品項計算引擎 (純淨文字版：0就顯示0，門檻紅字呈現) =================
-  function calculateReplenishment() {
-    const filterDisplayEl = document.getElementById("repFilterDisplayMode");
-    const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
-    calculatedReplenishList = [];
+  function deleteReplenishRule(ruleId) {
+    if (confirm("確定要刪除這筆補貨規則嗎？")) repRulesRef.child(ruleId).remove();
+  }
 
-    let totalNeedCount = 0;
-    let totalQtySum = 0;
+  function clearAllReplenishRules() {
+    if (confirm("確定要清空所有已設定的補貨條件規則嗎？")) repRulesRef.remove();
+  }
 
+  function renderReplenishRulesList() {
+    const container = document.getElementById("repRuleCardsContainer");
+    if (!container) return;
+    container.innerHTML = "";
     const ruleKeys = Object.keys(customReplenishRules);
+    const countEl = document.getElementById("totalRepRulesCount");
+    if (countEl) countEl.innerText = ruleKeys.length;
 
-    ruleKeys.forEach(rk => {
-      const rule = customReplenishRules[rk];
-      const targetCode = cleanString(rule.barcode || rule.keyword);
-      const safety = parseFloat(rule.safety) || 0;
-      const moq = parseFloat(rule.moq) || 1;
-      const vendorMoq = parseFloat(rule.vendorMoq) || 1;
-      const brandName = cleanString(rule.brand) || "預設廠商";
-
-      const safeKey = barcodeToKeyMap[targetCode];
-      const matchedItem = safeKey ? fullInventory[safeKey] : null;
-
-      const currentStock = matchedItem 
-        ? ((matchedItem.countedQty !== undefined && matchedItem.countedQty > 0) ? matchedItem.countedQty : (matchedItem.systemQty || 0))
-        : 0;
-
-      let needQty = 0;
-      let status = `<span class="text-success">充足</span>`;
-
-      if (currentStock < safety) {
-        const rawDeficit = safety - currentStock;
-        needQty = Math.max(rawDeficit, moq);
-        status = `<span class="text-danger fw-bold">需補 ${needQty}</span>`;
-        totalNeedCount++;
-        totalQtySum += needQty;
-      }
-
-      calculatedReplenishList.push({
-        barcode: matchedItem ? (matchedItem.barcode || targetCode) : targetCode,
-        itemCode: matchedItem ? (matchedItem.itemCode || targetCode) : targetCode,
-        name: matchedItem ? matchedItem.name : (rule.name || targetCode),
-        brand: brandName,
-        warehouse: matchedItem ? (matchedItem.warehouse || "") : "",
-        currentStock: currentStock,
-        safetyStock: safety,
-        moq: moq,
-        vendorMoq: vendorMoq,
-        batch: 1,
-        needQty: needQty,
-        status: status
-      });
-    });
-
-    const needCountEl = document.getElementById("repNeedCount");
-    const totalQtyEl = document.getElementById("repTotalQtySum");
-    if (needCountEl) needCountEl.innerText = totalNeedCount;
-    if (totalQtyEl) totalQtyEl.innerText = totalQtySum;
-
-    // 計算廠商合併出貨總數與門檻
-    const vendorSummaryMap = {};
-    calculatedReplenishList.forEach(item => {
-      if (item.needQty > 0) {
-        const bKey = item.brand || "未分類廠商";
-        if (!vendorSummaryMap[bKey]) {
-          vendorSummaryMap[bKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
-        }
-        vendorSummaryMap[bKey].totalQty += item.needQty;
-      }
-    });
-
-    // 渲染預覽表格 (純文字清晰版)
-    const tbody = document.getElementById("replenishTableBody");
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    let displayList = calculatedReplenishList;
-    if (filterDisplayMode === "onlyNeed") {
-      displayList = displayList.filter(item => item.needQty > 0);
-    }
-
-    if (displayList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
+    if (ruleKeys.length === 0) {
+      container.innerHTML = `<span class="text-muted small">尚未建立專屬補貨條件。</span>`;
       return;
     }
 
-    displayList.forEach(item => {
-      const tr = document.createElement("tr");
-
-      let vendorStatusBadge = "";
-      const bKey = item.brand || "未分類廠商";
-      const vInfo = vendorSummaryMap[bKey];
-
-      if (vInfo && vInfo.threshold > 1) {
-        if (vInfo.totalQty >= vInfo.threshold) {
-          vendorStatusBadge = `<div class="mt-1 small text-success fw-bold">(已達出貨門檻 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
-        } else {
-          vendorStatusBadge = `<div class="mt-1 small text-danger fw-bold">(未達出貨門檻 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
-        }
-      }
-
-      tr.innerHTML = `
-        <td class="fw-bold">${item.barcode}</td>
-        <td>${item.itemCode || '-'}</td>
-        <td>${item.name || '-'}</td>
-        <td class="fw-bold text-center ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
-        <td class="text-center fw-bold text-primary">${item.safetyStock}</td>
-        <td class="small text-center">MOQ:${item.moq}</td>
-        <td class="fw-bold text-center fs-6 ${item.needQty > 0 ? 'text-danger' : 'text-muted'}">${item.needQty}</td>
-        <td class="text-center align-middle">
-          <div>${item.status}</div>
-          ${vendorStatusBadge}
-        </td>
+    ruleKeys.forEach(k => {
+      const r = customReplenishRules[k];
+      const card = document.createElement("div");
+      card.className = "p-2 border rounded bg-white d-flex justify-content-between align-items-center shadow-sm";
+      card.innerHTML = `
+        <div class="text-truncate me-2">
+          <strong>${r.name || r.barcode || '-'}</strong> <span class="badge bg-light text-dark border font-monospace">${r.barcode || r.itemCode || ''}</span>
+          <div class="small text-muted mt-1">
+            安全水位: <strong class="text-primary">${r.safety}</strong> 件 | MOQ: <strong>${r.moq || 1}</strong> | 門檻: <strong>${r.vendorMoq || 1}</strong>
+          </div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm py-1 px-2 fw-bold" onclick="deleteReplenishRule('${k}')">刪除</button>
       `;
-      tbody.appendChild(tr);
+      container.appendChild(card);
     });
   }
 
-  // ================= 5. 智慧補貨全品項計算引擎 (純淨模式：只計算已設定的商品) =================
+  // 智慧補貨全品項計算引擎 (單一標準版本)
   function calculateReplenishment() {
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
     const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
@@ -2161,16 +2251,15 @@
     let totalNeedCount = 0;
     let totalQtySum = 0;
 
-    // 嚴格依賴「已設定的專屬補貨條件」，不再抓取 Excel 全部無關資料
     const ruleKeys = Object.keys(customReplenishRules);
 
     ruleKeys.forEach(rk => {
       const rule = customReplenishRules[rk];
-      const targetCode = cleanString(rule.barcode || rule.keyword);
+      const targetCode = cleanString(rule.barcode || rule.keyword || rule.itemCode);
       const safety = parseFloat(rule.safety) || 0;
       const moq = parseFloat(rule.moq) || 1;
       const vendorMoq = parseFloat(rule.vendorMoq) || 1;
-      const brandName = cleanString(rule.brand) || "預設廠商";
+      const groupKey = cleanString(rule.groupPkgName) || cleanString(rule.brand) || "常用廠商";
 
       const safeKey = barcodeToKeyMap[targetCode];
       const matchedItem = safeKey ? fullInventory[safeKey] : null;
@@ -2194,7 +2283,7 @@
         barcode: matchedItem ? (matchedItem.barcode || targetCode) : targetCode,
         itemCode: matchedItem ? (matchedItem.itemCode || targetCode) : targetCode,
         name: matchedItem ? matchedItem.name : (rule.name || targetCode),
-        brand: brandName,
+        brand: groupKey,
         warehouse: matchedItem ? (matchedItem.warehouse || "") : "",
         currentStock: currentStock,
         safetyStock: safety,
@@ -2211,11 +2300,11 @@
     if (needCountEl) needCountEl.innerText = totalNeedCount;
     if (totalQtyEl) totalQtyEl.innerText = totalQtySum;
 
-    // 計算廠商合併出貨總數與門檻 (以綁定的 brand 為依據)
+    // 計算各廠商/快選包門檻加總
     const vendorSummaryMap = {};
     calculatedReplenishList.forEach(item => {
       if (item.needQty > 0) {
-        const bKey = item.brand || "未分類廠商";
+        const bKey = item.brand || "常用廠商";
         if (!vendorSummaryMap[bKey]) {
           vendorSummaryMap[bKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
         }
@@ -2234,7 +2323,7 @@
     }
 
     if (displayList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">🎉 太棒了！目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
       return;
     }
 
@@ -2244,21 +2333,21 @@
       const previewSvgId = `rep_preview_bc_${index}`;
 
       let vendorStatusBadge = "";
-      const bKey = item.brand || "未分類廠商";
+      const bKey = item.brand || "常用廠商";
       const vInfo = vendorSummaryMap[bKey];
 
       if (vInfo && vInfo.threshold > 1) {
         if (vInfo.totalQty >= vInfo.threshold) {
-          vendorStatusBadge = `<div class="mt-1 small text-success" style="font-size: 0.75rem;">(已達門檻 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
+          vendorStatusBadge = `<div class="mt-1 small text-success fw-bold">(已達出貨門檻 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
         } else {
           const diff = vInfo.threshold - vInfo.totalQty;
-          vendorStatusBadge = `<div class="mt-1 small text-danger" style="font-size: 0.75rem;">(缺${diff}達標 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
+          vendorStatusBadge = `<div class="mt-1 small text-danger fw-bold">(缺${diff}達標 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
         }
       }
 
       tr.innerHTML = `
-        <td class="text-center" style="min-width: 140px; vertical-align: middle;">
-          <svg id="${previewSvgId}" class="barcode-svg" style="height: 28px; max-width: 130px; margin: 0 auto;"></svg>
+        <td class="text-center align-middle" style="min-width: 140px;">
+          <svg id="${previewSvgId}" class="barcode-svg" style="height: 28px; max-width: 130px; margin: 0 auto; display: block;"></svg>
           <div class="small fw-bold font-monospace text-dark" style="font-size: 0.75rem; line-height: 1.1; margin-top: 1px;">${safeCode}</div>
         </td>
         <td class="text-center align-middle">${item.itemCode || '-'}</td>
@@ -2286,870 +2375,10 @@
     });
   }
 
-  
-
-  // ================= 6. 格式化字串與本機提示 =================
-  function formatScanTag(staff, code, name, qty) {
-    const staffLast = (staff && staff.length > 0) ? staff.slice(-1) : "員";
-    const cleanCode = cleanString(code);
-    let codePart = cleanCode;
-    if (cleanCode.length > 6) {
-      codePart = cleanCode.substring(0, 3) + "..." + cleanCode.substring(cleanCode.length - 3);
-    }
-    const cleanName = cleanString(name);
-    const namePart = cleanName.length > 3 ? cleanName.substring(0, 3) + "..." : cleanName;
-    return `${staffLast}-${codePart}-${namePart}-${qty}件`;
-  }
-
-  function showOperatorToast(title, detail, type = "success") {
-    const toast = document.getElementById("myScanToast");
-    const icon = document.getElementById("toastIcon");
-    toast.className = `alert alert-${type === 'warning' ? 'warning' : (type === 'danger' ? 'danger' : 'success')} alert-dismissible fade show mb-0 no-print`;
-    icon.innerText = type === "warning" ? "⚠️" : (type === "danger" ? "❌" : "✅");
-    document.getElementById("toastTitle").innerText = title;
-    document.getElementById("toastDetail").innerText = detail;
-    toast.style.display = "block";
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toast.style.display = "none"; }, 2200);
-  }
-
-  // 切換條件欄位時，若是「品牌」自動顯示「總數盤點模式」勾選框
-  function toggleBrandModeCheckbox(fieldVal) {
-    const opt = document.getElementById("brandTotalModeOption");
-    if (opt) opt.style.display = (fieldVal === "brand") ? "block" : "none";
-  }
-
-  // ================= 3. 盤點多條件維護 (支援品牌總數 ＋ 常用快選打包) =================
-  
-  // 1. 將當前自訂條件打包為常用快選
-  function saveCurrentRulesAsPackage() {
-    const ruleKeys = Object.keys(filterRules);
-    if (ruleKeys.length === 0) {
-      return alert("⚠️ 目前沒有任何條件可打包！請先在上方新增至少一條篩選條件。");
-    }
-
-    const pkgName = prompt(`請輸入此快選條件包的自訂名稱：\n（例：博士倫大盤套餐、藥水隱眼組合、酷柏全系列）`, "");
-    if (!pkgName || !cleanString(pkgName)) return;
-
-    const cleanedPkgName = cleanString(pkgName);
-    presetsRef.push({
-      name: cleanedPkgName,
-      rules: filterRules,
-      createdAt: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => {
-      alert(`🎉 成功儲存快選包【${cleanedPkgName}】（共包含 ${ruleKeys.length} 組條件）！`);
-    });
-  }
-
-  // 2. 一鍵套用指定快選包
-  function applyPresetPackage(pkgId) {
-    const pkg = presetPackages[pkgId];
-    if (!pkg || !pkg.rules) return;
-
-    if (confirm(`確定要套用常用快選【${pkg.name}】嗎？\n（系統將自動載入其設定的條件並切換至日常模式）`)) {
-      rulesRef.set(pkg.rules).then(() => {
-        metaRef.update({ mode: "daily" });
-        showOperatorToast("已套用快選包", `【${pkg.name}】條件已全面生效`, "success");
-      });
-    }
-  }
-
-  // 3. 刪除指定快選包
-  function deletePresetPackage(pkgId, pkgName, event) {
-    if (event) event.stopPropagation(); // 防止觸發套用點擊
-    if (confirm(`確定要刪除常用快選【${pkgName}】嗎？`)) {
-      presetsRef.child(pkgId).remove();
-    }
-  }
-
-  // 4. 渲染常用快選膠囊按鈕清單
-  function renderPresetPackages() {
-    const container = document.getElementById("presetPackagesContainer");
-    if (!container) return;
-    container.innerHTML = "";
-
-    const pkgKeys = Object.keys(presetPackages);
-    const badgeEl = document.getElementById("presetCountBadge");
-    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組快選`;
-
-    if (pkgKeys.length === 0) {
-      container.innerHTML = `<span class="text-muted small">尚未儲存常用快選包，設定好條件後點擊上方「打包」即可保存。</span>`;
-      return;
-    }
-
-    pkgKeys.forEach(pkgId => {
-      const pkg = presetPackages[pkgId];
-      const count = pkg.rules ? Object.keys(pkg.rules).length : 0;
-
-      const btn = document.createElement("div");
-      btn.className = "btn-group btn-group-sm mb-1 shadow-sm";
-      btn.innerHTML = `
-        <button type="button" class="btn btn-outline-dark fw-bold text-truncate" style="max-width: 170px;" onclick="applyPresetPackage('${pkgId}')" title="點擊套用此快選">
-          ⭐ ${pkg.name} <span class="badge bg-secondary" style="font-size:0.68rem;">${count}條</span>
-        </button>
-        <button type="button" class="btn btn-outline-danger px-2 fw-bold" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)" title="刪除此快選">
-          ✖
-        </button>
-      `;
-      container.appendChild(btn);
-    });
-  }
-
-  function addFilterRule() {
-    const field = document.getElementById("newFilterField").value;
-    const keyword = cleanString(document.getElementById("newFilterKeyword").value);
-    const isBrandTotalMode = (field === "brand") && document.getElementById("checkBrandTotalMode").checked;
-
-    if (!keyword) return alert("請輸入要篩選的關鍵字！");
-
-    rulesRef.push({ 
-      field, 
-      keyword, 
-      isBrandTotalMode: isBrandTotalMode,
-      createdAt: firebase.database.ServerValue.TIMESTAMP 
-    }).then(() => {
-      document.getElementById("newFilterKeyword").value = "";
-      metaRef.update({ mode: "daily" });
-    });
-  }
-
-  function deleteFilterRule(ruleId) { rulesRef.child(ruleId).remove(); }
-  function clearAllFilterRules() { if (confirm("確定要清空所有日常盤點條件嗎？")) rulesRef.remove(); }
-
-  function renderFilterRules() {
-    const container = document.getElementById("filterRuleListContainer");
-    container.innerHTML = "";
-    const ruleKeys = Object.keys(filterRules);
-    
-    let hasBrandTotalMode = false;
-
-    if (ruleKeys.length === 0) {
-      container.innerHTML = `<span class="text-muted small">尚無自訂條件（若切換日常模式將盤點 0 筆）。</span>`;
-    } else {
-      ruleKeys.forEach(key => {
-        const rule = filterRules[key];
-        if (rule.isBrandTotalMode) hasBrandTotalMode = true;
-        const totalTag = rule.isBrandTotalMode ? `<span class="badge bg-warning text-dark ms-1">總數模式</span>` : "";
-
-        const span = document.createElement("span");
-        span.className = "badge bg-primary filter-rule-badge d-inline-flex align-items-center gap-2";
-        span.innerHTML = `<span><strong>${fieldLabels[rule.field] || rule.field}</strong> 含 <em>"${rule.keyword}"</em>${totalTag}</span><button type="button" class="btn-close btn-close-white" style="font-size: 0.65rem;" onclick="deleteFilterRule('${key}')"></button>`;
-        container.appendChild(span);
-      });
-    }
-
-    // 盤點畫面頂端提示標籤
-    const badgeEl = document.getElementById("brandTotalModeBadge");
-    if (badgeEl) badgeEl.style.display = (hasBrandTotalMode && (metaData.mode === "daily")) ? "inline-block" : "none";
-  }
-
-  // 檢查某商品是否屬於「品牌總量模式」
-  function getBrandTotalRule(item) {
-    if ((metaData.mode || "full") !== "daily") return null;
-    const ruleKeys = Object.keys(filterRules);
-    for (let k of ruleKeys) {
-      const r = filterRules[k];
-      if (r.field === "brand" && r.isBrandTotalMode) {
-        if (cleanString(item.brand).toLowerCase().includes(cleanString(r.keyword).toLowerCase())) {
-          return r;
-        }
-      }
-    }
-    return null;
-  }
-
-  // 按下確認送出 (修復彈窗關閉與強制執行盤入)
-  function confirmCalculatorScan() {
-    const resultEl = document.getElementById("calcResultDisplay");
-    let finalQty = parseFloat(resultEl.innerText) || 1;
-    finalQty = Math.max(1, Math.round(finalQty));
-
-    const targetCode = calcTargetBarcode;
-
-    const modalEl = document.getElementById('calcKeypadModal');
-    const modal = bootstrap.Modal.getInstance(modalEl);
-    if (modal) modal.hide();
-
-    // 執行寫入
-    if (targetCode) {
-      executeScan(targetCode, finalQty);
-    }
-  }
-
-  // ================= 7. 核心盤點寫入 (強化雲端事務 Transaction 寫入保障) =================
-  function executeScan(forcedBarcode, forcedQty) {
-    const inputEl = document.getElementById("inputBarcode");
-    const barcode = cleanString(forcedBarcode || (inputEl ? inputEl.value : ""));
-    const addQty = parseInt(forcedQty, 10) || 1;
-    if (!barcode) return;
-
-    // 【核心防呆】：未選擇分區時強制阻擋刷入並提示
-    const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
-    if (!locRadio) {
-      playBeep("warning");
-      triggerVisualFlash("warning");
-      showOperatorToast("尚未選擇位置", "⚠️ 請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）！", "warning");
-      return;
-    }
-    const selectedLoc = locRadio.value;
-
-    if (inputEl) inputEl.value = "";
-
-    const safeKey = barcodeToKeyMap[barcode] || toSafeDbKey(barcode);
-    const existingItem = fullInventory[safeKey] || null;
-
-    if (!existingItem) {
-      playBeep("warning");
-      triggerVisualFlash("warning");
-      showOperatorToast("非本庫存商品", `條碼/貨號【${barcode}】不在庫存清單中，未寫入。`, "warning");
-      return;
-    }
-
-    // 檢查是否觸發「品牌總數盤點模式」
-    const brandRule = getBrandTotalRule(existingItem);
-
-    const itemRef = invRef.child(safeKey);
-    itemRef.transaction(current => {
-      if (!current) {
-        current = existingItem;
-      }
-      current.countedQty = (parseInt(current.countedQty, 10) || 0) + addQty;
-      current.lastStaff = boundUser || "門市人員";
-
-      if (!current.locBreakdown) current.locBreakdown = {};
-      current.locBreakdown[selectedLoc] = (parseInt(current.locBreakdown[selectedLoc], 10) || 0) + addQty;
-      return current;
-    }, (error, committed, snapshot) => {
-      if (error) {
-        alert("寫入失敗: " + error.message);
-        return;
-      }
-      if (committed && snapshot) {
-        const val = snapshot.val() || existingItem;
-        const brandMsg = brandRule ? ` [品牌總量: ${val.brand || ''}]` : "";
-        const formattedTag = formatScanTag(boundUser, val.itemCode || val.barcode, val.name, addQty);
-        
-        showOperatorToast(`已盤入 [${selectedLoc}]：${val.name || barcode} (+${addQty})`, `條碼: ${barcode}${brandMsg} | 累計實盤: ${val.countedQty}`, "success");
-        
-        logsRef.push({
-          itemKey: safeKey,
-          barcode: barcode,
-          brand: val.brand || "",
-          isBrandTotal: !!brandRule,
-          staff: boundUser || "門市人員",
-          location: selectedLoc,
-          qty: addQty,
-          displayTag: formattedTag,
-          timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
-    });
-  }
-
-  // 執行單筆 Log 刪除並安全扣減庫存 (同步扣除對應分區數量)
-  function undoSingleLog(logId, itemKey, barcode, qty, itemName) {
-    const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
-    const itemRef = invRef.child(safeKey);
-
-    logsRef.child(logId).once("value", snap => {
-      const logData = snap.val() || {};
-      const targetLoc = logData.location || "架上";
-
-      itemRef.transaction(current => {
-        if (current) {
-          current.countedQty = Math.max(0, (current.countedQty || 0) - qty);
-          if (current.locBreakdown && current.locBreakdown[targetLoc]) {
-            current.locBreakdown[targetLoc] = Math.max(0, current.locBreakdown[targetLoc] - qty);
-          }
-        }
-        return current;
-      }, (error, committed) => {
-        if (committed) {
-          logsRef.child(logId).remove().then(() => {
-            const displayName = itemName || barcode;
-            showOperatorToast("已撤銷盤點紀錄", `已扣回【${displayName}】[${targetLoc}] -${qty} 件`, "warning");
-          });
-        }
-      });
-    });
-  }
-
-  
-  // ================= 跨平台震動與觸感提示引擎 (Android / iOS 雙支援) =================
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-  // 解除瀏覽器對 Audio / Haptic 的安全靜音限制
-  document.addEventListener('touchstart', () => {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-  }, { once: true });
-  document.addEventListener('click', () => {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-  }, { once: true });
-
-  function triggerPhoneHaptic(type = "success") {
-    // 1. iOS 原生開關切換觸發 Taptic 觸覺反饋
-    try {
-      const trigger = document.getElementById("iosHapticTrigger");
-      if (trigger) {
-        trigger.checked = !trigger.checked;
-        trigger.dispatchEvent(new Event("change", { bubbles: true }));
-        trigger.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-    } catch (e) {}
-
-    // 2. Android 原生硬體震動
-    if (navigator.vibrate) {
-      try {
-        if (type === "success") {
-          navigator.vibrate(100);
-        } else {
-          navigator.vibrate([120, 80, 120]);
-        }
-      } catch (e) {}
-    }
-
-    // 3. 低頻震感音訊脈衝輔助
-    try {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const oscHaptic = audioCtx.createOscillator();
-      const gainHaptic = audioCtx.createGain();
-      oscHaptic.type = "triangle";
-      oscHaptic.frequency.setValueAtTime(type === "success" ? 45 : 30, audioCtx.currentTime);
-      gainHaptic.gain.setValueAtTime(0.8, audioCtx.currentTime);
-      gainHaptic.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
-      oscHaptic.connect(gainHaptic);
-      gainHaptic.connect(audioCtx.destination);
-      oscHaptic.start();
-      oscHaptic.stop(audioCtx.currentTime + 0.09);
-    } catch (e) {}
-  }
-
-  // 觸發相機邊框視覺閃爍 (綠光 / 紅光)
-  function triggerVisualFlash(type = "success") {
-    const readerEl = document.getElementById("reader");
-    if (!readerEl) return;
-    const flashClass = type === "success" ? "scan-flash-success" : "scan-flash-warning";
-    readerEl.classList.add(flashClass);
-    setTimeout(() => {
-      readerEl.classList.remove(flashClass);
-    }, 200);
-  }
-
-  // 雙音階超商級逼逼聲產生器
-  function playBeep(type = "success") {
-    try {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const now = audioCtx.currentTime;
-
-      if (type === "success") {
-        // 成功刷入：專業雙音階短音 (880Hz -> 1320Hz，快節奏清脆逼逼聲)
-        const osc1 = audioCtx.createOscillator();
-        const gain1 = audioCtx.createGain();
-        osc1.type = "sine";
-        osc1.frequency.setValueAtTime(880, now);
-        gain1.gain.setValueAtTime(0.18, now);
-        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.045);
-        osc1.connect(gain1);
-        gain1.connect(audioCtx.destination);
-        osc1.start(now);
-        osc1.stop(now + 0.045);
-
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
-        osc2.type = "sine";
-        osc2.frequency.setValueAtTime(1320, now + 0.045);
-        gain2.gain.setValueAtTime(0.22, now + 0.045);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
-        osc2.start(now + 0.045);
-        osc2.stop(now + 0.1);
-      } else {
-        // 警告/非庫存：低沉警示雙響 (350Hz 兩次)
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(350, now);
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
-        gain.gain.setValueAtTime(0.25, now + 0.09);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + 0.16);
-      }
-    } catch (e) {}
-  }
-
-  // 手動輸入條碼送出：同樣自動觸發計算機彈窗盤入
-  function handleManualBarcodeSubmit() {
-    const inputEl = document.getElementById("inputBarcode");
-    const barcode = cleanString(inputEl.value);
-    if (!barcode) return;
-
-    const safeKey = barcodeToKeyMap[barcode];
-    const existingItem = safeKey ? fullInventory[safeKey] : null;
-
-    if (!existingItem) {
-      playBeep("warning");
-      triggerVisualFlash("warning");
-      showOperatorToast("非本庫存商品", `條碼/貨號【${barcode}】不在清單中`, "warning");
-      return;
-    }
-
-    inputEl.value = "";
-    inputEl.blur(); // 收起手機原生鍵盤
-
-    const mode = document.querySelector('input[name="camScanMode"]:checked').value;
-    if (mode === "auto") {
-      executeScan(barcode, 1);
-    } else {
-      openCalculatorKeypad(barcode, existingItem);
-    }
-  }
-
-  // ================= 計算機鍵盤運算引擎 (修復連續輸入10等數字被洗掉問題) =================
-  let calcTargetBarcode = "";
-  let calcCurrentFormula = "1";
-  let isNewCalcInput = true; // 初次輸入狀態標記
-
-  // 開啟計算機彈窗
-  function openCalculatorKeypad(barcode, item) {
-    const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
-    if (!locRadio) {
-      playBeep("warning");
-      triggerVisualFlash("warning");
-      showOperatorToast("尚未選擇位置", "⚠️ 請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）！", "warning");
-      return;
-    }
-
-    calcTargetBarcode = barcode;
-    calcCurrentFormula = "1";
-    isNewCalcInput = true; // 重置初次輸入標記
-
-    document.getElementById("calcModalLocBadge").innerText = locRadio.value;
-    document.getElementById("calcModalTitle").innerText = item.name || "商品";
-    document.getElementById("calcModalBarcode").innerText = barcode;
-    document.getElementById("calcModalCurrentCounted").innerText = `${item.countedQty || 0} 件`;
-    
-    updateCalcDisplay();
-
-    const modalEl = document.getElementById('calcKeypadModal');
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.show();
-  }
-
-  // 按鍵輸入處理 (支援 10、100、00 及算式正常連續鍵入)
-  function calcInput(key) {
-    if (key === 'C') {
-      calcCurrentFormula = "1";
-      isNewCalcInput = true;
-    } else if (key === 'BACK') {
-      if (calcCurrentFormula.length > 1) {
-        calcCurrentFormula = calcCurrentFormula.slice(0, -1);
-      } else {
-        calcCurrentFormula = "0";
-        isNewCalcInput = true;
-      }
-    } else if (['+', '-', '*', '/'].includes(key)) {
-      isNewCalcInput = false;
-      const lastChar = calcCurrentFormula.slice(-1);
-      if (['+', '-', '*', '/'].includes(lastChar)) {
-        calcCurrentFormula = calcCurrentFormula.slice(0, -1) + key;
-      } else {
-        calcCurrentFormula += key;
-      }
-    } else {
-      // 數字或小數點輸入
-      if (isNewCalcInput) {
-        calcCurrentFormula = (key === '.') ? '0.' : key;
-        isNewCalcInput = false;
-      } else {
-        if (calcCurrentFormula === "0" && key !== '.') {
-          calcCurrentFormula = key;
-        } else {
-          calcCurrentFormula += key;
-        }
-      }
-    }
-    updateCalcDisplay();
-  }
-
-  // 更新螢幕與即時計算結果
-  function updateCalcDisplay() {
-    const formulaEl = document.getElementById("calcFormulaDisplay");
-    const resultEl = document.getElementById("calcResultDisplay");
-    
-    formulaEl.innerText = calcCurrentFormula;
-
-    try {
-      // 安全計算算式結果 (僅支援純數字與四則運算符號)
-      const sanitized = calcCurrentFormula.replace(/[^0-9+\-*/.]/g, '');
-      let evaluated = Function(`'use strict'; return (${sanitized})`)();
-      if (isNaN(evaluated) || evaluated < 0) evaluated = 0;
-      resultEl.innerText = Math.round(evaluated * 100) / 100; // 最多兩位小數
-    } catch (e) {
-      resultEl.innerText = calcCurrentFormula;
-    }
-  }
-
-  // ================= 8. 相機掃描 (1080p高清 + 自動對焦 + 💡手電筒補光) =================
-  let lastScannedBarcode = "";
-  let lastScannedTime = 0;
-  let isTorchOn = false;
-
-  function toggleScanner() { isScanning ? stopScanner() : startScanner(); }
-
-  // 切換手電筒補光燈開關
-  function toggleTorch() {
-    if (!html5QrCode || !isScanning) return;
-    try {
-      isTorchOn = !isTorchOn;
-      html5QrCode.applyVideoConstraints({
-        advanced: [{ torch: isTorchOn }]
-      }).then(() => {
-        const torchBtn = document.getElementById("btnToggleTorch");
-        if (torchBtn) {
-          torchBtn.className = isTorchOn 
-            ? "btn btn-warning text-dark btn-sm py-1 px-2 fw-bold shadow" 
-            : "btn btn-outline-warning text-dark btn-sm py-1 px-2 fw-bold";
-          torchBtn.innerText = isTorchOn ? "💡 關燈" : "💡 補光";
-        }
-      }).catch(err => {
-        console.log("此裝置不支援手電筒補光", err);
-      });
-    } catch (e) {}
-  }
-
-  function startScanner() {
-    document.getElementById("scannerContainer").style.display = "block";
-    document.getElementById("btnToggleCam").innerText = "⏹️ 關閉相機";
-    document.getElementById("btnToggleCam").className = "btn btn-outline-danger btn-sm py-1 px-3 fw-bold";
-
-    html5QrCode = new Html5Qrcode("reader");
-
-    const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
-      const w = Math.floor(viewfinderWidth * 0.88);
-      const h = Math.floor(Math.min(viewfinderHeight * 0.78, 110));
-      return { width: Math.max(w, 220), height: Math.max(h, 80) };
-    };
-
-    // 正確傳入方式：第一個參數僅傳遞鏡頭方向，第二個參數傳遞掃描幀率與取景規格
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { 
-        fps: 20,              // 每秒 20 次高速辨識
-        qrbox: qrboxFunction,
-        aspectRatio: 2.2,
-        videoConstraints: {
-          facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
-      },
-      (decodedText) => {
-        const cleanedText = cleanString(decodedText);
-        if (!cleanedText) return;
-
-        const now = Date.now();
-
-        // 2.5 秒防重複冷卻
-        if (cleanedText === lastScannedBarcode && (now - lastScannedTime < 2500)) {
-          return;
-        }
-
-        lastScannedBarcode = cleanedText;
-        lastScannedTime = now;
-
-        const mode = document.querySelector('input[name="camScanMode"]:checked').value;
-        const safeKey = barcodeToKeyMap[cleanedText];
-        const existingItem = safeKey ? fullInventory[safeKey] : null;
-
-        // 1. 查無商品庫存 (紅光閃爍 + 低沉警示雙響)
-        if (!existingItem) {
-          playBeep("warning");
-          triggerVisualFlash("warning");
-          showOperatorToast("非本庫存商品", `條碼【${cleanedText}】不在清單中`, "warning");
-          return;
-        }
-
-        // 2. 刷到庫存商品：雙音階清脆逼逼聲 + 相機邊框瞬間綠光閃爍
-        playBeep("success");
-        triggerVisualFlash("success");
-
-        if (mode === "auto") {
-          executeScan(cleanedText, 1);
-        } else {
-          openCalculatorKeypad(cleanedText, existingItem);
-        }
-      },
-      () => {}
-    ).then(() => {
-      // 成功啟動後，檢查硬體是否支援手電筒補光並顯示按鈕
-      try {
-        const capabilities = html5QrCode.getRunningTrackCapabilities();
-        if (capabilities && capabilities.torch) {
-          document.getElementById("btnToggleTorch").style.display = "inline-block";
-        } else {
-          document.getElementById("btnToggleTorch").style.display = "none";
-        }
-      } catch (e) {
-        document.getElementById("btnToggleTorch").style.display = "inline-block";
-      }
-    }).catch(err => {
-      alert("相機啟動失敗: " + err);
-      stopScanner();
-    });
-    isScanning = true;
-  }
-
-  function stopScanner() {
-    if (html5QrCode && isScanning) {
-      isTorchOn = false;
-      const torchBtn = document.getElementById("btnToggleTorch");
-      if (torchBtn) {
-        torchBtn.style.display = "none";
-        torchBtn.innerText = "💡 補光";
-      }
-
-      html5QrCode.stop().then(() => {
-        document.getElementById("scannerContainer").style.display = "none";
-        document.getElementById("btnToggleCam").innerText = "📷 開啟相機掃描";
-        document.getElementById("btnToggleCam").className = "btn btn-success btn-sm py-1 px-3 fw-bold";
-        isScanning = false;
-      });
-    }
-  }
-
-  // ================= 9. 盤點清單/複盤表列印 (JsBarcode 渲染) =================
-  function openPrintReportModal() {
-    const isDaily = (metaData.mode || "full") === "daily";
-    document.getElementById("rptModeBadge").innerText = isDaily ? "日常模式" : "全盤模式";
-    document.getElementById("rptTimeDisplay").innerText = metaData.inventoryTime || "未記錄";
-
-    // 自動抓取本次實際有掃描紀錄的人員名單
-    const actualStaffSet = new Set();
-    Object.values(fullInventory).forEach(item => {
-      if (item.lastStaff && cleanString(item.lastStaff)) {
-        actualStaffSet.add(cleanString(item.lastStaff));
-      }
-    });
-
-    const staffListStr = actualStaffSet.size > 0 
-      ? Array.from(actualStaffSet).join("、") 
-      : (boundUser || "未記錄");
-
-    document.getElementById("rptStaffDisplay").innerText = staffListStr;
-    document.getElementById("rptPrintDate").innerText = new Date().toLocaleString();
-    renderPrintReportTable();
-    new bootstrap.Modal(document.getElementById('printReportModal')).show();
-  }
-
-  function renderPrintReportTable() {
-    const tbody = document.getElementById("printReportTableBody");
-    tbody.innerHTML = "";
-
-    const filterMode = document.querySelector('input[name="reportPrintFilter"]:checked').value;
-    const isDaily = (metaData.mode || "full") === "daily";
-    
-    // 取得符合當前條件的商品清單
-    const items = Object.values(fullInventory).filter(item => isItemInCurrentTask(item));
-
-    if (items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-3">無符合列印條件的資料。</td></tr>`;
-      return;
-    }
-
-    if (items[0] && items[0].warehouse) {
-      document.getElementById("rptWarehouseName").innerText = items[0].warehouse;
-    }
-
-    let displayList = [];
-
-    // ================= 判斷是否為「日常模式 ＋ 品牌大總數模式」 =================
-    if (isDaily) {
-      // 找出所有勾選了「總數盤點」的品牌規則
-      const brandTotalRules = Object.values(filterRules).filter(r => r.field === "brand" && r.isBrandTotalMode);
-      
-      if (brandTotalRules.length > 0) {
-        const brandSummaryMap = {};
-        const normalItems = [];
-
-        items.forEach(item => {
-          // 檢查是否命中任一品牌總數規則
-          const matchedRule = brandTotalRules.find(r => cleanString(item.brand).toLowerCase().includes(cleanString(r.keyword).toLowerCase()));
-          
-          if (matchedRule) {
-            const brandGroupKey = cleanString(item.brand) || matchedRule.keyword;
-            if (!brandSummaryMap[brandGroupKey]) {
-              brandSummaryMap[brandGroupKey] = {
-                isBrandGroup: true,
-                brandName: brandGroupKey,
-                barcode: `BRAND-${brandGroupKey}`,
-                name: `【${brandGroupKey}】全品項品牌總數彙整`,
-                sys: 0,
-                cnt: 0,
-                res: 0,
-                staffSet: new Set(),
-                locBreakdown: { "架上": 0, "櫃內": 0, "彌留": 0, "已取": 0 },
-                skuCount: 0
-              };
-            }
-            const g = brandSummaryMap[brandGroupKey];
-            g.sys += (item.systemQty || 0);
-            g.cnt += (item.countedQty || 0);
-            g.res += (item.reservedQty || 0);
-            g.skuCount++;
-            if (item.lastStaff) g.staffSet.add(cleanString(item.lastStaff));
-
-            if (item.locBreakdown) {
-              Object.entries(item.locBreakdown).forEach(([loc, q]) => {
-                g.locBreakdown[loc] = (g.locBreakdown[loc] || 0) + q;
-              });
-            }
-          } else {
-            // 未啟用大總數的其他一般品項
-            normalItems.push(item);
-          }
-        });
-
-        // 組合「品牌總數彙整列」
-        Object.values(brandSummaryMap).forEach(g => {
-          const diff = g.cnt - g.sys;
-          const staffNames = Array.from(g.staffSet).join("、");
-          displayList.push({
-            ...g,
-            diff: diff,
-            brand: g.brandName,
-            itemCode: `共 ${g.skuCount} 種品項`,
-            lastStaff: staffNames
-          });
-        });
-
-        // 補入其他非總量模式的項目
-        normalItems.forEach(item => {
-          const sys = item.systemQty || 0;
-          const cnt = item.countedQty || 0;
-          displayList.push({ ...item, sys, cnt, diff: cnt - sys, res: item.reservedQty || 0 });
-        });
-
-      } else {
-        // 一般日常條件（無總數模式）
-        displayList = items.map(item => {
-          const sys = item.systemQty || 0;
-          const cnt = item.countedQty || 0;
-          return { ...item, sys, cnt, diff: cnt - sys, res: item.reservedQty || 0 };
-        });
-      }
-    } else {
-      // ================= 全盤點模式：100% 保持原有細項輸出，完全不受影響 =================
-      displayList = items.map(item => {
-        const sys = item.systemQty || 0;
-        const cnt = item.countedQty || 0;
-        return { ...item, sys, cnt, diff: cnt - sys, res: item.reservedQty || 0 };
-      });
-    }
-
-    // 盤差篩選
-    if (filterMode === "diff") {
-      displayList = displayList.filter(item => item.diff !== 0);
-    }
-
-    if (displayList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-3">無符合列印條件的資料。</td></tr>`;
-      return;
-    }
-
-    // 渲染表格內容
-    displayList.forEach((item, index) => {
-      const tr = document.createElement("tr");
-      const isDiff = item.diff !== 0;
-      const safeCode = cleanString(item.barcode || item.itemCode);
-      const svgId = `rpt_bc_${index}`;
-
-      let diffHtml = `<span>0</span>`;
-      if (item.diff > 0) diffHtml = `<strong class="text-success">+${item.diff}</strong>`;
-      if (item.diff < 0) diffHtml = `<strong class="text-danger">${item.diff}</strong>`;
-
-      const codeSubText = (item.itemCode && item.itemCode !== item.barcode) 
-        ? `${safeCode} (${item.itemCode})` 
-        : safeCode;
-
-      // 1. 品牌標籤
-      const brandHtml = item.brand ? `<div class="fw-bold text-primary mb-1" style="font-size: 0.82rem;">[${item.brand}]</div>` : '';
-      
-      // 2. 中文品名 / 品牌總計名稱
-      const nameHtml = `<div style="line-height: 1.25; ${item.isBrandGroup ? 'font-weight: bold; font-size: 0.92rem;' : ''}">${item.name || '-'}</div>`;
-
-      // 3. 中文品名下方：灰色小字顯示盤點人員名單
-      const staffName = item.lastStaff ? cleanString(item.lastStaff) : '';
-      const staffHtml = staffName ? `<div style="font-size: 0.72rem; color: #777; line-height: 1.2; margin-top: 2px;">${staffName}</div>` : '';
-
-      // 4. 實盤欄位：上列大字實盤總數，下方俐落呈現分區總量 (例: 架50 櫃20 彌10)
-      let locSummary = `<div style="font-size: 0.68rem; color: #aaa; line-height: 1.1; margin-top: 2px;">-</div>`;
-      if (item.cnt > 0 && item.locBreakdown) {
-        const parts = [];
-        Object.entries(item.locBreakdown).forEach(([locKey, qtyVal]) => {
-          if (qtyVal > 0) {
-            const shortName = locKey.length > 0 ? locKey.charAt(0) : "位";
-            parts.push(`${shortName}${qtyVal}`);
-          }
-        });
-        if (parts.length > 0) {
-          locSummary = `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; margin-top: 2px; white-space: nowrap;">${parts.join(' ')}</div>`;
-        }
-      }
-
-      tr.innerHTML = `
-        <td class="text-center">${index + 1}</td>
-        <td class="text-center">
-          ${item.isBrandGroup 
-            ? `<div class="badge bg-dark px-2 py-1 mb-1">品牌總量</div><div class="small font-monospace fw-bold text-muted">${item.itemCode}</div>` 
-            : `<svg id="${svgId}" class="barcode-svg"></svg><div class="small fw-bold" style="font-size: 0.75rem;">${codeSubText}</div>`
-          }
-        </td>
-        <td>
-          ${brandHtml}
-          ${nameHtml}
-          ${staffHtml}
-        </td>
-        <td class="text-center fw-bold fs-6">${item.sys}</td>
-        <td class="text-center fw-bold fs-6">
-          <div>${item.cnt}</div>
-          ${locSummary}
-        </td>
-        <td class="text-center fs-6">${diffHtml}</td>
-        <td class="text-center">${item.res > 0 ? `<span class="badge bg-warning text-dark">${item.res}</span>` : '0'}</td>
-        <td class="text-center" style="background-color: #fffde7; font-weight: bold; border-left: 2px solid #ffc107 !important;">
-          ${isDiff ? '___________' : ''}
-        </td>
-        <td class="text-center">
-          <input type="checkbox" ${!isDiff ? 'checked' : ''} style="width: 16px; height: 16px;">
-        </td>
-      `;
-      tbody.appendChild(tr);
-
-      // 非總量彙整列才產生個別條碼圖案
-      if (!item.isBrandGroup) {
-        setTimeout(() => {
-          try {
-            JsBarcode(`#${svgId}`, safeCode, {
-              format: "CODE128",
-              width: 1.05,
-              height: 24,
-              displayValue: false,
-              margin: 0
-            });
-          } catch (e) {}
-        }, 10);
-      }
-    });
-  }
-
-  // ================= 10. 補貨申請單 A4 列印 (品名第二列顯示合併門檻 + 固定欄高) =================
+  // 完整復原：列印補貨申請單 (A4 列印彈窗與條碼渲染)
   function printReplenishSheet() {
     const tbody = document.getElementById("printReplenishTableBody");
+    if (!tbody) return;
     tbody.innerHTML = "";
 
     const needList = calculatedReplenishList.filter(item => item.needQty > 0);
@@ -3161,41 +2390,23 @@
       document.getElementById("repPrintWhName").innerText = needList[0].warehouse;
     }
 
-    // 1. 簡潔且精準的廠商合併出貨總數與門檻計算
     const vendorSummaryMap = {};
     needList.forEach(item => {
-      const bKey = item.brand || "未分類廠商";
-      if (!vendorSummaryMap[bKey]) {
-        vendorSummaryMap[bKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
+      const vKey = item.brand || "常用廠商";
+      if (!vendorSummaryMap[vKey]) {
+        vendorSummaryMap[vKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
       }
-      vendorSummaryMap[bKey].totalQty += item.needQty;
+      vendorSummaryMap[vKey].totalQty += item.needQty;
     });
 
-    needList.forEach(item => {
-      const brandKey = cleanString(item.brand) || "其他品牌";
-      if (!vendorSummaryMap[brandKey]) {
-        let threshold = 1;
-        for (let k in brandMoqMap) {
-          if (brandKey.toLowerCase().includes(k) || k.includes(brandKey.toLowerCase())) {
-            threshold = brandMoqMap[k];
-            break;
-          }
-        }
-        vendorSummaryMap[brandKey] = { totalQty: 0, threshold: threshold };
-      }
-      vendorSummaryMap[brandKey].totalQty += item.needQty;
-    });
-
-    // 2. 渲染 A4 補貨列印表格 (嚴格固定行高 46px)
     needList.forEach((item, index) => {
       const tr = document.createElement("tr");
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `rep_bc_${index}`;
 
-      // 中文品名第二列：簡約門檻文字 (無 Emoji 圖案)
       let vendorTagHtml = "";
-      const brandKey = cleanString(item.brand) || "其他品牌";
-      const vInfo = vendorSummaryMap[brandKey];
+      const vKey = item.brand || "常用廠商";
+      const vInfo = vendorSummaryMap[vKey];
 
       if (vInfo && vInfo.threshold > 1) {
         if (vInfo.totalQty >= vInfo.threshold) {
@@ -3210,7 +2421,7 @@
         <td class="text-center" style="height: 46px;">${index + 1}</td>
         <td class="text-center" style="height: 46px;">
           <svg id="${svgId}" class="barcode-svg"></svg>
-          <div class="small fw-bold" style="font-size: 0.72rem; line-height: 1;">${safeCode}</div>
+          <div class="small fw-bold font-monospace" style="font-size: 0.72rem; line-height: 1;">${safeCode}</div>
         </td>
         <td class="small text-center" style="height: 46px;"><strong>${item.itemCode || '-'}</strong></td>
         <td style="height: 46px; vertical-align: middle;">
@@ -3230,19 +2441,18 @@
       setTimeout(() => {
         try {
           JsBarcode(`#${svgId}`, safeCode, {
-            format: "CODE128",
-            width: 1.1,
-            height: 24,
-            displayValue: false,
-            margin: 0
+            format: "CODE128", width: 1.1, height: 24, displayValue: false, margin: 0
           });
         } catch (e) {}
       }, 10);
     });
 
-    new bootstrap.Modal(document.getElementById('printReplenishModal')).show();
+    const modalEl = document.getElementById('printReplenishModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
   }
 
+  // 匯出補貨 Excel
   function exportReplenishExcel() {
     const needList = calculatedReplenishList.filter(item => item.needQty > 0);
     if (needList.length === 0) return alert("目前沒有需要補貨的商品可匯出！");
@@ -3251,12 +2461,11 @@
       "條碼編號": item.barcode,
       "貨號/規格度數": item.itemCode,
       "中文品名": item.name,
-      "品牌": item.brand,
+      "廠商名稱": item.brand,
       "分倉": item.warehouse,
       "目前庫存量": item.currentStock,
       "安全水位": item.safetyStock,
       "最低出貨量(MOQ)": item.moq,
-      "出貨倍數": item.batch,
       "建議補貨數量": item.needQty,
       "實際訂購數量": "",
       "申請人員": boundUser || ""
@@ -3267,6 +2476,20 @@
     XLSX.utils.book_append_sheet(wb, ws, "補貨申請單");
     const d = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `門市商品補貨申請單_${d}.xlsx`);
+  }
+
+  // 浮動操作即時提示卡函式
+  function showOperatorToast(title, detail, type = "success") {
+    const toast = document.getElementById("myScanToast");
+    if (!toast) return;
+    toast.className = `alert alert-${type === 'warning' ? 'warning' : (type === 'danger' ? 'danger' : 'success')} alert-dismissible fade show mb-0 no-print`;
+    const titleEl = document.getElementById("toastTitle");
+    const detailEl = document.getElementById("toastDetail");
+    if (titleEl) titleEl.innerText = title;
+    if (detailEl) detailEl.innerText = detail;
+    toast.style.display = "block";
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.style.display = "none"; }, 2200);
   }
 
   // ================= 11. 未盤清單檢視 =================
