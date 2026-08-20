@@ -3233,13 +3233,38 @@
       await new Promise(r => setTimeout(r, 60));
 
       const depMap = {};
+      const depCustomerMap = {}; // 記錄 C 欄姓名
+      const depOrderMap = {};    // 記錄 Y 欄單號末 6 碼
+
       depRows.forEach(row => {
-        const itemCode = getRowValue(row, ["貨號", "商品代號", "條碼編號", "條碼"]);
-        const pName = getRowValue(row, ["中文品名", "品名", "名稱"]);
+        const itemCode = getRowValue(row, ["貨號", "商品代號", "條碼編號", "條碼", "國際條碼"]);
+        const pName = getRowValue(row, ["中文品名", "品名", "名稱", "商品名稱"]);
         if (!itemCode || pName.includes("本次案件總額")) return;
 
-        const qtyVal = parseFloat(getRowValue(row, ["數量", "訂金數量", "未銷量"]) || 0);
-        if (qtyVal > 0) depMap[itemCode] = (depMap[itemCode] || 0) + qtyVal;
+        const qtyVal = parseFloat(getRowValue(row, ["數量", "訂金數量", "未銷量", "未交量"]) || 0);
+        if (qtyVal > 0) {
+          depMap[itemCode] = (depMap[itemCode] || 0) + qtyVal;
+          
+          const rowValues = Object.values(row);
+
+          // 1. 抓取 C 欄 (第 3 欄 / 索引 2) 顧客姓名
+          let custName = getRowValue(row, ["客戶姓名", "姓名", "顧客名稱", "顧客姓名", "客戶", "會員姓名"]);
+          if (!custName && rowValues.length >= 3 && rowValues[2] !== undefined) {
+            custName = cleanString(rowValues[2]);
+          }
+          if (custName) depCustomerMap[itemCode] = custName;
+
+          // 2. 抓取 Y 欄 (第 25 欄 / 索引 24) 三聯單號末 6 碼
+          let rawOrderNo = getRowValue(row, ["三聯單號", "單據號碼", "單號", "訂單編號", "銷貨單號", "案件編號", "銷貨單", "Y"]);
+          if (!rawOrderNo && rowValues.length >= 25 && rowValues[24] !== undefined) {
+            rawOrderNo = cleanString(rowValues[24]);
+          }
+          if (rawOrderNo) {
+            const cleanNo = cleanString(rawOrderNo);
+            const shortOrder = cleanNo.length > 6 ? cleanNo.slice(-6) : cleanNo;
+            depOrderMap[itemCode] = shortOrder;
+          }
+        }
       });
 
       const allItems = [];
@@ -3263,7 +3288,8 @@
         const systemQty = parseFloat(getRowValue(row, ["庫存量", "現有庫存", "數量"]) || 0);
         const safetyStock = parseFloat(getRowValue(row, ["安全存量", "安全水位"]) || 0);
         const reservedQty = depMap[barcode] || depMap[itemCode] || 0;
-
+        const reservedCustomer = depCustomerMap[barcode] || depCustomerMap[itemCode] || "";
+        const reservedOrderNo = depOrderMap[barcode] || depOrderMap[itemCode] || "";
         totalStockSum += systemQty;
 
         let baseSafeKey = toSafeDbKey(barcode);
@@ -3285,6 +3311,8 @@
             systemQty: systemQty,
             safetyStock: safetyStock,
             reservedQty: reservedQty,
+            reservedCustomer: reservedCustomer,
+            reservedOrderNo: reservedOrderNo,
             countedQty: 0,
             lastStaff: ""
           }
@@ -3472,7 +3500,7 @@
     new bootstrap.Modal(document.getElementById('framesYearModal')).show();
   }
 
-  // 渲染鏡框年份表格與條碼 (A4 格式)
+  // 渲染鏡框年份表格與條碼 (有訂金置頂 + 實盤下方顯示訂單末6碼)
   function renderFramesYearTable() {
     const tbody = document.getElementById("framesYearTableBody");
     tbody.innerHTML = "";
@@ -3480,7 +3508,7 @@
     const selectedYear = document.getElementById("frameYearFilterSelect").value;
     const items = Object.values(fullInventory);
 
-    const frameList = [];
+    let frameList = [];
     let totalQty = 0;
 
     items.forEach(item => {
@@ -3496,6 +3524,13 @@
           frameList.push({ ...item, year: itemYear, qty });
         }
       }
+    });
+
+    // 核心排序：有訂金未銷 (reservedQty > 0 或有 reservedOrderNo) 的自動排在最上方
+    frameList.sort((a, b) => {
+      const aHasDep = (a.reservedQty > 0 || (a.reservedOrderNo && a.reservedOrderNo !== "")) ? 1 : 0;
+      const bHasDep = (b.reservedQty > 0 || (b.reservedOrderNo && b.reservedOrderNo !== "")) ? 1 : 0;
+      return bHasDep - aHasDep;
     });
 
     document.getElementById("framesFilteredCount").innerText = `${frameList.length} 款 (${totalQty} 件)`;
@@ -3521,18 +3556,34 @@
       const nameStr = item.name || item.model || '-';
       const colorStr = item.colorName ? ` (${item.colorName})` : '';
 
+      // 實盤數量下方：純文字無圖示雙列呈現 (上列 C 欄姓名，下列 Y 欄末 6 碼)
+      let orderSubHtml = "";
+      const custName = cleanString(item.reservedCustomer);
+      const orderNo = cleanString(item.reservedOrderNo);
+
+      if (custName || orderNo) {
+        const line1 = custName ? `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; white-space: nowrap;">${custName}</div>` : '';
+        const line2 = orderNo ? `<div style="font-size: 0.65rem; color: #6c757d; font-family: monospace; line-height: 1.1; white-space: nowrap;">${orderNo}</div>` : '';
+        orderSubHtml = `<div style="margin-top: 2px;">${line1}${line2}</div>`;
+      }
+
       tr.innerHTML = `
-        <td class="text-center">${index + 1}</td>
-        <td class="text-center">
+        <td class="text-center" style="height: 46px;">${index + 1}</td>
+        <td class="text-center" style="height: 46px;">
           <svg id="${svgId}" class="barcode-svg"></svg>
-          <div class="small fw-bold" style="font-size: 0.75rem;">${safeCode}</div>
+          <div class="small fw-bold" style="font-size: 0.72rem; line-height: 1;">${safeCode}</div>
         </td>
-        <td class="small fw-bold text-center">${item.itemCode || '-'}</td>
-        <td><strong>${brandStr}</strong>${nameStr}${colorStr}</td>
-        <td class="text-center"><span class="badge bg-light text-dark border fw-bold">${item.year}</span></td>
-        <td class="text-center fw-bold fs-6">${item.qty}</td>
-        <td class="text-center fw-bold">${item.countedQty || 0}</td>
-        <td class="text-center" style="background-color: #fffde7; border-left: 2px solid #ffc107 !important;"></td>
+        <td class="small fw-bold text-center" style="height: 46px;">${item.itemCode || '-'}</td>
+        <td style="height: 46px; vertical-align: middle;">
+          <div style="line-height: 1.15; font-size: 0.82rem;"><strong>${brandStr}</strong>${nameStr}${colorStr}</div>
+        </td>
+        <td class="text-center" style="height: 46px;"><span class="badge bg-light text-dark border fw-bold">${item.year}</span></td>
+        <td class="text-center fw-bold fs-6" style="height: 46px;">${item.qty}</td>
+        <td class="text-center fw-bold" style="height: 46px; vertical-align: middle;">
+          <div>${item.countedQty || 0}</div>
+          ${orderSubHtml}
+        </td>
+        <td class="text-center" style="height: 46px; background-color: #fffde7; border-left: 2px solid #ffc107 !important;"></td>
       `;
       tbody.appendChild(tr);
 
