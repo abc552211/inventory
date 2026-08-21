@@ -834,7 +834,7 @@
                 <th style="width: 45px;">帳面</th>
                 <th style="width: 45px;">實盤</th>
                 <th style="width: 45px;">盤差</th>
-                <th style="width: 55px;">訂金未銷</th>
+                <th style="width: 90px;">訂金未銷</th>
                 <th style="width: 85px; background-color: #fffde7 !important;">手動複盤數</th>
                 <th style="width: 40px;">核對</th>
               </tr>
@@ -1082,10 +1082,9 @@
               <tr>
                 <th style="width: 35px;">序</th>
                 <th style="width: 140px;">條碼 (條碼機可刷)</th>
-                <th style="width: 110px;">貨號</th>
-                <th>品牌 / 型號 / 顏色</th>
+                <th>貨號 / 品牌 / 型號 / 顏色</th>
                 <th style="width: 75px;">進貨年份</th>
-                <th style="width: 55px;">現有庫存</th>
+                <th style="width: 55px;">現存</th>
                 <th style="width: 55px;">實盤</th>
                 <th style="width: 80px; background-color: #fffde7 !important;">備註/複盤</th>
               </tr>
@@ -2392,17 +2391,20 @@
           <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light ms-2">
             <div class="text-truncate" style="font-size: 0.8rem; max-width: 80%;">
               <strong>${r.name || r.barcode || '-'}</strong> <span class="badge bg-light text-dark border font-monospace" style="font-size:0.65rem;">${r.barcode || r.itemCode || ''}</span>
-              <div class="text-muted" style="font-size: 0.7rem;">水位: <strong class="text-primary">${r.safety}</strong> | MOQ: ${r.moq || 1}</div>
+              <div class="text-muted" style="font-size: 0.7rem;">水位: <strong class="text-primary">${r.safety}</strong> | MOQ: ${r.moq || 1} | 門檻: ${r.vendorMoq || 1}</div>
             </div>
-            <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteReplenishRule('${r.key}')">刪除</button>
+            <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteReplenishRule('${r.key}')">取消</button>
           </div>
         `).join('');
 
         return `
           <div class="border rounded mb-1 border-secondary">
             <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
-              <span>🏷️ ${sName}</span>
-              <span class="badge bg-secondary">${rules.length} 款 ▼</span>
+              <div class="text-truncate" style="max-width: 65%;">🏷️ ${sName}</div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary">${rules.length} 款 ▼</span>
+                <span class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.65rem;" onclick="removeActiveRepSubGroup('${gName}', '${sName}', event)">取消此包</span>
+              </div>
             </button>
             <div id="${subCollapseId}" class="collapse">
               <div class="p-1 bg-white">${itemsHtml}</div>
@@ -2417,8 +2419,11 @@
       groupDiv.innerHTML = `
         <h2 class="accordion-header" id="heading_${collapseId}">
           <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
-            <span>📁 ${gName}</span>
-            <span class="badge bg-primary">${totalItemsInGroup} 款總計 ▼</span>
+            <div class="text-truncate" style="max-width: 60%;">📁 ${gName}</div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-primary">${totalItemsInGroup} 款總計 ▼</span>
+              <span class="btn btn-danger py-0 px-2 fw-bold text-white shadow-sm" style="font-size: 0.7rem;" onclick="removeActiveRepGroup('${gName}', event)">取消群組</span>
+            </div>
           </button>
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse" aria-labelledby="heading_${collapseId}">
@@ -3172,15 +3177,18 @@
               <em class="fw-bold">"${r.keyword}"</em>
               ${r.isBrandTotalMode ? `<span class="badge bg-warning text-dark ms-1">總數模式</span>` : ""}
             </div>
-            <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteFilterRule('${r.key}')">刪除</button>
+            <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteFilterRule('${r.key}')">取消</button>
           </div>
         `).join('');
 
         return `
           <div class="border rounded mb-1 border-secondary">
             <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
-              <span>🏷️ ${sName}</span>
-              <span class="badge bg-secondary">${rules.length} 項 ▼</span>
+              <div class="text-truncate" style="max-width: 65%;">🏷️ ${sName}</div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary">${rules.length} 項 ▼</span>
+                <span class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.65rem;" onclick="removeActiveInvSubGroup('${gName}', '${sName}', event)">取消此包</span>
+              </div>
             </button>
             <div id="${subCollapseId}" class="collapse">
               <div class="p-1 bg-white">${itemsHtml}</div>
@@ -3195,8 +3203,11 @@
       groupDiv.innerHTML = `
         <h2 class="accordion-header" id="heading_${collapseId}">
           <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
-            <span>📁 ${gName}</span>
-            <span class="badge bg-primary">${totalItemsInGroup} 項總計 ▼</span>
+            <div class="text-truncate" style="max-width: 60%;">📁 ${gName}</div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-primary">${totalItemsInGroup} 項總計 ▼</span>
+              <span class="btn btn-danger py-0 px-2 fw-bold text-white shadow-sm" style="font-size: 0.7rem;" onclick="removeActiveInvGroup('${gName}', event)">取消群組</span>
+            </div>
           </button>
         </h2>
         <div id="${collapseId}" class="accordion-collapse collapse" aria-labelledby="heading_${collapseId}">
@@ -3813,12 +3824,11 @@
                 brandName: brandGroupKey,
                 barcode: `BRAND-${brandGroupKey}`,
                 name: `【${brandGroupKey}】全品項品牌總數彙整`,
-                sys: 0,
-                cnt: 0,
-                res: 0,
+                sys: 0, cnt: 0, res: 0,
                 staffSet: new Set(),
                 locBreakdown: { "架上": 0, "櫃內": 0, "彌留": 0, "已取": 0 },
-                skuCount: 0
+                skuCount: 0,
+                resMap: {} // 記錄大群組合併後的明細
               };
             }
             const g = brandSummaryMap[brandGroupKey];
@@ -3833,6 +3843,14 @@
                 g.locBreakdown[loc] = (g.locBreakdown[loc] || 0) + q;
               });
             }
+
+            if (item.reservedDetails && item.reservedDetails.length > 0) {
+              item.reservedDetails.forEach(d => {
+                const dKey = d.order + "_" + d.cust;
+                if (!g.resMap[dKey]) g.resMap[dKey] = { cust: d.cust, order: d.order, qty: 0 };
+                g.resMap[dKey].qty += d.qty;
+              });
+            }
           } else {
             normalItems.push(item);
           }
@@ -3843,6 +3861,7 @@
           const staffNames = Array.from(g.staffSet).join("、");
           displayList.push({
             ...g,
+            reservedDetails: Object.values(g.resMap),
             diff: diff,
             brand: g.brandName,
             itemCode: `共 ${g.skuCount} 種品項`,
@@ -3903,40 +3922,68 @@
       if (item.cnt > 0 && item.locBreakdown) {
         const parts = [];
         Object.entries(item.locBreakdown).forEach(([locKey, qtyVal]) => {
-          if (qtyVal > 0) {
-            const shortName = locKey.length > 0 ? locKey.charAt(0) : "位";
-            parts.push(`${shortName}${qtyVal}`);
-          }
+          if (qtyVal > 0) parts.push(`${locKey.charAt(0)}${qtyVal}`);
         });
-        if (parts.length > 0) {
-          locSummary = `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; margin-top: 2px; white-space: nowrap;">${parts.join(' ')}</div>`;
+        if (parts.length > 0) locSummary = `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; margin-top: 2px; white-space: nowrap;">${parts.join(' ')}</div>`;
+      }
+
+      // 5. 訂金未銷欄位 (支援多筆客戶：置頂總量 + 姓名(數量) 單號，同列統一小字)
+      let resHtml = `<div class="text-center text-muted">0</div>`;
+      if (item.res > 0) {
+        if (item.reservedDetails && item.reservedDetails.length > 0) {
+          const detailListHtml = item.reservedDetails.map(d => {
+            const orderStr = d.order ? `<span class="text-muted font-monospace ms-1">${d.order}</span>` : "";
+            return `<div style="font-size: 0.65rem; line-height: 1.25; white-space: nowrap; color: #212529;">${d.cust}(${d.qty})${orderStr}</div>`;
+          }).join('');
+          
+          resHtml = `
+            <div class="text-start align-middle">
+              <div class="text-center fw-bold text-danger border-bottom border-secondary mb-1 pb-1" style="font-size: 0.8rem;">彌留: ${item.res}</div>${detailListHtml}
+            </div>
+          `;
+        } else {
+          // 舊版相容模式
+          const custName = cleanString(item.reservedCustomer);
+          const orderNo = cleanString(item.reservedOrderNo);
+          if (custName || orderNo) {
+            const namePart = custName ? `${custName}(${item.res})` : `(${item.res})`;
+            const orderPart = orderNo ? `<span class="text-muted font-monospace ms-1">${orderNo}</span>` : '';
+            resHtml = `
+              <div class="text-start align-middle">
+                <div class="text-center fw-bold text-danger border-bottom border-secondary mb-1 pb-1" style="font-size: 0.8rem;">總計: ${item.res}</div>
+                <div style="font-size: 0.65rem; line-height: 1.25; white-space: nowrap; color: #212529;">${namePart}${orderPart}</div>
+              </div>
+            `;
+          } else {
+             resHtml = `<div class="text-center align-middle fw-bold text-danger">${item.res}</div>`;
+          }
         }
       }
 
       tr.innerHTML = `
-        <td class="text-center">${index + 1}</td>
-        <td class="text-center">
+        <td class="text-center align-middle">${index + 1}</td>
+        <td class="text-center align-middle">
           ${item.isBrandGroup 
             ? `<div class="badge bg-dark px-2 py-1 mb-1">品牌總量</div><div class="small font-monospace fw-bold text-muted">${item.itemCode}</div>` 
-            : `<svg id="${svgId}" class="barcode-svg"></svg><div class="small fw-bold" style="font-size: 0.75rem;">${codeSubText}</div>`
+            : `<svg id="${svgId}" class="barcode-svg" style="height: 24px;"></svg><div class="small fw-bold" style="font-size: 0.75rem; line-height: 1; margin-top: 2px;">${codeSubText}</div>`
           }
         </td>
-        <td>
+        <td class="align-middle">
           ${brandHtml}
           ${nameHtml}
           ${staffHtml}
         </td>
-        <td class="text-center fw-bold fs-6">${item.sys}</td>
-        <td class="text-center fw-bold fs-6">
+        <td class="text-center fw-bold fs-6 align-middle">${item.sys}</td>
+        <td class="text-center fw-bold fs-6 align-middle">
           <div>${item.cnt}</div>
           ${locSummary}
         </td>
-        <td class="text-center fs-6">${diffHtml}</td>
-        <td class="text-center">${item.res > 0 ? `<span class="badge bg-warning text-dark">${item.res}</span>` : '0'}</td>
-        <td class="text-center" style="background-color: #fffde7; font-weight: bold; border-left: 2px solid #ffc107 !important;">
+        <td class="text-center fs-6 align-middle">${diffHtml}</td>
+        <td class="align-middle" style="padding: 4px;">${resHtml}</td>
+        <td class="text-center align-middle" style="background-color: #fffde7; font-weight: bold; border-left: 2px solid #ffc107 !important;">
           ${isDiff ? '___________' : ''}
         </td>
-        <td class="text-center">
+        <td class="text-center align-middle">
           <input type="checkbox" ${!isDiff ? 'checked' : ''} style="width: 16px; height: 16px;">
         </td>
       `;
@@ -4075,6 +4122,7 @@
     return "";
   }
 
+  // ================= 13. Excel 檔案匯入 (增強明細收集與防呆填滿) =================
   async function importExcelData() {
     const invInput = document.getElementById("invFile");
     const depInput = document.getElementById("depFile");
@@ -4107,11 +4155,22 @@
       const depMap = {};
       const depCustomerMap = {};
       const depOrderMap = {};
+      const depDetailsMap = {}; // 核心升級：記錄同一貨號所有客人的陣列清單
+
+      let lastDepItemCode = "";
 
       depRows.forEach(row => {
-        const itemCode = getRowValue(row, ["貨號", "商品代號", "條碼編號", "條碼", "國際條碼"]);
+        let itemCode = getRowValue(row, ["貨號", "商品代號", "條碼編號", "條碼", "國際條碼"]);
+        
+        // 防呆向下填滿：若 ERP 輸出格式將同貨號第二列留空，系統自動補齊
+        if (itemCode) {
+          lastDepItemCode = itemCode;
+        } else {
+          itemCode = lastDepItemCode;
+        }
+
         const pName = getRowValue(row, ["中文品名", "品名", "名稱", "商品名稱"]);
-        if (!itemCode || pName.includes("本次案件總額")) return;
+        if (!itemCode || (pName && pName.includes("本次案件總額"))) return;
 
         const qtyVal = parseFloat(getRowValue(row, ["數量", "訂金數量", "未銷量", "未交量"]) || 0);
         if (qtyVal > 0) {
@@ -4119,23 +4178,29 @@
           
           const rowValues = Object.values(row);
 
-          // 1. 抓取 C 欄 (第 3 欄 / 索引 2) 顧客姓名
           let custName = getRowValue(row, ["客戶姓名", "姓名", "顧客名稱", "顧客姓名", "客戶", "會員姓名"]);
           if (!custName && rowValues.length >= 3 && rowValues[2] !== undefined) {
             custName = cleanString(rowValues[2]);
           }
           if (custName) depCustomerMap[itemCode] = custName;
 
-          // 2. 抓取 Y 欄 (第 25 欄 / 索引 24) 三聯單號末 6 碼
           let rawOrderNo = getRowValue(row, ["三聯單號", "單據號碼", "單號", "訂單編號", "銷貨單號", "案件編號", "銷貨單", "Y"]);
           if (!rawOrderNo && rowValues.length >= 25 && rowValues[24] !== undefined) {
             rawOrderNo = cleanString(rowValues[24]);
           }
+          let shortOrder = "";
           if (rawOrderNo) {
-            const cleanNo = cleanString(rawOrderNo);
-            const shortOrder = cleanNo.length > 6 ? cleanNo.slice(-6) : cleanNo;
+            shortOrder = cleanString(rawOrderNo).length > 6 ? cleanString(rawOrderNo).slice(-6) : cleanString(rawOrderNo);
             depOrderMap[itemCode] = shortOrder;
           }
+
+          // 將該筆明細分群收集，防止同單號同名字被重複拆分
+          if (!depDetailsMap[itemCode]) depDetailsMap[itemCode] = {};
+          const detailKey = shortOrder + "_" + custName;
+          if (!depDetailsMap[itemCode][detailKey]) {
+            depDetailsMap[itemCode][detailKey] = { cust: custName || "未知", qty: 0, order: shortOrder };
+          }
+          depDetailsMap[itemCode][detailKey].qty += qtyVal;
         }
       });
 
@@ -4152,8 +4217,6 @@
         if (!barcode && !itemCode) return;
 
         const name = getRowValue(row, ["中文品名", "品名", "商品名稱"]);
-        
-        // 過濾無效垃圾列
         if (!name || name.trim() === "") return;
 
         const brand = getRowValue(row, ["品牌", "廠牌"]);
@@ -4162,10 +4225,14 @@
         const warehouse = getRowValue(row, ["分倉", "倉庫"]);
         const systemQty = parseFloat(getRowValue(row, ["庫存量", "現有庫存", "數量"]) || 0);
         const safetyStock = parseFloat(getRowValue(row, ["安全存量", "安全水位"]) || 0);
+        
         const reservedQty = depMap[barcode] || depMap[itemCode] || 0;
         const reservedCustomer = depCustomerMap[barcode] || depCustomerMap[itemCode] || "";
         const reservedOrderNo = depOrderMap[barcode] || depOrderMap[itemCode] || "";
-
+        
+        // 擷取整合好的明細陣列
+        const reservedDetails = depDetailsMap[barcode] ? Object.values(depDetailsMap[barcode]) : (depDetailsMap[itemCode] ? Object.values(depDetailsMap[itemCode]) : []);
+        
         totalStockSum += systemQty;
 
         let baseSafeKey = toSafeDbKey(barcode);
@@ -4188,6 +4255,7 @@
             reservedQty: reservedQty,
             reservedCustomer: reservedCustomer,
             reservedOrderNo: reservedOrderNo,
+            reservedDetails: reservedDetails,
             countedQty: 0,
             lastStaff: ""
           }
@@ -4383,7 +4451,6 @@
     let totalQty = 0;
 
     items.forEach(item => {
-      // 鏡框年份系統：庫存 <= 0 忽略
       const qty = parseFloat(item.systemQty) || 0;
       if (qty <= 0) return;
 
@@ -4398,7 +4465,6 @@
       }
     });
 
-    // 有訂金未銷 (reservedQty > 0 或有 reservedOrderNo) 的自動排在最上方
     frameList.sort((a, b) => {
       const aHasDep = (a.reservedQty > 0 || (a.reservedOrderNo && a.reservedOrderNo !== "")) ? 1 : 0;
       const bHasDep = (b.reservedQty > 0 || (b.reservedOrderNo && b.reservedOrderNo !== "")) ? 1 : 0;
@@ -4428,49 +4494,110 @@
       const nameStr = item.name || item.model || '-';
       const colorStr = item.colorName ? ` (${item.colorName})` : '';
 
-      // 實盤數量下方：純文字雙列呈現 (上列 C 欄姓名，下列 Y 欄末 6 碼)
+      // 實盤數量下方：支援多筆客戶明細 (置頂總量 + 姓名(數量) 單號)
       let orderSubHtml = "";
-      const custName = cleanString(item.reservedCustomer);
-      const orderNo = cleanString(item.reservedOrderNo);
-
-      if (custName || orderNo) {
-        const line1 = custName ? `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; white-space: nowrap;">${custName}</div>` : '';
-        const line2 = orderNo ? `<div style="font-size: 0.65rem; color: #6c757d; font-family: monospace; line-height: 1.1; white-space: nowrap;">${orderNo}</div>` : '';
-        orderSubHtml = `<div style="margin-top: 2px;">${line1}${line2}</div>`;
+      if (item.reservedDetails && item.reservedDetails.length > 0) {
+        const detailListHtml = item.reservedDetails.map(d => {
+          const orderStr = d.order ? `<span style="color:#6c757d; font-family:monospace; margin-left:4px;">${d.order}</span>` : "";
+          return `<div style="font-size: 0.65rem; line-height: 1.2; white-space: nowrap;">${d.cust}(${d.qty})${orderStr}</div>`;
+        }).join('');
+        
+        orderSubHtml = `
+          <div style="margin-top: 6px; text-align: left; border-top: 1px dashed #ccc; padding-top: 4px;">
+            <div class="text-center fw-bold text-danger mb-1" style="font-size: 0.75rem;">未銷總計: ${item.reservedQty}</div>
+            ${detailListHtml}
+          </div>
+        `;
+      } else {
+        const custName = cleanString(item.reservedCustomer);
+        const orderNo = cleanString(item.reservedOrderNo);
+        if (custName || orderNo) {
+          const line1 = custName ? `${custName}(${item.reservedQty})` : `(${item.reservedQty})`;
+          const line2 = orderNo ? `<span style="color:#6c757d; font-family:monospace; margin-left:4px;">${orderNo}</span>` : '';
+          orderSubHtml = `
+            <div style="margin-top: 6px; text-align: left; border-top: 1px dashed #ccc; padding-top: 4px;">
+              <div class="text-center fw-bold text-danger mb-1" style="font-size: 0.75rem;">未銷總計: ${item.reservedQty}</div>
+              <div style="font-size: 0.65rem; line-height: 1.2; white-space: nowrap;">${line1}${line2}</div>
+            </div>
+          `;
+        }
       }
 
       tr.innerHTML = `
-        <td class="text-center" style="height: 46px;">${index + 1}</td>
-        <td class="text-center" style="height: 46px;">
-          <svg id="${svgId}" class="barcode-svg"></svg>
-          <div class="small fw-bold" style="font-size: 0.72rem; line-height: 1;">${safeCode}</div>
+        <td class="text-center align-middle" style="height: 46px;">${index + 1}</td>
+        <td class="text-center align-middle" style="height: 46px;">
+          <svg id="${svgId}" class="barcode-svg" style="height: 24px;"></svg>
+          <div class="small fw-bold" style="font-size: 0.72rem; line-height: 1; margin-top: 2px;">${safeCode}</div>
         </td>
-        <td class="small fw-bold text-center" style="height: 46px;">${item.itemCode || '-'}</td>
-        <td style="height: 46px; vertical-align: middle;">
-          <div style="line-height: 1.15; font-size: 0.82rem;"><strong>${brandStr}</strong>${nameStr}${colorStr}</div>
+        <td class="align-middle" style="height: 46px;">
+          <div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>
+          <div style="line-height: 1.15; font-size: 0.85rem;"><strong>${brandStr}</strong>${nameStr}${colorStr}</div>
         </td>
-        <td class="text-center" style="height: 46px;"><span class="badge bg-light text-dark border fw-bold">${item.year}</span></td>
-        <td class="text-center fw-bold fs-6" style="height: 46px;">${item.qty}</td>
-        <td class="text-center fw-bold" style="height: 46px; vertical-align: middle;">
+        <td class="text-center align-middle" style="height: 46px;"><span class="badge bg-light text-dark border fw-bold">${item.year}</span></td>
+        <td class="text-center fw-bold fs-6 align-middle" style="height: 46px;">${item.qty}</td>
+        <td class="text-center fw-bold align-middle" style="height: 46px;">
           <div>${item.countedQty || 0}</div>
           ${orderSubHtml}
         </td>
-        <td class="text-center" style="height: 46px; background-color: #fffde7; border-left: 2px solid #ffc107 !important;"></td>
+        <td class="text-center align-middle" style="height: 46px; background-color: #fffde7; border-left: 2px solid #ffc107 !important;"></td>
       `;
       tbody.appendChild(tr);
 
       setTimeout(() => {
         try {
           JsBarcode(`#${svgId}`, safeCode, {
-            format: "CODE128",
-            width: 1.1,
-            height: 24,
-            displayValue: false,
-            margin: 0
+            format: "CODE128", width: 1.1, height: 24, displayValue: false, margin: 0
           });
         } catch (e) {}
       }, 10);
     });
+  }
+  // ====== 支援樹狀結構的整組/個別取消功能 ======
+  
+  // 移除補貨大群組
+  function removeActiveRepGroup(gName, event) {
+    event.stopPropagation();
+    if(!confirm(`確定要取消套用大群組【${gName}】的所有條件嗎？`)) return;
+    const updatePayload = {};
+    Object.keys(customReplenishRules).forEach(k => {
+      if ((customReplenishRules[k].groupPkgName || customReplenishRules[k].brand || "未分類單品") === gName) updatePayload[k] = null;
+    });
+    repRulesRef.update(updatePayload);
+  }
+
+  // 移除補貨小包
+  function removeActiveRepSubGroup(gName, sName, event) {
+    event.stopPropagation();
+    if(!confirm(`確定要取消套用小包【${sName}】的所有條件嗎？`)) return;
+    const updatePayload = {};
+    Object.keys(customReplenishRules).forEach(k => {
+      const r = customReplenishRules[k];
+      if ((r.groupPkgName || r.brand || "未分類單品") === gName && (r.subPkgName || "獨立條件") === sName) updatePayload[k] = null;
+    });
+    repRulesRef.update(updatePayload);
+  }
+
+  // 移除盤點大群組
+  function removeActiveInvGroup(gName, event) {
+    event.stopPropagation();
+    if(!confirm(`確定要取消套用大群組【${gName}】的所有條件嗎？`)) return;
+    const updatePayload = {};
+    Object.keys(filterRules).forEach(k => {
+      if ((filterRules[k].groupPkgName || "未分類群組") === gName) updatePayload[k] = null;
+    });
+    rulesRef.update(updatePayload);
+  }
+
+  // 移除盤點小包
+  function removeActiveInvSubGroup(gName, sName, event) {
+    event.stopPropagation();
+    if(!confirm(`確定要取消套用小包【${sName}】的所有條件嗎？`)) return;
+    const updatePayload = {};
+    Object.keys(filterRules).forEach(k => {
+      const r = filterRules[k];
+      if ((r.groupPkgName || "未分類群組") === gName && (r.subPkgName || "獨立條件") === sName) updatePayload[k] = null;
+    });
+    rulesRef.update(updatePayload);
   }
 </script>
 </body>
