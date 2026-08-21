@@ -418,9 +418,9 @@
             </div>
           </div>
 
-          <!-- 常用快選條件包專區 -->
+          <!-- 常用快選條件包專區 (網格化與搜尋) -->
           <div class="p-2 border rounded bg-light mt-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
               <span class="small fw-bold text-secondary">⭐ 我的盤點常用快選包：</span>
               <div class="d-flex gap-1 align-items-center">
                 <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToInvModal()">🔄 從補貨複製</button>
@@ -428,8 +428,11 @@
                 <span id="presetCountBadge" class="badge bg-secondary small">0 組</span>
               </div>
             </div>
-            <div id="presetPackagesContainer" class="d-flex flex-wrap gap-1">
-              <span class="text-muted small">尚未儲存常用快選包。</span>
+            <!-- 即時搜尋列 -->
+            <input type="text" class="form-control form-control-sm mb-2" placeholder="🔍 搜尋快選包名稱..." onkeyup="filterPackages(this.value, 'presetPackagesContainer')">
+            <!-- 雙欄排版容器 -->
+            <div id="presetPackagesContainer" class="row g-2">
+              <div class="col-12"><span class="text-muted small">尚未儲存常用快選包。</span></div>
             </div>
           </div>
         </div>
@@ -728,9 +731,9 @@
             </div>
           </div>
 
-          <!-- 補貨專屬常用快選條件包專區 -->
+          <!-- 補貨專屬常用快選條件包專區 (網格化與搜尋) -->
           <div class="p-2 border rounded bg-white mt-2">
-            <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
               <span class="small fw-bold text-secondary">⭐ 我的補貨常用快選包：</span>
               <div class="d-flex gap-1 align-items-center">
                 <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToRepModal()">🔄 從盤點複製</button>
@@ -738,8 +741,11 @@
                 <span id="repPresetCountBadge" class="badge bg-secondary small">0 組</span>
               </div>
             </div>
-            <div id="repPresetPackagesContainer" class="d-flex flex-wrap gap-1">
-              <span class="text-muted small">尚未儲存補貨快選包。</span>
+            <!-- 即時搜尋列 -->
+            <input type="text" class="form-control form-control-sm mb-2" placeholder="🔍 搜尋快選包名稱..." onkeyup="filterPackages(this.value, 'repPresetPackagesContainer')">
+            <!-- 雙欄排版容器 -->
+            <div id="repPresetPackagesContainer" class="row g-2">
+              <div class="col-12"><span class="text-muted small">尚未儲存補貨快選包。</span></div>
             </div>
           </div>
         </div>
@@ -1114,6 +1120,7 @@
         </div>
         <div class="mb-2">
           <label class="form-label small fw-bold">3. 請勾選要納入此大群組的小包：</label>
+          <input type="text" class="form-control form-control-sm mb-1" placeholder="🔍 搜尋小包名稱過濾..." onkeyup="filterModalList(this.value, 'groupSelectableList')">
           <div id="groupSelectableList" class="border rounded p-2 bg-light" style="max-height: 180px; overflow-y: auto;"></div>
         </div>
       </div>
@@ -1139,8 +1146,8 @@
         </div>
         <div class="mb-2">
           <label class="form-label small fw-bold">2. 請勾選要納入此大群組的小包：</label>
-          <div id="invGroupSelectableList" class="border rounded p-2 bg-light" style="max-height: 180px; overflow-y: auto;">
-          </div>
+          <input type="text" class="form-control form-control-sm mb-1" placeholder="🔍 搜尋小包名稱過濾..." onkeyup="filterModalList(this.value, 'invGroupSelectableList')">
+          <div id="invGroupSelectableList" class="border rounded p-2 bg-light" style="max-height: 180px; overflow-y: auto;"></div>
         </div>
       </div>
       <div class="modal-footer py-2 bg-light border-0">
@@ -1921,32 +1928,73 @@
     return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
   }
 
+  // 用於追蹤目前正在編輯的大群組 ID
+  let currentEditingRepGroupId = null;
+  let currentEditingInvGroupId = null;
+
+  // ================= 補貨大群組邏輯 =================
   function openCreateGroupModal() {
+    currentEditingRepGroupId = null; // 重置為新建狀態
+    document.querySelector('#createGroupModal .modal-title').innerText = "合成廠商大群組包";
+    document.getElementById("newGroupPkgName").value = "";
+    document.getElementById("newGroupVendorMoq").value = 4;
+
     const container = document.getElementById("groupSelectableList");
     if (!container) return;
     container.innerHTML = "";
 
-    const pkgKeys = Object.keys(repPresetPackages);
+    const pkgKeys = Object.keys(repPresetPackages).filter(k => !repPresetPackages[k].isGroup);
     if (pkgKeys.length === 0) return alert("目前尚未建立任何快選小包，請先在上方打包小包！");
 
     pkgKeys.forEach(pkgId => {
       const pkg = repPresetPackages[pkgId];
       const count = getRulesArrayFromPackage(pkg).length;
-      const isGroup = pkg.isGroup ? " [大群組]" : "";
-      
       const div = document.createElement("div");
       div.className = "form-check mb-1";
       div.innerHTML = `
         <input class="form-check-input group-pkg-checkbox" type="checkbox" value="${pkgId}" id="chk_grp_${pkgId}">
         <label class="form-check-label small" for="chk_grp_${pkgId}">
-          <strong>${pkg.name}</strong> <span class="text-muted">(${count}款商品${isGroup})</span>
+          <strong>${pkg.name}</strong> <span class="text-muted">(${count}款商品)</span>
         </label>
       `;
       container.appendChild(div);
     });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('createGroupModal')).show();
+  }
+  // 編輯現有的補貨大群組
+  function editRepGroup(groupId) {
+    currentEditingRepGroupId = groupId;
+    const groupPkg = repPresetPackages[groupId];
+    if(!groupPkg) return;
 
-    document.getElementById("newGroupPkgName").value = "";
-    document.getElementById("newGroupVendorMoq").value = 4;
+    document.querySelector('#createGroupModal .modal-title').innerText = "編輯廠商大群組包";
+    document.getElementById("newGroupPkgName").value = groupPkg.name || "";
+    document.getElementById("newGroupVendorMoq").value = groupPkg.vendorMoq || 1;
+
+    const container = document.getElementById("groupSelectableList");
+    container.innerHTML = "";
+
+    const pkgKeys = Object.keys(repPresetPackages).filter(k => !repPresetPackages[k].isGroup);
+    let existingSubs = [];
+    if(groupPkg.subPackages) {
+       existingSubs = Array.isArray(groupPkg.subPackages) ? groupPkg.subPackages : Object.values(groupPkg.subPackages);
+    }
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = repPresetPackages[pkgId];
+      const count = getRulesArrayFromPackage(pkg).length;
+      const isChecked = existingSubs.includes(pkgId) ? "checked" : "";
+      
+      const div = document.createElement("div");
+      div.className = "form-check mb-1";
+      div.innerHTML = `
+        <input class="form-check-input group-pkg-checkbox" type="checkbox" value="${pkgId}" id="chk_grp_${pkgId}" ${isChecked}>
+        <label class="form-check-label small" for="chk_grp_${pkgId}">
+          <strong>${pkg.name}</strong> <span class="text-muted">(${count}款商品)</span>
+        </label>
+      `;
+      container.appendChild(div);
+    });
     bootstrap.Modal.getOrCreateInstance(document.getElementById('createGroupModal')).show();
   }
 
@@ -1967,7 +2015,6 @@
     return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
   }
 
-  // 儲存合成大群組包 (升級為「動態連結參照」模式)
   function saveCombinedGroupPackage() {
     const groupName = cleanString(document.getElementById("newGroupPkgName").value);
     const vendorMoq = parseFloat(document.getElementById("newGroupVendorMoq").value) || 1;
@@ -1979,17 +2026,26 @@
     const subPkgIds = [];
     checkedBoxes.forEach(cb => subPkgIds.push(cb.value));
 
-    repPresetsRef.push({
+    const payload = {
       name: groupName,
       vendorMoq: vendorMoq,
       isGroup: true,
-      subPackages: subPkgIds, // 核心變更：不再寫死規則，只記錄小包ID！
-      createdAt: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => {
-      alert(`🎉 成功建立動態大群組【${groupName}】！未來修改小包內容，此群組將自動同步。`);
-      const modal = bootstrap.Modal.getInstance(document.getElementById('createGroupModal'));
-      if (modal) modal.hide();
-    }).catch(err => alert("合成失敗: " + err.message));
+      subPackages: subPkgIds,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    if (currentEditingRepGroupId) {
+      repPresetsRef.child(currentEditingRepGroupId).update(payload).then(() => {
+        alert(`🎉 成功更新大群組【${groupName}】！`);
+        bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
+      }).catch(err => alert("更新失敗: " + err.message));
+    } else {
+      payload.createdAt = firebase.database.ServerValue.TIMESTAMP;
+      repPresetsRef.push(payload).then(() => {
+        alert(`🎉 成功建立動態大群組【${groupName}】！`);
+        bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
+      }).catch(err => alert("合成失敗: " + err.message));
+    }
   }
 
   function saveCurrentReplenishPackage() {
@@ -2197,23 +2253,22 @@
     if (confirm(`確定要永久刪除快選包【${pkgName}】嗎？`)) repPresetsRef.child(pkgId).remove();
   }
 
-  // 渲染補貨快選包 (大群組強制置頂、修復 0 包問題、移除個別複製)
+  // 補貨：渲染快選包 (雙欄網格化、按鈕大小固定靠右)
   function renderRepPresetPackages() {
     const container = document.getElementById("repPresetPackagesContainer");
     if (!container) return;
     container.innerHTML = "";
     
-    // 排序：有 isGroup 的排在最前面
     const pkgKeys = Object.keys(repPresetPackages).sort((a, b) => {
       const pkgA = repPresetPackages[a], pkgB = repPresetPackages[b];
       return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
     });
 
     const badgeEl = document.getElementById("repPresetCountBadge");
-    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組快選`;
+    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組`;
 
     if (pkgKeys.length === 0) {
-      container.innerHTML = `<span class="text-muted small">尚未儲存補貨快選包。</span>`;
+      container.innerHTML = `<div class="col-12"><span class="text-muted small">尚未儲存補貨快選包。</span></div>`;
       return;
     }
 
@@ -2223,47 +2278,53 @@
       const count = ruleList.length;
       const isActive = isPackageActive(pkg);
       const activeBtnClass = isActive ? "btn btn-success text-white fw-bold shadow-sm" : "btn btn-outline-warning text-dark fw-bold bg-white";
-      const prefixText = isActive ? "✅ " : "";
+      const prefixText = isActive ? "✅ " : "⭐ ";
       
       const wrapper = document.createElement("div");
-      wrapper.className = "w-100 mb-1"; 
+      wrapper.className = "col-12 col-md-6 pkg-col-item"; 
+      wrapper.setAttribute('data-pkg-name', pkg.name);
       
       if (pkg.isGroup) {
-        // 修復 0 包：Firebase 存陣列有時會變 Object
-        const subs = pkg.subPackages ? Object.values(pkg.subPackages) : [];
+        let subs = [];
+        if (pkg.subPackages) {
+          const rawSubs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+          subs = rawSubs.filter(subId => repPresetPackages[subId]); 
+        }
         const subCount = subs.length;
+
         wrapper.innerHTML = `
-          <div class="border rounded p-1 bg-light border-warning shadow-sm">
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="d-flex gap-1 align-items-center">
-                <button class="btn btn-sm btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleGroupSub(this, '${pkgId}')" style="font-size: 0.75rem;">➕ 展開</button>
-                <button type="button" class="${activeBtnClass} text-truncate py-0 px-2" style="max-width: 200px; font-size: 0.8rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 款商品">
-                  ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'}" style="font-size:0.65rem;">${subCount} 包</span>
-                </button>
+          <div class="border rounded bg-light border-warning shadow-sm d-flex flex-column justify-content-between h-100">
+            <div class="d-flex justify-content-between align-items-center p-1">
+              <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 款商品">
+                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+              </button>
+              <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
+                <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
+                <button type="button" class="btn btn-outline-primary py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="editRepGroup('${pkgId}')">編輯</button>
+                <button type="button" class="btn btn-outline-danger py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
               </div>
-              <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
             </div>
-            <div id="sub_pkg_${pkgId}" class="mt-1 ps-4 pe-1 d-none d-flex flex-wrap gap-1 border-top pt-1">
-              ${subs.map(subId => {
-                const subPkg = repPresetPackages[subId];
-                if(!subPkg) return `<span class="badge bg-secondary">未知小包</span>`;
-                const subItemCount = Object.keys(subPkg.rules||{}).length;
-                return `<span class="badge bg-white text-dark border border-secondary" title="包含 ${subItemCount} 款商品">${subPkg.name} <small class="text-muted">(${subItemCount})</small></span>`;
-              }).join('')}
+            <div id="sub_pkg_${pkgId}" class="px-2 pb-2 d-none d-flex flex-wrap gap-1 border-top pt-1 mt-1 bg-white rounded-bottom">
+              ${subCount === 0 
+                ? '<span class="text-danger small fw-bold">⚠️ 群組空了，請重新編輯。</span>' 
+                : subs.map(subId => {
+                    const subItemCount = Object.keys(repPresetPackages[subId].rules||{}).length;
+                    return '<span class="badge bg-light text-dark border border-secondary" title="包含 ' + subItemCount + ' 款商品">' + repPresetPackages[subId].name + '</span>';
+                  }).join('')
+              }
             </div>
           </div>
         `;
       } else {
         wrapper.innerHTML = `
-          <div class="btn-group shadow-sm" style="height: 26px;">
-            <button type="button" class="${activeBtnClass} text-truncate py-0 px-2" style="max-width: 140px; font-size: 0.8rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="${pkg.name}\n共包含 ${count} 款商品">
-              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'}" style="font-size:0.65rem;">${count}</span>
+          <div class="btn-group shadow-sm w-100" style="height: 32px;">
+            <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="${pkg.name}\n共包含 ${count} 款商品">
+              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
-            <button type="button" class="btn btn-outline-primary py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="editRepPresetPackage('${pkgId}', event)">編輯</button>
-            <button type="button" class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
+            <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editRepPresetPackage('${pkgId}', event)">編輯</button>
+            <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
           </div>
         `;
-        wrapper.className = "d-inline-block mb-1 me-1";
       }
       container.appendChild(wrapper);
     });
@@ -2928,7 +2989,31 @@
     return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
   }
 
-  // 盤點：渲染快選包 (支援大群組置頂、展開與編輯功能)
+  // ====== 通用即時搜尋引擎 ======
+  function filterPackages(kw, containerId) {
+    const kwLower = kw.toLowerCase();
+    const container = document.getElementById(containerId);
+    if(!container) return;
+    const items = container.querySelectorAll('.pkg-col-item');
+    items.forEach(item => {
+      const nameAttr = item.getAttribute('data-pkg-name');
+      if(nameAttr) {
+        item.style.display = nameAttr.toLowerCase().includes(kwLower) ? "" : "none";
+      }
+    });
+  }
+
+  function filterModalList(kw, containerId) {
+    const list = document.getElementById(containerId);
+    if(!list) return;
+    const items = list.querySelectorAll('.form-check');
+    items.forEach(item => {
+      const text = item.innerText.toLowerCase();
+      item.style.display = text.includes(kw.toLowerCase()) ? "" : "none";
+    });
+  }
+
+  // 盤點：渲染快選包 (雙欄網格化、按鈕大小固定靠右)
   function renderPresetPackages() {
     const container = document.getElementById("presetPackagesContainer");
     if (!container) return;
@@ -2940,10 +3025,10 @@
     });
 
     const badgeEl = document.getElementById("presetCountBadge");
-    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組快選`;
+    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組`;
     
     if (pkgKeys.length === 0) {
-      container.innerHTML = `<span class="text-muted small">尚未儲存常用快選包。</span>`;
+      container.innerHTML = `<div class="col-12"><span class="text-muted small">尚未儲存常用快選包。</span></div>`;
       return;
     }
 
@@ -2953,7 +3038,8 @@
       const count = ruleList.length;
       
       const wrapper = document.createElement("div");
-      wrapper.className = "w-100 mb-1"; 
+      wrapper.className = "col-12 col-md-6 pkg-col-item"; 
+      wrapper.setAttribute('data-pkg-name', pkg.name);
       
       if (pkg.isGroup) {
         let subs = [];
@@ -2964,26 +3050,23 @@
         const subCount = subs.length;
 
         wrapper.innerHTML = `
-          <div class="border rounded p-1 bg-light border-info shadow-sm">
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="d-flex gap-1 align-items-center">
-                <button class="btn btn-sm btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleInvGroupSub(this, '${pkgId}')" style="font-size: 0.75rem;">➕ 展開</button>
-                <button type="button" class="btn btn-outline-dark fw-bold text-truncate py-0 px-2 bg-white" style="max-width: 200px; font-size: 0.8rem;" onclick="applyPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 條條件">
-                  📁 ${pkg.name} <span class="badge bg-secondary" style="font-size:0.65rem;">${subCount} 包</span>
-                </button>
-              </div>
-              <div class="btn-group btn-group-sm" style="height: 24px;">
-                <button type="button" class="btn btn-outline-primary py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
-                <button type="button" class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
+          <div class="border rounded bg-light border-info shadow-sm d-flex flex-column justify-content-between h-100">
+            <div class="d-flex justify-content-between align-items-center p-1">
+              <button type="button" class="btn btn-outline-dark fw-bold text-start text-truncate flex-grow-1 border-0 bg-transparent px-2" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 條條件">
+                📁 ${pkg.name} <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+              </button>
+              <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
+                <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleInvGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
+                <button type="button" class="btn btn-outline-primary py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="editInvGroup('${pkgId}')">編輯</button>
+                <button type="button" class="btn btn-outline-danger py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
               </div>
             </div>
-            <div id="inv_sub_pkg_${pkgId}" class="mt-1 ps-4 pe-1 d-none d-flex flex-wrap gap-1 border-top pt-1">
+            <div id="inv_sub_pkg_${pkgId}" class="px-2 pb-2 d-none d-flex flex-wrap gap-1 border-top pt-1 mt-1 bg-white rounded-bottom">
               ${subCount === 0 
-                ? '<span class="text-danger small fw-bold">⚠️ 群組內的小包已被刪除，請重新合成。</span>' 
+                ? '<span class="text-danger small fw-bold">⚠️ 群組空了，請重新編輯。</span>' 
                 : subs.map(subId => {
-                    const subPkg = presetPackages[subId];
-                    const subItemCount = Object.keys(subPkg.rules||{}).length;
-                    return '<span class="badge bg-white text-dark border border-secondary" title="包含 ' + subItemCount + ' 條條件">' + subPkg.name + ' <small class="text-muted">(' + subItemCount + ')</small></span>';
+                    const subItemCount = Object.keys(presetPackages[subId].rules||{}).length;
+                    return '<span class="badge bg-light text-dark border border-secondary" title="包含 ' + subItemCount + ' 條條件">' + presetPackages[subId].name + '</span>';
                   }).join('')
               }
             </div>
@@ -2991,15 +3074,14 @@
         `;
       } else {
         wrapper.innerHTML = `
-          <div class="btn-group shadow-sm mb-1 me-1 d-inline-flex" style="height: 26px;">
-            <button type="button" class="btn btn-outline-dark fw-bold text-truncate py-0 px-2 bg-white" style="max-width: 140px; font-size: 0.8rem;" onclick="applyPresetPackage('${pkgId}')" title="${pkg.name}\n含 ${count} 條搜尋條件">
-              ⭐ ${pkg.name} <span class="badge bg-secondary" style="font-size:0.65rem;">${count}</span>
+          <div class="btn-group shadow-sm w-100" style="height: 32px;">
+            <button type="button" class="btn btn-outline-dark fw-bold text-start text-truncate flex-grow-1 px-2 bg-white" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="${pkg.name}\n含 ${count} 條條件">
+              ⭐ ${pkg.name} <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
-            <button type="button" class="btn btn-outline-primary py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
-            <button type="button" class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
+            <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
+            <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
           </div>
         `;
-        wrapper.className = "d-inline-block";
       }
       container.appendChild(wrapper);
     });
@@ -3099,8 +3181,12 @@
     if (badgeEl) badgeEl.style.display = (hasBrandTotalMode && (metaData.mode === "daily")) ? "inline-block" : "none";
   }
 
-  // 盤點：合成群組腳本
+  // ================= 盤點大群組邏輯 =================
   function openCreateInvGroupModal() {
+    currentEditingInvGroupId = null; // 重置為新建狀態
+    document.querySelector('#createInvGroupModal .modal-title').innerText = "合成盤點大群組包";
+    document.getElementById("newInvGroupPkgName").value = "";
+
     const container = document.getElementById("invGroupSelectableList");
     if (!container) return;
     container.innerHTML = "";
@@ -3111,7 +3197,6 @@
     pkgKeys.forEach(pkgId => {
       const pkg = presetPackages[pkgId];
       const count = getRulesArrayFromInvPackage(pkg).length;
-      
       const div = document.createElement("div");
       div.className = "form-check mb-1";
       div.innerHTML = `
@@ -3122,8 +3207,41 @@
       `;
       container.appendChild(div);
     });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('createInvGroupModal')).show();
+  }
+  // 編輯現有的盤點大群組
+  function editInvGroup(groupId) {
+    currentEditingInvGroupId = groupId;
+    const groupPkg = presetPackages[groupId];
+    if(!groupPkg) return;
 
-    document.getElementById("newInvGroupPkgName").value = "";
+    document.querySelector('#createInvGroupModal .modal-title').innerText = "編輯盤點大群組包";
+    document.getElementById("newInvGroupPkgName").value = groupPkg.name || "";
+
+    const container = document.getElementById("invGroupSelectableList");
+    container.innerHTML = "";
+
+    const pkgKeys = Object.keys(presetPackages).filter(k => !presetPackages[k].isGroup);
+    let existingSubs = [];
+    if(groupPkg.subPackages) {
+       existingSubs = Array.isArray(groupPkg.subPackages) ? groupPkg.subPackages : Object.values(groupPkg.subPackages);
+    }
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = presetPackages[pkgId];
+      const count = getRulesArrayFromInvPackage(pkg).length;
+      const isChecked = existingSubs.includes(pkgId) ? "checked" : "";
+      
+      const div = document.createElement("div");
+      div.className = "form-check mb-1";
+      div.innerHTML = `
+        <input class="form-check-input inv-group-pkg-checkbox" type="checkbox" value="${pkgId}" id="chk_inv_grp_${pkgId}" ${isChecked}>
+        <label class="form-check-label small" for="chk_inv_grp_${pkgId}">
+          <strong>${pkg.name}</strong> <span class="text-muted">(${count}條條件)</span>
+        </label>
+      `;
+      container.appendChild(div);
+    });
     bootstrap.Modal.getOrCreateInstance(document.getElementById('createInvGroupModal')).show();
   }
 
@@ -3137,15 +3255,25 @@
     const subPkgIds = [];
     checkedBoxes.forEach(cb => subPkgIds.push(cb.value));
 
-    presetsRef.push({
+    const payload = {
       name: groupName,
       isGroup: true,
       subPackages: subPkgIds,
-      createdAt: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => {
-      alert(`🎉 成功建立盤點大群組【${groupName}】！`);
-      bootstrap.Modal.getInstance(document.getElementById('createInvGroupModal')).hide();
-    }).catch(err => alert("合成失敗: " + err.message));
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    if (currentEditingInvGroupId) {
+      presetsRef.child(currentEditingInvGroupId).update(payload).then(() => {
+        alert(`🎉 成功更新盤點大群組【${groupName}】！`);
+        bootstrap.Modal.getInstance(document.getElementById('createInvGroupModal')).hide();
+      }).catch(err => alert("更新失敗: " + err.message));
+    } else {
+      payload.createdAt = firebase.database.ServerValue.TIMESTAMP;
+      presetsRef.push(payload).then(() => {
+        alert(`🎉 成功建立盤點大群組【${groupName}】！`);
+        bootstrap.Modal.getInstance(document.getElementById('createInvGroupModal')).hide();
+      }).catch(err => alert("合成失敗: " + err.message));
+    }
   }
 
   function getBrandTotalRule(item) {
