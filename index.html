@@ -370,8 +370,8 @@
     <!-- 管理功能區塊 -->
     <div id="adminPanel" class="card shadow-sm mb-3" style="display: none;">
       <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
-        <span>盤點條件設定</span>
-        <button class="btn btn-sm btn-close" onclick="toggleAdmin()"></button>
+        <span class="text-primary fw-bold">盤點條件設定</span>
+        <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="toggleAdmin()">⬅️ 返回盤點總覽</button>
       </div>
       <div class="card-body">
         <!-- 區塊 A: 日常盤點多條件維護庫 -->
@@ -642,7 +642,7 @@
     <div class="card shadow-sm mb-3 border-warning">
       <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">
         <span>門市智慧補貨管理中心</span>
-        <button class="btn btn-sm btn-dark fw-bold" id="btnToggleRepAdmin" onclick="toggleReplenishAdmin()">補貨條件設定</button>
+        <button class="btn btn-sm btn-light border-dark text-dark fw-bold shadow-sm" id="btnToggleRepAdmin" onclick="toggleReplenishAdmin()">補貨條件設定</button>
       </div>
       <div class="card-body">
         <div id="replenishAdminPanel" class="p-3 mb-3 border rounded bg-white shadow-sm" style="display: none;">
@@ -1429,22 +1429,35 @@
     switchMainTab('viewReplenish');
   }
 
+  // 盤點條件設定：展開時隱藏主任務卡片，避免畫面堆疊混亂
   function toggleAdmin() {
-    const p = document.getElementById("adminPanel");
-    p.style.display = p.style.display === "none" ? "block" : "none";
+    const adminP = document.getElementById("adminPanel");
+    // 找到 viewDashboard 內部的第一個任務摘要 card
+    const mainTaskCard = document.querySelector("#viewDashboard > .card.border-primary");
+    
+    if (adminP.style.display === "none" || adminP.style.display === "") {
+      adminP.style.display = "block";
+      if (mainTaskCard) mainTaskCard.style.display = "none"; // 隱藏開始盤點主畫面
+      adminP.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      adminP.style.display = "none";
+      if (mainTaskCard) mainTaskCard.style.display = "block"; // 返回時重新顯示
+    }
   }
 
+  // 補貨條件設定：美化切換配色與文字
   function toggleReplenishAdmin() {
     const p = document.getElementById("replenishAdminPanel");
     const btn = document.getElementById("btnToggleRepAdmin");
-    if (p.style.display === "none") {
+    if (p.style.display === "none" || p.style.display === "") {
       p.style.display = "block";
-      btn.innerText = "返回補貨清單";
-      btn.classList.replace("btn-dark", "btn-secondary");
+      btn.innerText = "⬅️ 返回補貨清單";
+      btn.className = "btn btn-sm btn-secondary text-white fw-bold shadow-sm";
+      p.scrollIntoView({ behavior: 'smooth' });
     } else {
       p.style.display = "none";
       btn.innerText = "補貨條件設定";
-      btn.classList.replace("btn-secondary", "btn-dark");
+      btn.className = "btn btn-sm btn-light border-dark text-dark fw-bold shadow-sm";
     }
   }
 
