@@ -768,21 +768,20 @@
 
         <!-- 補貨即時預覽表格 -->
         <div class="table-responsive border rounded" style="max-height: 45vh;">
-          <table class="table table-striped table-hover table-sm mb-0 text-nowrap" style="font-size: 0.88rem;">
+          <table class="table table-striped table-hover table-sm mb-0" style="font-size: 0.88rem;">
             <thead class="table-light sticky-top text-center">
               <tr>
-                <th>條碼編號 (可掃描)</th>
-                <th>貨號 / 度數</th>
-                <th>中文品名</th>
-                <th>目前庫存</th>
-                <th>安全水位</th>
-                <th>起訂 / 倍數</th>
-                <th class="text-danger fw-bold">建議補貨量</th>
-                <th>狀態</th>
+                <th style="width: 140px;">條碼編號</th>
+                <th>貨號 / 中文品名</th>
+                <th style="width: 70px;">目前庫存</th>
+                <th style="width: 70px;">安全水位</th>
+                <th style="width: 80px;">起訂/倍數</th>
+                <th class="text-danger fw-bold" style="width: 90px;">建議補貨量</th>
+                <th style="width: 120px;">狀態</th>
               </tr>
             </thead>
             <tbody id="replenishTableBody">
-              <tr><td colspan="8" class="text-center text-muted py-3">正在計算補貨資料...</td></tr>
+              <tr><td colspan="7" class="text-center text-muted py-3">正在計算補貨資料...</td></tr>
             </tbody>
           </table>
         </div>
@@ -873,10 +872,13 @@
         <div id="printableReplenishArea" class="print-area">
           <div class="text-center mb-2">
             <h4 class="fw-bold mb-1">門市商品補貨採購申請單</h4>
-            <div class="small text-muted d-flex justify-content-between px-2">
+            <div class="small text-muted d-flex justify-content-between px-2 align-items-end">
               <span>申請門市：<strong id="repPrintWhName">南崁中正</strong></span>
               <span>申請人員：<strong id="repPrintStaff">-</strong></span>
-              <span>申請日期：<strong id="repPrintDate">-</strong></span>
+              <span class="d-flex align-items-center gap-1">
+                <svg id="printZeroBarcode" class="barcode-svg m-0" style="height: 22px; max-width: 50px;"></svg>
+                <span>申請日期：<strong id="repPrintDate">-</strong></span>
+              </span>
             </div>
           </div>
 
@@ -884,14 +886,14 @@
             <thead class="table-light text-center align-middle">
               <tr>
                 <th style="width: 35px;">序</th>
-                <th style="width: 155px;">條碼 (條碼機可刷)</th>
-                <th style="width: 110px;">貨號 / 規格</th>
-                <th>中文品名 (含度數)</th>
-                <th style="width: 50px;">現存</th>
-                <th style="width: 50px;">水位</th>
-                <th style="width: 75px;">起訂/倍數</th>
-                <th style="width: 75px; background-color: #d1e7dd !important;">建議補貨</th>
-                <th style="width: 85px; background-color: #fff3cd !important;">實訂數量</th>
+                <th style="width: 145px;">條碼 </th>
+                <th>貨號 / 中文品名</th>
+                <th style="width: 45px;">現存</th>
+                <th style="width: 45px;">水位</th>
+                <th style="width: 60px;">起訂/倍數</th>
+                <th style="width: 70px; background-color: #d1e7dd !important;">建議補貨</th>
+                <th style="width: 85px;">狀態</th>
+                <th style="width: 75px; background-color: #fff3cd !important;">實訂數量</th>
               </tr>
             </thead>
             <tbody id="printReplenishTableBody"></tbody>
@@ -2532,6 +2534,8 @@
       const moq = parseFloat(rule.moq) || 1;
       const vendorMoq = parseFloat(rule.vendorMoq) || 1;
       const brandName = cleanString(rule.brand) || "預設廠商";
+      
+      const groupKey = cleanString(rule.groupPkgName) || brandName;
 
       const safeKey = barcodeToKeyMap[targetCode];
       const matchedItem = safeKey ? fullInventory[safeKey] : null;
@@ -2546,7 +2550,8 @@
       if (currentStock < safety) {
         const rawDeficit = safety - currentStock;
         needQty = Math.max(rawDeficit, moq);
-        status = `<span class="text-danger fw-bold">需補 ${needQty}</span>`;
+        // 缺貨時淨空狀態欄，只顯示下方的門檻進度
+        status = ``; 
         totalNeedCount++;
         totalQtySum += needQty;
       }
@@ -2556,6 +2561,7 @@
         itemCode: matchedItem ? (matchedItem.itemCode || targetCode) : targetCode,
         name: matchedItem ? matchedItem.name : (rule.name || targetCode),
         brand: brandName,
+        groupKey: groupKey,
         warehouse: matchedItem ? (matchedItem.warehouse || "") : "",
         currentStock: currentStock,
         safetyStock: safety,
@@ -2575,7 +2581,7 @@
     const vendorSummaryMap = {};
     calculatedReplenishList.forEach(item => {
       if (item.needQty > 0) {
-        const bKey = item.brand || "未分類廠商";
+        const bKey = item.groupKey || "未分類廠商"; 
         if (!vendorSummaryMap[bKey]) {
           vendorSummaryMap[bKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
         }
@@ -2593,15 +2599,17 @@
     }
 
     if (displayList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-success py-3">目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
       return;
     }
 
-    displayList.forEach(item => {
+    displayList.forEach((item, index) => {
       const tr = document.createElement("tr");
+      const safeCode = cleanString(item.barcode || item.itemCode);
+      const svgId = `web_rep_bc_${index}`;
 
       let vendorStatusBadge = "";
-      const bKey = item.brand || "未分類廠商";
+      const bKey = item.groupKey || "未分類廠商"; 
       const vInfo = vendorSummaryMap[bKey];
 
       if (vInfo && vInfo.threshold > 1) {
@@ -2613,19 +2621,33 @@
       }
 
       tr.innerHTML = `
-        <td class="fw-bold">${item.barcode}</td>
-        <td>${item.itemCode || '-'}</td>
-        <td>${item.name || '-'}</td>
-        <td class="fw-bold text-center ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
-        <td class="text-center fw-bold text-primary">${item.safetyStock}</td>
-        <td class="small text-center">MOQ:${item.moq}</td>
-        <td class="fw-bold text-center fs-6 ${item.needQty > 0 ? 'text-danger' : 'text-muted'}">${item.needQty}</td>
         <td class="text-center align-middle">
-          <div>${item.status}</div>
+          <svg id="${svgId}" class="barcode-svg" style="height: 32px;"></svg>
+          <div class="fw-bold mt-1" style="font-size: 0.85rem;">${item.barcode}</div>
+        </td>
+        <td class="align-middle text-wrap" style="max-width: 250px;">
+          <div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>
+          <div style="font-size: 0.9rem; line-height: 1.2;">${item.name || '-'}</div>
+        </td>
+        <td class="fw-bold text-center align-middle ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
+        <td class="text-center fw-bold text-primary align-middle">${item.safetyStock}</td>
+        <td class="small text-center align-middle">MOQ:${item.moq}</td>
+        <td class="fw-bold text-center fs-5 align-middle ${item.needQty > 0 ? 'text-danger' : 'text-muted'}">${item.needQty}</td>
+        <td class="text-center align-middle">
+          ${item.status}
           ${vendorStatusBadge}
         </td>
       `;
       tbody.appendChild(tr);
+
+      // 產生網頁版的條碼圖示
+      setTimeout(() => {
+        try {
+          JsBarcode(`#${svgId}`, safeCode, {
+            format: "CODE128", width: 1.2, height: 26, displayValue: false, margin: 0
+          });
+        } catch (e) {}
+      }, 10);
     });
   }
 
@@ -2639,13 +2661,21 @@
 
     document.getElementById("repPrintStaff").innerText = boundUser || "門市人員";
     document.getElementById("repPrintDate").innerText = new Date().toLocaleDateString();
+    
+    // 渲染列印單專屬的 00 條碼
+    setTimeout(() => {
+      try {
+        JsBarcode("#printZeroBarcode", "00", { format: "CODE128", width: 1.5, height: 22, displayValue: false, margin: 0 });
+      } catch(e){}
+    }, 10);
+
     if (needList[0] && needList[0].warehouse) {
       document.getElementById("repPrintWhName").innerText = needList[0].warehouse;
     }
 
     const vendorSummaryMap = {};
     needList.forEach(item => {
-      const vKey = item.brand || "常用廠商";
+      const vKey = item.groupKey || item.brand || "常用廠商"; 
       if (!vendorSummaryMap[vKey]) {
         vendorSummaryMap[vKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
       }
@@ -2657,37 +2687,38 @@
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `rep_bc_${index}`;
 
-      let vendorTagHtml = "";
-      const vKey = item.brand || "常用廠商";
+      // 獨立的狀態欄 HTML
+      let vendorStatusHtml = "";
+      const vKey = item.groupKey || item.brand || "常用廠商";
       const vInfo = vendorSummaryMap[vKey];
 
       if (vInfo && vInfo.threshold > 1) {
         if (vInfo.totalQty >= vInfo.threshold) {
-          vendorTagHtml = `<div style="font-size: 0.72rem; line-height: 1.1; margin-top: 2px; color: #198754;">[廠牌達標 ${vInfo.totalQty}/${vInfo.threshold}]</div>`;
+          vendorStatusHtml = `<div style="font-size: 0.72rem; color: #198754; font-weight: bold;">已達門檻<br>(${vInfo.totalQty}/${vInfo.threshold})</div>`;
         } else {
           const diff = vInfo.threshold - vInfo.totalQty;
-          vendorTagHtml = `<div style="font-size: 0.72rem; line-height: 1.1; margin-top: 2px; color: #dc3545;">[廠牌缺${diff}達標 ${vInfo.totalQty}/${vInfo.threshold}]</div>`;
+          vendorStatusHtml = `<div style="font-size: 0.72rem; color: #dc3545; font-weight: bold;">缺 ${diff} 達標<br>(${vInfo.totalQty}/${vInfo.threshold})</div>`;
         }
       }
 
       tr.innerHTML = `
-        <td class="text-center" style="height: 46px;">${index + 1}</td>
-        <td class="text-center" style="height: 46px;">
-          <svg id="${svgId}" class="barcode-svg"></svg>
-          <div class="small fw-bold font-monospace" style="font-size: 0.72rem; line-height: 1;">${safeCode}</div>
+        <td class="text-center align-middle" style="height: 46px;">${index + 1}</td>
+        <td class="text-center align-middle" style="height: 46px;">
+          <svg id="${svgId}" class="barcode-svg" style="height: 24px;"></svg>
+          <div class="small fw-bold font-monospace" style="font-size: 0.75rem; line-height: 1; margin-top: 2px;">${safeCode}</div>
         </td>
-        <td class="small text-center" style="height: 46px;"><strong>${item.itemCode || '-'}</strong></td>
-        <td style="height: 46px; vertical-align: middle;">
-          <div style="line-height: 1.15; font-size: 0.82rem; font-weight: 500;">${item.name || '-'}</div>
-          ${vendorTagHtml}
+        <td class="align-middle" style="height: 46px;">
+          <div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>
+          <div style="line-height: 1.15; font-size: 0.85rem; font-weight: 500;">${item.name || '-'}</div>
         </td>
-        <td class="text-center fw-bold ${item.currentStock === 0 ? 'text-danger' : ''}" style="height: 46px;">${item.currentStock}</td>
-        <td class="text-center" style="height: 46px;">${item.safetyStock}</td>
-        <td class="text-center small" style="height: 46px;">${item.moq}</td>
-        <td class="text-center fw-bold text-success fs-6" style="height: 46px; background-color: #e8f5e9 !important;">${item.needQty}</td>
-        <td class="text-center" style="height: 46px; background-color: #fffde7; font-weight: bold; border-left: 2px solid #ffc107 !important;">
-          __________
+        <td class="text-center fw-bold align-middle ${item.currentStock === 0 ? 'text-danger' : ''}" style="height: 46px;">${item.currentStock}</td>
+        <td class="text-center align-middle" style="height: 46px;">${item.safetyStock}</td>
+        <td class="text-center small align-middle" style="height: 46px;">${item.moq}</td>
+        <td class="text-center fw-bold text-success fs-6 align-middle" style="height: 46px; background-color: #e8f5e9 !important;">${item.needQty}</td>
+        <td class="text-center align-middle" style="height: 46px; line-height: 1.2;">
+          ${vendorStatusHtml}
         </td>
+        <td class="text-center align-middle" style="height: 46px; background-color: #fffde7; border-left: 2px solid #ffc107 !important;"></td>
       `;
       tbody.appendChild(tr);
 
