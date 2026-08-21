@@ -283,7 +283,7 @@
   </div>
 </nav>
 
-<!-- 專屬浮動即時提示卡 (純文字簡潔風格) -->
+<!-- 專屬浮動即時提示卡 -->
 <div id="myScanToast" class="alert alert-success alert-dismissible fade show mb-0 no-print" role="alert">
   <div>
     <strong id="toastTitle">已盤入商品</strong>
@@ -295,6 +295,21 @@
 <input type="checkbox" id="iosHapticTrigger" style="position: fixed; opacity: 0; pointer-events: none; z-index: -999; bottom: 0;">
 
 <div class="container pt-3 pb-5">
+  <!-- ================= 頂部頁籤導航列 (專屬柔和主題配色) ================= -->
+  <ul class="nav nav-pills mb-3 no-print p-1 bg-white border rounded shadow-sm" id="mainTabBar" style="display: none;">
+    <li class="nav-item" style="width: 25%; text-align: center;">
+      <a class="nav-link fw-bold text-secondary py-2 px-1" id="tabBtnDashboard" href="#" onclick="switchMainTab('viewDashboard')" style="border-radius: 6px; font-size: 0.9rem;">盤點系統</a>
+    </li>
+    <li class="nav-item" style="width: 25%; text-align: center;">
+      <a class="nav-link fw-bold text-secondary py-2 px-1" id="tabBtnReplenish" href="#" onclick="switchMainTab('viewReplenish')" style="border-radius: 6px; font-size: 0.9rem;">補貨系統</a>
+    </li>
+    <li class="nav-item" style="width: 25%; text-align: center;">
+      <a class="nav-link fw-bold text-secondary py-2 px-1" id="tabBtnUpload" href="#" onclick="switchMainTab('viewUpload')" style="border-radius: 6px; font-size: 0.9rem;">資料上傳</a>
+    </li>
+    <li class="nav-item" style="width: 25%; text-align: center;">
+      <a class="nav-link fw-bold text-secondary py-2 px-1" id="tabBtnMaintenance" href="#" onclick="switchMainTab('viewMaintenance')" style="border-radius: 6px; font-size: 0.9rem;">維護</a>
+    </li>
+  </ul>
 
   <!-- ================= 視圖 1: 首次綁定裝置畫面 ================= -->
   <div id="viewBind" class="page-view active no-print">
@@ -322,7 +337,7 @@
             <span class="badge bg-primary fs-6" id="displayTaskMode">全盤模式</span>
             <span class="badge bg-secondary fs-6" id="displayScopeInfo">全部品項</span>
           </div>
-          <button class="btn btn-sm btn-outline-secondary" onclick="toggleAdmin()">管理與各項設定</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="toggleAdmin()">盤點條件設定</button>
         </div>
         <div class="small text-muted mb-2">
           🕒 盤點基準時間：<strong id="displayInventoryTime" class="text-dark">尚未建立</strong>
@@ -341,13 +356,10 @@
         <div class="d-grid gap-2">
           <button class="btn btn-success py-3 fs-5 fw-bold shadow" onclick="goToScanning()">開始盤點作業</button>
           <div class="row g-2">
-            <div class="col-4">
+            <div class="col-6">
               <button class="btn btn-outline-primary w-100 py-2 fw-bold" onclick="openPrintReportModal()">盤點清單</button>
             </div>
-            <div class="col-4">
-              <button class="btn btn-outline-warning text-dark w-100 py-2 fw-bold" onclick="goToReplenish()">智慧補貨</button>
-            </div>
-            <div class="col-4">
+            <div class="col-6">
               <button class="btn btn-outline-dark w-100 py-2 fw-bold" onclick="openFramesYearModal()">鏡框年份</button>
             </div>
           </div>
@@ -358,11 +370,10 @@
     <!-- 管理功能區塊 -->
     <div id="adminPanel" class="card shadow-sm mb-3" style="display: none;">
       <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
-        <span>⚙️ 系統維護中心</span>
+        <span>盤點條件設定</span>
         <button class="btn btn-sm btn-close" onclick="toggleAdmin()"></button>
       </div>
       <div class="card-body">
-        
         <!-- 區塊 A: 日常盤點多條件維護庫 -->
         <div class="p-3 mb-3 border rounded bg-white">
           <div class="d-flex justify-content-between align-items-center mb-2">
@@ -400,7 +411,7 @@
             </div>
           </div>
 
-          <!-- 盤點套用中條件清單 (單一樹狀編輯區：加高並支援自由拉伸) -->
+          <!-- 盤點套用中條件清單 -->
           <div class="fw-bold small text-success mb-1 mt-3">🟢 目前套用的盤點條件 (樹狀編輯區)：</div>
           <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 320px; min-height: 150px; max-height: 60vh; overflow-y: auto; resize: vertical;">
             <div id="filterRuleListContainer" class="accordion accordion-flush gap-1 d-flex flex-column">
@@ -418,7 +429,7 @@
             </div>
           </div>
 
-          <!-- 常用快選條件包專區 (網格化與搜尋) -->
+          <!-- 常用快選條件包專區 -->
           <div class="p-2 border rounded bg-light mt-3">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
               <span class="small fw-bold text-secondary">⭐ 我的盤點常用快選包：</span>
@@ -428,17 +439,67 @@
                 <span id="presetCountBadge" class="badge bg-secondary small">0 組</span>
               </div>
             </div>
-            <!-- 即時搜尋列 -->
             <input type="text" class="form-control form-control-sm mb-2" placeholder="🔍 搜尋快選包名稱..." onkeyup="filterPackages(this.value, 'presetPackagesContainer')">
-            <!-- 雙欄排版容器 -->
             <div id="presetPackagesContainer" class="row g-2">
               <div class="col-12"><span class="text-muted small">尚未儲存常用快選包。</span></div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- 區塊 B: 人員與代碼開通管理 -->
+  <!-- ================= 視圖 5: 資料上傳 ================= -->
+  <div id="viewUpload" class="page-view no-print">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
         <div class="p-3 mb-3 border rounded bg-white">
+          <h6 class="fw-bold text-primary">📁 檔案匯入 (自動去除 ERP 不可見控制碼)</h6>
+          <p class="small text-muted mb-2">自動相容 ERP 隱藏格式、不可見字元與空格，<strong>條件與人員名單永久保留</strong>。</p>
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">1. 庫存檔案 (.xlsx/.csv)</label>
+              <input type="file" id="invFile" class="form-control form-control-sm" accept=".xlsx, .xls, .csv">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">2. 訂金未銷貨檔案 (.xlsx/.csv)</label>
+              <input type="file" id="depFile" class="form-control form-control-sm" accept=".xlsx, .xls, .csv">
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <button id="btnStartImport" class="btn btn-primary btn-sm" onclick="importExcelData()">⚡ 開始解析並分批上傳</button>
+            <button class="btn btn-outline-success btn-sm" onclick="exportReport()">匯出盤差 Excel</button>
+          </div>
+          <div id="importProgressBar" class="progress mt-2 d-none" style="height: 20px;">
+            <div id="importProgress" class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: 0%;">0%</div>
+          </div>
+          <div id="importStatus" class="small text-muted mt-2"></div>
+        </div>
+
+        <div class="p-3 border rounded bg-light mt-3">
+          <div class="small fw-bold text-secondary mb-2">⚠️ 數據重置管理 (人員名單與日常自訂條件將永久保留)：</div>
+          <div class="row g-2">
+            <div class="col-6">
+              <button class="btn btn-outline-warning text-dark btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetOnlyCountedData()">
+                🧹 僅清除已盤庫存<br><span style="font-size: 0.72rem; font-weight: normal;">(保留匯入商品，數量全歸零)</span>
+              </button>
+            </div>
+            <div class="col-6">
+              <button class="btn btn-outline-danger btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetAllImportedData()">
+                🗑️ 清除所有匯入資料<br><span style="font-size: 0.72rem; font-weight: normal;">(完整清空 Excel 庫存資料庫)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 視圖 6: 維護 ================= -->
+  <div id="viewMaintenance" class="page-view no-print">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="p-3 border rounded bg-white">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="fw-bold text-primary mb-0">🔑 人員開通</h6>
             <span id="staffLockStatus" class="badge bg-secondary small">🔒 未解鎖</span>
@@ -477,54 +538,12 @@
             </div>
           </div>
         </div>
-
-        <!-- 區塊 C: 檔案匯入 (增強 C 欄顧客姓名與 Y 欄單號解析) -->
-        <div class="p-3 mb-3 border rounded bg-white">
-          <h6 class="fw-bold text-primary">📁 檔案匯入 (自動去除 ERP 不可見控制碼)</h6>
-          <p class="small text-muted mb-2">自動相容 ERP 隱藏格式、不可見字元與空格，<strong>條件與人員名單永久保留</strong>。</p>
-          <div class="row g-2 mb-2">
-            <div class="col-md-6">
-              <label class="form-label small fw-bold">1. 庫存檔案 (.xlsx/.csv)</label>
-              <input type="file" id="invFile" class="form-control form-control-sm" accept=".xlsx, .xls, .csv">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label small fw-bold">2. 訂金未銷貨檔案 (.xlsx/.csv)</label>
-              <input type="file" id="depFile" class="form-control form-control-sm" accept=".xlsx, .xls, .csv">
-            </div>
-          </div>
-          <div class="d-flex gap-2">
-            <button id="btnStartImport" class="btn btn-primary btn-sm" onclick="importExcelData()">⚡ 開始解析並分批上傳</button>
-            <button class="btn btn-outline-success btn-sm" onclick="exportReport()">匯出盤差 Excel</button>
-          </div>
-          <div id="importProgressBar" class="progress mt-2 d-none" style="height: 20px;">
-            <div id="importProgress" class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: 0%;">0%</div>
-          </div>
-          <div id="importStatus" class="small text-muted mt-2"></div>
-        </div>
-
-        <!-- 重置數據雙重專屬操作按鈕 -->
-        <div class="p-3 border rounded bg-light mt-3">
-          <div class="small fw-bold text-secondary mb-2">⚠️ 數據重置管理 (人員名單與日常自訂條件將永久保留)：</div>
-          <div class="row g-2">
-            <div class="col-6">
-              <button class="btn btn-outline-warning text-dark btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetOnlyCountedData()">
-                🧹 僅清除已盤庫存<br><span style="font-size: 0.72rem; font-weight: normal;">(保留匯入商品，數量全歸零)</span>
-              </button>
-            </div>
-            <div class="col-6">
-              <button class="btn btn-outline-danger btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetAllImportedData()">
-                🗑️ 清除所有匯入資料<br><span style="font-size: 0.72rem; font-weight: normal;">(完整清空 Excel 庫存資料庫)</span>
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
 
-  <!-- ================= 視圖 3: 盤點作業畫面 (相機置頂 + 緊湊雙層動態) ================= -->
+  <!-- ================= 視圖 3: 盤點作業畫面 ================= -->
   <div id="viewScanning" class="page-view no-print">
-    <!-- 頂層緊湊統計列 -->
     <div class="card bg-dark text-white shadow-sm mb-2">
       <div class="card-body py-1 px-3">
         <div class="d-flex justify-content-between align-items-center">
@@ -541,17 +560,14 @@
       </div>
     </div>
 
-    <!-- 快捷功能列與品牌總量模式標籤 -->
     <div class="d-flex gap-2 mb-2 align-items-center">
       <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.8rem;" onclick="goToDashboard()">⬅️ 返回</button>
       <span id="brandTotalModeBadge" class="badge bg-warning text-dark px-2 py-1" style="display: none; font-size: 0.78rem;">品牌總量盤點模式已啟用</span>
       <button class="btn btn-outline-info btn-sm py-0 px-2 ms-auto" style="font-size: 0.8rem;" onclick="showUncountedModal()">📋 未盤清單</button>
     </div>
 
-    <!-- 1. 最上方：相機掃描、位置切換與輸入操作區 -->
     <div class="card shadow-sm mb-2 border-primary">
       <div class="card-body p-2">
-        <!-- 盤點位置快速切換膠囊 -->
         <div class="mb-2 bg-light p-2 rounded border">
           <div class="d-flex justify-content-between align-items-center mb-1">
             <span class="text-dark fw-bold" style="font-size: 0.82rem;">📍 請選擇盤點分區 (必選)：</span>
@@ -572,18 +588,15 @@
           </div>
         </div>
 
-        <!-- 相機視窗 -->
         <div id="scannerContainer" class="mb-2" style="display: none;">
           <div id="reader" class="scan-area"></div>
         </div>
 
-        <!-- 手動輸入列 -->
         <div class="input-group input-group-sm mb-2">
           <input type="text" id="inputBarcode" class="form-control" placeholder="手動輸入條碼/貨號 (按 Enter 盤入)" onkeydown="if(event.key==='Enter') handleManualBarcodeSubmit()">
           <button class="btn btn-primary px-3 fw-bold" type="button" onclick="handleManualBarcodeSubmit()">🔍 盤入</button>
         </div>
 
-        <!-- 控制按鈕列 -->
         <div class="d-flex justify-content-between align-items-center pt-1 border-top">
           <div class="d-flex gap-1">
             <button class="btn btn-success btn-sm py-1 px-3 fw-bold" id="btnToggleCam" onclick="toggleScanner()" style="font-size: 0.82rem;">📷 開啟相機掃描</button>
@@ -603,7 +616,6 @@
       </div>
     </div>
 
-    <!-- 2. 中間：我的即時盤點紀錄 -->
     <div class="card mb-2 border-success shadow-sm">
       <div class="card-header bg-success text-white py-1 px-2 d-flex justify-content-between align-items-center">
         <span class="small fw-bold">👤 我的即時盤點紀錄 (同品項收合)</span>
@@ -614,7 +626,6 @@
       </div>
     </div>
 
-    <!-- 3. 最下方：全員即時盤點動態 -->
     <div class="card mb-4 border-primary shadow-sm">
       <div class="card-header bg-primary text-white py-1 px-2 d-flex justify-content-between align-items-center">
         <span class="small fw-bold">👥 全員即時盤點動態 (同品項收合)</span>
@@ -626,19 +637,14 @@
     </div>
   </div>
 
-  <!-- ================= 視圖 4: 智慧補貨模式 (樞紐分類 + 直綁商品 + 大群組合成) ================= -->
+  <!-- ================= 視圖 4: 智慧補貨模式 ================= -->
   <div id="viewReplenish" class="page-view no-print">
     <div class="card shadow-sm mb-3 border-warning">
       <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">
-        <span>🛒 門市智慧補貨管理中心</span>
-        <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-dark" onclick="toggleReplenishAdmin()">⚙️ 補貨條件設定</button>
-          <button class="btn btn-sm btn-dark" onclick="goToDashboard()">⬅️ 返回總覽</button>
-        </div>
+        <span>門市智慧補貨管理中心</span>
+        <button class="btn btn-sm btn-dark fw-bold" id="btnToggleRepAdmin" onclick="toggleReplenishAdmin()">補貨條件設定</button>
       </div>
       <div class="card-body">
-        
-        <!-- 補貨獨立多條件維護面板 -->
         <div id="replenishAdminPanel" class="p-3 mb-3 border rounded bg-white shadow-sm" style="display: none;">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="fw-bold text-primary mb-0">🎯 精準品項勾選與批次水位設定 (直接綁定真實貨號)</h6>
@@ -646,7 +652,6 @@
           <p class="small text-muted mb-2">搜尋品牌或品名關鍵字，系統會直接列出庫存中<strong>所有真實商品</strong>。可全選並批次填入水位，亦可各品項獨立修改，零誤差！</p>
           
           <div class="bg-light p-3 rounded mb-3 border small">
-            <!-- 1. 搜尋與讀取真實品項 -->
             <div class="row g-2 mb-2 align-items-end">
               <div class="col-md-5 col-12">
                 <label class="fw-bold">搜尋廠商或品名關鍵字：</label>
@@ -674,7 +679,6 @@
               </div>
             </div>
 
-            <!-- 樞紐系列自動分類標籤 -->
             <div id="pivotSeriesContainer" class="mb-2 p-2 bg-white rounded border" style="display: none;">
               <div class="d-flex justify-content-between align-items-center">
                 <span class="small fw-bold text-secondary" id="pivotSummaryLabel">樞紐系列分類：</span>
@@ -685,7 +689,6 @@
               <div id="pivotSeriesBadges" class="flex-wrap gap-1 mt-2" style="display: flex;"></div>
             </div>
 
-            <!-- 2. 真實商品勾選與獨立修改表格 -->
             <div class="border rounded bg-white mb-2 shadow-inner" style="height: 48vh; min-height: 200px; max-height: 85vh; overflow-y: auto; resize: vertical;">
               <table class="table table-sm table-hover mb-0 align-middle small text-nowrap">
                 <thead class="table-light sticky-top shadow-sm">
@@ -706,14 +709,12 @@
               </table>
             </div>
 
-            <!-- 3. 操作與儲存按鈕 -->
             <div class="d-flex justify-content-between align-items-center mt-2">
               <span class="text-muted small">已勾選 <strong id="selectedDirectItemsCount" class="text-primary">0</strong> / <span id="totalDirectItemsCount">0</span> 筆商品</span>
               <button class="btn btn-success btn-sm px-4 fw-bold shadow-sm" onclick="saveDirectSelectedItemsAsRules()">💾 儲存已勾選商品至補貨清單</button>
             </div>
           </div>
 
-          <!-- 套用中條件清單 (升級為樹狀收合結構) -->
           <div class="fw-bold small text-success mb-1">🟢 套用中條件 (樹狀編輯區)：</div>
           <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 440px; min-height: 200px; max-height: 80vh; overflow-y: auto; resize: vertical;">
             <div id="repRuleCardsContainer" class="accordion accordion-flush gap-1 d-flex flex-column">
@@ -731,7 +732,6 @@
             </div>
           </div>
 
-          <!-- 補貨專屬常用快選條件包專區 (網格化與搜尋) -->
           <div class="p-2 border rounded bg-white mt-2">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
               <span class="small fw-bold text-secondary">⭐ 我的補貨常用快選包：</span>
@@ -741,16 +741,13 @@
                 <span id="repPresetCountBadge" class="badge bg-secondary small">0 組</span>
               </div>
             </div>
-            <!-- 即時搜尋列 -->
             <input type="text" class="form-control form-control-sm mb-2" placeholder="🔍 搜尋快選包名稱..." onkeyup="filterPackages(this.value, 'repPresetPackagesContainer')">
-            <!-- 雙欄排版容器 -->
             <div id="repPresetPackagesContainer" class="row g-2">
               <div class="col-12"><span class="text-muted small">尚未儲存補貨快選包。</span></div>
             </div>
           </div>
         </div>
 
-        <!-- 補貨清單顯示篩選與統計 -->
         <div class="d-flex justify-content-between align-items-center mb-2">
           <div>
             <span class="fw-bold text-danger">需補貨品項 (含 0 庫存斷貨)：<span id="repNeedCount">0</span> 種</span> | 
@@ -766,7 +763,6 @@
           </div>
         </div>
 
-        <!-- 補貨即時預覽表格 -->
         <div class="table-responsive border rounded" style="max-height: 45vh;">
           <table class="table table-striped table-hover table-sm mb-0" style="font-size: 0.88rem;">
             <thead class="table-light sticky-top text-center">
@@ -945,7 +941,7 @@
   </div>
 </div>
 
-<!-- 彈出視窗 4: 未被盤到的庫存品項清單 (忽略 0 庫存) -->
+<!-- 彈出視窗 4: 未被盤到的庫存品項清單 -->
 <div class="modal fade" id="uncountedModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
@@ -995,7 +991,7 @@
   </div>
 </div>
 
-<!-- 彈出視窗 6: 門市專屬計算機數字鍵盤 (刷入自動彈出) -->
+<!-- 彈出視窗 6: 門市專屬計算機數字鍵盤 -->
 <div class="modal fade" id="calcKeypadModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered mx-auto" style="max-width: 340px; width: 94%;">
     <div class="modal-content shadow-lg border-0" style="border-radius: 14px; overflow: hidden;">
@@ -1047,7 +1043,7 @@
   </div>
 </div>
 
-<!-- 彈出視窗 7: 鏡框進貨年份分析與專屬列印清單 (置頂訂金 + 忽略0庫存) -->
+<!-- 彈出視窗 7: 鏡框進貨年份分析與專屬列印清單 -->
 <div class="modal fade" id="framesYearModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
@@ -1132,6 +1128,7 @@
     </div>
   </div>
 </div>
+
 <!-- 彈出視窗 10: 合成盤點大群組包彈窗 -->
 <div class="modal fade" id="createInvGroupModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1158,6 +1155,7 @@
     </div>
   </div>
 </div>
+
 <!-- 彈出視窗 9: 從對方系統匯入快選包 -->
 <div class="modal fade" id="importCrossModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1168,9 +1166,7 @@
       </div>
       <div class="modal-body p-3">
         <p class="small text-muted mb-2" id="importCrossDesc">請選擇要從對方系統拷貝過來的快選包：</p>
-        <div id="importCrossList" class="border rounded p-2 bg-light d-flex flex-column gap-1" style="max-height: 250px; overflow-y: auto;">
-          <!-- 動態載入對方清單 -->
-        </div>
+        <div id="importCrossList" class="border rounded p-2 bg-light d-flex flex-column gap-1" style="max-height: 250px; overflow-y: auto;"></div>
       </div>
       <div class="modal-footer py-2 bg-light border-0">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
@@ -1198,10 +1194,10 @@
   const db = firebase.database();
   const metaRef = db.ref("meta");
   const staffRef = db.ref("staff_accounts");
-  const rulesRef = db.ref("filter_rules"); // 盤點條件庫
-  const presetsRef = db.ref("preset_filter_packages"); // 常用快選條件包庫
-  const repRulesRef = db.ref("custom_replenish_rules"); // 補貨獨立多條件庫
-  const repPresetsRef = db.ref("preset_replenish_packages"); // 補貨快選包庫
+  const rulesRef = db.ref("filter_rules");
+  const presetsRef = db.ref("preset_filter_packages");
+  const repRulesRef = db.ref("custom_replenish_rules");
+  const repPresetsRef = db.ref("preset_replenish_packages");
   const invRef = db.ref("inventory");
   const logsRef = db.ref("logs");
 
@@ -1248,7 +1244,6 @@
       showView("viewBind");
     }
 
-    // 防卡保護：最多 2.5 秒自動關閉遮罩
     setTimeout(() => {
       const overlay = document.getElementById("globalLoadingOverlay");
       if (overlay && !overlay.classList.contains("hidden")) overlay.classList.add("hidden");
@@ -1358,7 +1353,102 @@
     });
   }
 
-  // ================= 3. 盤點即時動態 (同品項收合 + 完整條碼品名) =================
+  // ================= 3. 視圖與頁籤切換引擎 =================
+  function showView(viewId) {
+    document.querySelectorAll(".page-view").forEach(v => v.classList.remove("active"));
+    const target = document.getElementById(viewId);
+    if (target) target.classList.add("active");
+
+    const mainTabBar = document.getElementById("mainTabBar");
+    if (viewId === "viewBind" || viewId === "viewScanning") {
+      if (mainTabBar) mainTabBar.style.display = "none";
+    }
+  }
+
+  // ================= 主頁籤切換引擎 (高對比色彩強制套用) =================
+  function switchMainTab(targetViewId) {
+    showView(targetViewId);
+
+    const mainTabBar = document.getElementById("mainTabBar");
+    if (mainTabBar) mainTabBar.style.display = "flex";
+
+    // 4 大頁籤專屬色彩配置 (高對比設定)
+    const tabsConfig = {
+      viewDashboard:   { id: 'tabBtnDashboard',   bg: '#198754', text: '#ffffff' }, // 盤點：綠底 + 純白字
+      viewReplenish:   { id: 'tabBtnReplenish',   bg: '#ffc107', text: '#212529' }, // 補貨：舒服黃底 + 深黑字
+      viewUpload:      { id: 'tabBtnUpload',      bg: '#20c997', text: '#ffffff' }, // 上傳：藍綠底 + 純白字
+      viewMaintenance: { id: 'tabBtnMaintenance', bg: '#6c757d', text: '#ffffff' }  // 維護：灰底 + 純白字
+    };
+
+    // 1. 先將所有按鈕重置為淺灰底、深灰字
+    Object.values(tabsConfig).forEach(tab => {
+      const el = document.getElementById(tab.id);
+      if (el) {
+        el.style.setProperty('background-color', 'transparent', 'important');
+        el.style.setProperty('color', '#495057', 'important');
+        el.classList.remove('shadow-sm');
+      }
+    });
+
+    // 2. 為選中的頁籤強制套用專屬底色與高對比文字顏色
+    const current = tabsConfig[targetViewId];
+    if (current) {
+      const activeEl = document.getElementById(current.id);
+      if (activeEl) {
+        activeEl.style.setProperty('background-color', current.bg, 'important');
+        activeEl.style.setProperty('color', current.text, 'important');
+        activeEl.classList.add('shadow-sm');
+      }
+    }
+
+    // 若切換至補貨系統，觸發計算
+    if (targetViewId === 'viewReplenish') {
+      calculateReplenishment();
+    }
+  }
+
+  function showDashboard() {
+    document.getElementById("navStaffName").innerText = boundUser;
+    document.getElementById("navStaffName").className = "badge bg-primary";
+    document.getElementById("btnResetDevice").style.display = "inline-block";
+    switchMainTab('viewDashboard');
+  }
+
+  function goToDashboard() {
+    try {
+      if (typeof stopScanner === 'function') stopScanner();
+    } catch (e) {}
+    showDashboard();
+  }
+
+  function goToScanning() {
+    showView("viewScanning");
+  }
+
+  function goToReplenish() {
+    switchMainTab('viewReplenish');
+  }
+
+  function toggleAdmin() {
+    const p = document.getElementById("adminPanel");
+    p.style.display = p.style.display === "none" ? "block" : "none";
+  }
+
+  function toggleReplenishAdmin() {
+    const p = document.getElementById("replenishAdminPanel");
+    const btn = document.getElementById("btnToggleRepAdmin");
+    if (p.style.display === "none") {
+      p.style.display = "block";
+      btn.innerText = "返回補貨清單";
+      btn.classList.replace("btn-dark", "btn-secondary");
+    } else {
+      p.style.display = "none";
+      btn.innerText = "補貨條件設定";
+      btn.classList.replace("btn-secondary", "btn-dark");
+    }
+  }
+
+  // ================= 4. 即時動態 =================
   function renderLiveFeeds(logsData) {
     const globalContainer = document.getElementById("globalFeedContainer");
     const myContainer = document.getElementById("myFeedContainer");
@@ -1368,7 +1458,6 @@
       ...log
     })).reverse();
 
-    // 1. 全員即時動態
     if (logsArray.length === 0) {
       document.getElementById("globalScanCountBadge").innerText = `0 品項`;
       globalContainer.innerHTML = `<div class="text-center text-muted small py-3">尚無全員盤點紀錄</div>`;
@@ -1438,7 +1527,6 @@
       }).join("");
     }
 
-    // 2. 個人即時動態
     const myLogs = logsArray.filter(log => log.staff === boundUser);
 
     if (myLogs.length === 0) {
@@ -1579,49 +1667,10 @@
     }
   }
 
-  function showView(viewId) {
-    document.querySelectorAll(".page-view").forEach(v => v.classList.remove("active"));
-    document.getElementById(viewId).classList.add("active");
-  }
-
-  function showDashboard() {
-    document.getElementById("navStaffName").innerText = boundUser;
-    document.getElementById("navStaffName").className = "badge bg-primary";
-    document.getElementById("btnResetDevice").style.display = "inline-block";
-    showView("viewDashboard");
-  }
-
-  function goToDashboard() {
-    try {
-      if (typeof stopScanner === 'function') stopScanner();
-    } catch (e) {}
-    showView("viewDashboard");
-  }
-
-  function goToScanning() {
-    showView("viewScanning");
-  }
-
-  function goToReplenish() {
-    showView("viewReplenish");
-    calculateReplenishment();
-  }
-
-  function toggleAdmin() {
-    const p = document.getElementById("adminPanel");
-    p.style.display = p.style.display === "none" ? "block" : "none";
-  }
-
-  function toggleReplenishAdmin() {
-    const p = document.getElementById("replenishAdminPanel");
-    p.style.display = p.style.display === "none" ? "block" : "none";
-  }
-
   function toggleTaskModeSwitch(isChecked) {
     metaRef.update({ mode: isChecked ? "daily" : "full" });
   }
 
-  // 盤點任務商品判定：嚴格排除庫存 <= 0 的商品
   function isItemInCurrentTask(item) {
     if ((parseFloat(item.systemQty) || 0) <= 0) return false;
 
@@ -1686,7 +1735,7 @@
     bootstrap.Modal.getOrCreateInstance(document.getElementById('targetPreviewModal')).show();
   }
 
-  // ================= 4. 補貨專屬樞紐分類、庫存直讀與快選包管理 =================
+  // ================= 5. 補貨專屬樞紐分類、庫存直讀與快選包管理 =================
   let currentSearchedItems = [];
   let allSearchedRawItems = [];
   let currentSelectedPivotSeries = "all";
@@ -1925,17 +1974,27 @@
   }
 
   function getRulesArrayFromPackage(pkg) {
-    if (!pkg || !pkg.rules) return [];
+    if (!pkg) return [];
+    if (pkg.isGroup && pkg.subPackages) {
+      let combined = [];
+      const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+      subs.forEach(subId => {
+        const subPkg = repPresetPackages[subId];
+        if (subPkg && subPkg.rules) {
+          combined = combined.concat(Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean));
+        }
+      });
+      return combined;
+    }
+    if (!pkg.rules) return [];
     return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
   }
 
-  // 用於追蹤目前正在編輯的大群組 ID
   let currentEditingRepGroupId = null;
   let currentEditingInvGroupId = null;
 
-  // ================= 補貨大群組邏輯 =================
   function openCreateGroupModal() {
-    currentEditingRepGroupId = null; // 重置為新建狀態
+    currentEditingRepGroupId = null;
     document.querySelector('#createGroupModal .modal-title').innerText = "合成廠商大群組包";
     document.getElementById("newGroupPkgName").value = "";
     document.getElementById("newGroupVendorMoq").value = 4;
@@ -1962,7 +2021,7 @@
     });
     bootstrap.Modal.getOrCreateInstance(document.getElementById('createGroupModal')).show();
   }
-  // 編輯現有的補貨大群組
+
   function editRepGroup(groupId) {
     currentEditingRepGroupId = groupId;
     const groupPkg = repPresetPackages[groupId];
@@ -1997,23 +2056,6 @@
       container.appendChild(div);
     });
     bootstrap.Modal.getOrCreateInstance(document.getElementById('createGroupModal')).show();
-  }
-
-  // 動態獲取包內規則：若是大群組，則即時展開並抓取內部小包的最新內容！
-  function getRulesArrayFromPackage(pkg) {
-    if (!pkg) return [];
-    if (pkg.isGroup && pkg.subPackages) {
-      let combined = [];
-      pkg.subPackages.forEach(subId => {
-        const subPkg = repPresetPackages[subId];
-        if (subPkg && subPkg.rules) {
-          combined = combined.concat(Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean));
-        }
-      });
-      return combined;
-    }
-    if (!pkg.rules) return [];
-    return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
   }
 
   function saveCombinedGroupPackage() {
@@ -2186,7 +2228,6 @@
     return matchCount > 0 && (matchCount >= Math.ceil(ruleList.length * 0.5));
   }
 
-  // 啟用或停用補貨快選包 (精準分類：大群組>小包>單品，或 品牌>小包>單品)
   function toggleApplyRepPresetPackage(pkgId) {
     const pkg = repPresetPackages[pkgId];
     if (!pkg) return;
@@ -2209,7 +2250,6 @@
         const updatePayload = {};
         const vMoq = parseFloat(pkg.vendorMoq) || 1;
 
-        // 若為新版動態大群組，逐一展開小包並標記來源
         if (pkg.isGroup && pkg.subPackages) {
           const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
           subs.forEach(subId => {
@@ -2227,12 +2267,10 @@
             }
           });
         } else {
-          // 單一小包 或 舊版群組的處理邏輯
           const ruleList = getRulesArrayFromPackage(pkg);
           ruleList.forEach(r => {
             const code = cleanString(r.barcode || r.keyword || r.itemCode);
             if (code) {
-              // 單一小包套用時：大資料夾設為「品牌名」，子資料夾設為「小包名稱」
               const gName = pkg.isGroup ? pkg.name : (cleanString(r.brand) || "未分類品牌");
               const sName = pkg.isGroup ? "全部商品" : pkg.name;
               updatePayload[toSafeDbKey(code)] = { 
@@ -2254,7 +2292,6 @@
     if (confirm(`確定要永久刪除快選包【${pkgName}】嗎？`)) repPresetsRef.child(pkgId).remove();
   }
 
-  // 補貨：渲染快選包 (雙欄網格化、按鈕大小固定靠右)
   function renderRepPresetPackages() {
     const container = document.getElementById("repPresetPackagesContainer");
     if (!container) return;
@@ -2331,7 +2368,6 @@
     });
   }
 
-  // 大群組展開與收合切換
   function toggleGroupSub(btn, pkgId) {
     const el = document.getElementById(`sub_pkg_${pkgId}`);
     if (el.classList.contains('d-none')) {
@@ -2351,7 +2387,6 @@
     if (confirm("確定要清空所有已設定的補貨條件規則嗎？")) repRulesRef.remove();
   }
 
-  // 渲染套用中條件 (實現：大群組 -> 小包名稱 -> 單品 三層樹狀結構)
   function renderReplenishRulesList() {
     const container = document.getElementById("repRuleCardsContainer");
     if (!container) return;
@@ -2366,7 +2401,6 @@
       return;
     }
 
-    // 第一層分組 (大群組名) -> 第二層分組 (小包名)
     const groups = {};
     ruleKeys.forEach(k => {
       const r = customReplenishRules[k];
@@ -2383,7 +2417,6 @@
       const groupDiv = document.createElement("div");
       groupDiv.className = "accordion-item border rounded mb-1 bg-white shadow-sm";
       
-      // 組合第二層 (小包) 的 HTML
       let subsHtml = Object.entries(subGroups).map(([sName, rules], sIdx) => {
         const subCollapseId = `sub_${collapseId}_${sIdx}`;
         
@@ -2435,15 +2468,15 @@
       container.appendChild(groupDiv);
     });
   }
-  // ==== 跨系統撈資料與複製橋樑 ====
-  
+
+  // ================= 6. 跨系統匯入與複製 =================
   function openImportToInvModal() {
     const listContainer = document.getElementById("importCrossList");
     listContainer.innerHTML = "";
     document.getElementById("importCrossTitle").innerText = "🔄 從【智慧補貨】匯入快選";
     document.getElementById("importCrossDesc").innerText = "請選擇要從補貨系統拷貝至盤點日常的快選包：";
     
-    const repKeys = Object.keys(repPresetPackages).filter(k => !repPresetPackages[k].isGroup); // 只抓取小包
+    const repKeys = Object.keys(repPresetPackages).filter(k => !repPresetPackages[k].isGroup);
     if(repKeys.length === 0) {
       listContainer.innerHTML = `<span class="text-muted small p-2">補貨系統目前沒有可用的小包。</span>`;
     } else {
@@ -2521,7 +2554,7 @@
     }).then(() => alert(`✅ 成功匯入【${pkg.name}】至智慧補貨！`));
   }
 
-  // ================= 5. 智慧補貨全品項計算引擎 =================
+  // ================= 7. 補貨計算與列印 =================
   function calculateReplenishment() {
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
     const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
@@ -2555,7 +2588,6 @@
       if (currentStock < safety) {
         const rawDeficit = safety - currentStock;
         needQty = Math.max(rawDeficit, moq);
-        // 缺貨時淨空狀態欄，只顯示下方的門檻進度
         status = ``; 
         totalNeedCount++;
         totalQtySum += needQty;
@@ -2645,7 +2677,6 @@
       `;
       tbody.appendChild(tr);
 
-      // 產生網頁版的條碼圖示
       setTimeout(() => {
         try {
           JsBarcode(`#${svgId}`, safeCode, {
@@ -2667,7 +2698,6 @@
     document.getElementById("repPrintStaff").innerText = boundUser || "門市人員";
     document.getElementById("repPrintDate").innerText = new Date().toLocaleDateString();
     
-    // 渲染列印單專屬的 00 條碼
     setTimeout(() => {
       try {
         JsBarcode("#printZeroBarcode", "00", { format: "CODE128", width: 1.5, height: 22, displayValue: false, margin: 0 });
@@ -2692,7 +2722,6 @@
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `rep_bc_${index}`;
 
-      // 獨立的狀態欄 HTML
       let vendorStatusHtml = "";
       const vKey = item.groupKey || item.brand || "常用廠商";
       const vInfo = vendorSummaryMap[vKey];
@@ -2764,7 +2793,7 @@
     XLSX.writeFile(wb, `門市商品補貨申請單_${d}.xlsx`);
   }
 
-  // ================= 6. 操作提示與自訂條件包管理 =================
+  // ================= 8. 盤點條件與快選包管理 =================
   function formatScanTag(staff, code, name, qty) {
     const staffLast = (staff && staff.length > 0) ? staff.slice(-1) : "員";
     const cleanCode = cleanString(code);
@@ -2795,7 +2824,6 @@
     if (opt) opt.style.display = (fieldVal === "brand") ? "block" : "none";
   }
 
-  // 1. 儲存或覆蓋更新盤點條件包
   function saveCurrentRulesAsPackage() {
     const editPkgId = document.getElementById("editingInvPackageId").value;
     const ruleKeys = Object.keys(filterRules);
@@ -2829,7 +2857,6 @@
     }).catch(err => alert("儲存失敗: " + err.message));
   }
 
-  // 2. 編輯盤點快選包 (將資料載入至樹狀區)
   function editInvPresetPackage(pkgId, event) {
     if (event) event.stopPropagation();
     const pkg = presetPackages[pkgId];
@@ -2867,7 +2894,6 @@
     }
   }
 
-  // 3. 取消編輯狀態
   function cancelEditInvPackage() {
     document.getElementById("editingInvPackageId").value = "";
     const btnSave = document.getElementById("btnSaveInvPackage");
@@ -2876,36 +2902,80 @@
     document.getElementById("btnCancelEditInvPackage").style.display = "none";
   }
 
-  // 套用盤點快選包 (支援大群組解包)
+  // 檢查盤點快選包/群組是否處於「套用中」狀態
+  function isInvPackageActive(pkg) {
+    if (!pkg || !filterRules || Object.keys(filterRules).length === 0) return false;
+    const ruleList = getRulesArrayFromInvPackage(pkg);
+    if (ruleList.length === 0) return false;
+
+    const activeKeywords = new Set();
+    Object.values(filterRules).forEach(r => {
+      if (r.keyword) activeKeywords.add(cleanString(r.keyword).toLowerCase());
+    });
+
+    let matchCount = 0;
+    ruleList.forEach(r => {
+      const kw = cleanString(r.keyword).toLowerCase();
+      if (kw && activeKeywords.has(kw)) matchCount++;
+    });
+
+    return matchCount > 0 && (matchCount >= Math.ceil(ruleList.length * 0.5));
+  }
+
+  // 套用 / 停用 盤點快選包 (點擊切換 Toggle 模式)
   function applyPresetPackage(pkgId) {
     const pkg = presetPackages[pkgId];
     if (!pkg) return;
 
-    if (confirm(`確定要套用快選【${pkg.name}】嗎？\n（系統將自動載入其設定的條件並切換至日常模式）`)) {
-      const updatePayload = {};
-      
-      if (pkg.isGroup && pkg.subPackages) {
-        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
-        subs.forEach(subId => {
-          const subPkg = presetPackages[subId];
-          if (subPkg && subPkg.rules) {
-            const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
-            rArray.forEach((r, i) => {
-              updatePayload[`group_${subId}_${i}`] = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name };
-            });
+    const currentlyActive = isInvPackageActive(pkg);
+
+    if (currentlyActive) {
+      // 若已啟用 -> 點擊執行「停用收回」
+      if (confirm(`確定要停用快選包【${pkg.name}】嗎？`)) {
+        const updatePayload = {};
+        const ruleList = getRulesArrayFromInvPackage(pkg);
+        const targetKeywords = new Set(ruleList.map(r => cleanString(r.keyword).toLowerCase()));
+
+        Object.entries(filterRules).forEach(([key, r]) => {
+          if (targetKeywords.has(cleanString(r.keyword).toLowerCase())) {
+            updatePayload[key] = null;
           }
         });
-      } else {
-        const rArray = Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
-        rArray.forEach((r, i) => {
-          updatePayload[`single_${pkgId}_${i}`] = { ...r, groupPkgName: "單一快選包", subPkgName: pkg.name };
-        });
+
+        rulesRef.update(updatePayload).then(() => {
+          showOperatorToast("已停用", `已收回【${pkg.name}】`, "warning");
+        }).catch(err => alert("操作失敗: " + err.message));
       }
-      
-      rulesRef.set(updatePayload).then(() => {
-        metaRef.update({ mode: "daily" });
-        showOperatorToast("已套用快選包", `【${pkg.name}】條件已全面生效`, "success");
-      });
+    } else {
+      // 若未啟用 -> 點擊執行「啟用套用」
+      if (confirm(`確定要啟用快選包【${pkg.name}】嗎？`)) {
+        const updatePayload = {};
+
+        if (pkg.isGroup && pkg.subPackages) {
+          const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+          subs.forEach(subId => {
+            const subPkg = presetPackages[subId];
+            if (subPkg && subPkg.rules) {
+              const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+              rArray.forEach((r, i) => {
+                const uniqueKey = `group_${subId}_${i}_${Date.now()}`;
+                updatePayload[uniqueKey] = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name, createdAt: firebase.database.ServerValue.TIMESTAMP };
+              });
+            }
+          });
+        } else {
+          const rArray = Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
+          rArray.forEach((r, i) => {
+            const uniqueKey = `single_${pkgId}_${i}_${Date.now()}`;
+            updatePayload[uniqueKey] = { ...r, groupPkgName: "單一快選包", subPkgName: pkg.name, createdAt: firebase.database.ServerValue.TIMESTAMP };
+          });
+        }
+
+        rulesRef.update(updatePayload).then(() => {
+          metaRef.update({ mode: "daily" });
+          showOperatorToast("已啟用", `【${pkg.name}】條件已全面生效`, "success");
+        }).catch(err => alert("操作失敗: " + err.message));
+      }
     }
   }
 
@@ -2916,74 +2986,6 @@
     }
   }
 
-  
-
-  // ==== 跨系統複製資料流橋樑 ====
-  function copyToInventory(pkgId, source) {
-    if (source === 'rep') {
-      const pkg = repPresetPackages[pkgId];
-      if (!pkg) return;
-      
-      const newRules = {};
-      const ruleList = getRulesArrayFromPackage(pkg);
-      
-      ruleList.forEach((r, idx) => {
-        const kw = r.barcode || r.keyword || r.itemCode;
-        if(kw) {
-          newRules[`copy_${idx}_${Date.now()}`] = {
-            field: "barcode",
-            keyword: kw,
-            isBrandTotalMode: false,
-            createdAt: firebase.database.ServerValue.TIMESTAMP
-          };
-        }
-      });
-
-      presetsRef.push({
-        name: `(補貨拷貝) ${pkg.name}`,
-        rules: newRules,
-        createdAt: firebase.database.ServerValue.TIMESTAMP
-      }).then(() => alert(`✅ 成功複製【${pkg.name}】至盤點日常快選包！`));
-    }
-  }
-
-  function copyToReplenish(pkgId) {
-    const pkg = presetPackages[pkgId];
-    if (!pkg) return;
-
-    const newRules = {};
-    const ruleKeys = Object.keys(pkg.rules || {});
-    ruleKeys.forEach(k => {
-      const r = pkg.rules[k];
-      const code = cleanString(r.keyword);
-      if(code) {
-        newRules[toSafeDbKey(code)] = {
-          field: "barcode",
-          keyword: code,
-          barcode: code,
-          itemCode: code,
-          name: "-",
-          brand: "自盤點匯入",
-          warehouse: "",
-          safety: 1,
-          moq: 1,
-          vendorMoq: 1,
-          isDirectBound: true,
-          updatedAt: firebase.database.ServerValue.TIMESTAMP
-        };
-      }
-    });
-
-    repPresetsRef.push({
-      name: `(盤點拷貝) ${pkg.name}`,
-      rules: newRules,
-      vendorMoq: 1,
-      isGroup: false,
-      createdAt: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => alert(`✅ 成功複製【${pkg.name}】至智慧補貨快選包！`));
-  }
-
-  // 手動新增盤點條件
   function addFilterRule() {
     const field = document.getElementById("newFilterField").value;
     const keyword = cleanString(document.getElementById("newFilterKeyword").value);
@@ -3007,7 +3009,6 @@
   function deleteFilterRule(ruleId) { rulesRef.child(ruleId).remove(); }
   function clearAllFilterRules() { if (confirm("確定要清空所有日常盤點條件嗎？")) rulesRef.remove(); }
 
-  // 盤點：取得包內規則
   function getRulesArrayFromInvPackage(pkg) {
     if (!pkg) return [];
     if (pkg.isGroup && pkg.subPackages) {
@@ -3025,7 +3026,6 @@
     return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
   }
 
-  // ====== 通用即時搜尋引擎 ======
   function filterPackages(kw, containerId) {
     const kwLower = kw.toLowerCase();
     const container = document.getElementById(containerId);
@@ -3049,7 +3049,7 @@
     });
   }
 
-  // 盤點：渲染快選包 (雙欄網格化、按鈕大小固定靠右)
+  // 盤點：渲染快選包 (雙欄網格化、淺藍色套用狀態、純藍勾勾 ☑️、固定按鈕靠右)
   function renderPresetPackages() {
     const container = document.getElementById("presetPackagesContainer");
     if (!container) return;
@@ -3072,6 +3072,13 @@
       const pkg = presetPackages[pkgId];
       const ruleList = getRulesArrayFromInvPackage(pkg);
       const count = ruleList.length;
+      const isActive = isInvPackageActive(pkg);
+
+      // 淺藍色啟用樣式與純藍色勾勾
+      const activeBtnClass = isActive 
+        ? "btn btn-info bg-opacity-25 text-primary border-info fw-bold shadow-sm" 
+        : "btn btn-outline-dark fw-bold bg-white text-dark";
+      const prefixText = isActive ? `<span class="text-primary fw-bold me-1">☑️</span>` : `⭐ `;
       
       const wrapper = document.createElement("div");
       wrapper.className = "col-12 col-md-6 pkg-col-item"; 
@@ -3086,10 +3093,10 @@
         const subCount = subs.length;
 
         wrapper.innerHTML = `
-          <div class="border rounded bg-light border-info shadow-sm d-flex flex-column justify-content-between h-100">
+          <div class="border rounded ${isActive ? 'bg-info bg-opacity-10 border-info' : 'bg-light border-info'} shadow-sm d-flex flex-column justify-content-between h-100">
             <div class="d-flex justify-content-between align-items-center p-1">
-              <button type="button" class="btn btn-outline-dark fw-bold text-start text-truncate flex-grow-1 border-0 bg-transparent px-2" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 條條件">
-                📁 ${pkg.name} <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+              <button type="button" class="btn ${activeBtnClass} text-start text-truncate flex-grow-1 border-0 bg-transparent px-2" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此大群組' : '點擊啟用此大群組'}\n包含 ${subCount} 個小包，共 ${count} 條條件">
+                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-primary text-white' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
               </button>
               <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
                 <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleInvGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
@@ -3111,8 +3118,8 @@
       } else {
         wrapper.innerHTML = `
           <div class="btn-group shadow-sm w-100" style="height: 32px;">
-            <button type="button" class="btn btn-outline-dark fw-bold text-start text-truncate flex-grow-1 px-2 bg-white" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="${pkg.name}\n含 ${count} 條條件">
-              ⭐ ${pkg.name} <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">${count}</span>
+            <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此快選' : '點擊啟用此快選'}\n含 ${count} 條條件">
+              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-primary text-white' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
             <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
             <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
@@ -3134,7 +3141,6 @@
     }
   }
 
-  // 盤點：渲染樹狀套用條件
   function renderFilterRules() {
     const container = document.getElementById("filterRuleListContainer");
     if (!container) return;
@@ -3223,9 +3229,8 @@
     if (badgeEl) badgeEl.style.display = (hasBrandTotalMode && (metaData.mode === "daily")) ? "inline-block" : "none";
   }
 
-  // ================= 盤點大群組邏輯 =================
   function openCreateInvGroupModal() {
-    currentEditingInvGroupId = null; // 重置為新建狀態
+    currentEditingInvGroupId = null;
     document.querySelector('#createInvGroupModal .modal-title').innerText = "合成盤點大群組包";
     document.getElementById("newInvGroupPkgName").value = "";
 
@@ -3251,7 +3256,7 @@
     });
     bootstrap.Modal.getOrCreateInstance(document.getElementById('createInvGroupModal')).show();
   }
-  // 編輯現有的盤點大群組
+
   function editInvGroup(groupId) {
     currentEditingInvGroupId = groupId;
     const groupPkg = presetPackages[groupId];
@@ -3332,7 +3337,7 @@
     return null;
   }
 
-  // ================= 7. 核心盤點寫入 (Transaction 保障 + 分區防呆) =================
+  // ================= 9. 核心盤點寫入 =================
   function executeScan(forcedBarcode, forcedQty) {
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(forcedBarcode || (inputEl ? inputEl.value : ""));
@@ -3425,7 +3430,6 @@
     });
   }
 
-  // 音效、震動與相機閃爍
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
   document.addEventListener('touchstart', () => {
@@ -3550,7 +3554,7 @@
     }
   }
 
-  // ================= 8. 計算機鍵盤運算引擎 =================
+  // ================= 10. 計算機鍵盤運算引擎 =================
   let calcTargetBarcode = "";
   let calcCurrentFormula = "1";
   let isNewCalcInput = true;
@@ -3646,7 +3650,7 @@
     }
   }
 
-  // ================= 9. 相機掃描 (1080p高清 + 手電筒) =================
+  // ================= 11. 相機掃描 =================
   let lastScannedBarcode = "";
   let lastScannedTime = 0;
   let isTorchOn = false;
@@ -3763,7 +3767,7 @@
     }
   }
 
-  // ================= 10. 盤點清單與手動複盤表 (A4 列印) =================
+  // ================= 12. 列印報表與鏡框年份清單 =================
   function openPrintReportModal() {
     const isDaily = (metaData.mode || "full") === "daily";
     document.getElementById("rptModeBadge").innerText = isDaily ? "日常模式" : "全盤模式";
@@ -3828,7 +3832,7 @@
                 staffSet: new Set(),
                 locBreakdown: { "架上": 0, "櫃內": 0, "彌留": 0, "已取": 0 },
                 skuCount: 0,
-                resMap: {} // 記錄大群組合併後的明細
+                resMap: {}
               };
             }
             const g = brandSummaryMap[brandGroupKey];
@@ -3927,7 +3931,6 @@
         if (parts.length > 0) locSummary = `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; margin-top: 2px; white-space: nowrap;">${parts.join(' ')}</div>`;
       }
 
-      // 5. 訂金未銷欄位 (支援多筆客戶：置頂總量 + 姓名(數量) 單號，同列統一小字)
       let resHtml = `<div class="text-center text-muted">0</div>`;
       if (item.res > 0) {
         if (item.reservedDetails && item.reservedDetails.length > 0) {
@@ -3938,11 +3941,11 @@
           
           resHtml = `
             <div class="text-start align-middle">
-              <div class="text-center fw-bold text-danger border-bottom border-secondary mb-1 pb-1" style="font-size: 0.8rem;">彌留: ${item.res}</div>${detailListHtml}
+              <div class="text-center fw-bold text-danger border-bottom border-secondary mb-1 pb-1" style="font-size: 0.8rem;">總計: ${item.res}</div>
+              ${detailListHtml}
             </div>
           `;
         } else {
-          // 舊版相容模式
           const custName = cleanString(item.reservedCustomer);
           const orderNo = cleanString(item.reservedOrderNo);
           if (custName || orderNo) {
@@ -4005,13 +4008,11 @@
     });
   }
 
-  // ================= 11. 未盤清單檢視 (庫存為 0 皆忽略) =================
   function showUncountedModal() {
     const tbody = document.getElementById("uncountedTableBody");
     if (!tbody) return;
     tbody.innerHTML = "";
     
-    // 嚴格依照 isItemInCurrentTask (排除 systemQty <= 0) 並找出未盤品項
     const uncountedList = Object.values(fullInventory).filter(item => isItemInCurrentTask(item) && (!item.countedQty || item.countedQty === 0));
 
     if (uncountedList.length === 0) {
@@ -4030,7 +4031,7 @@
     bootstrap.Modal.getOrCreateInstance(document.getElementById('uncountedModal')).show();
   }
 
-  // ================= 12. 人員管理 =================
+  // ================= 13. 人員管理 =================
   let isStaffUnlocked = false;
 
   function unlockStaffManagement() {
@@ -4104,7 +4105,7 @@
     });
   }
 
-  // ================= 13. Excel 檔案匯入 (增強 C 欄顧客姓名與 Y 欄單號) =================
+  // ================= 14. Excel 檔案匯入 =================
   function getRowValue(row, possibleKeys) {
     const rowKeys = Object.keys(row);
     for (let pKey of possibleKeys) {
@@ -4122,7 +4123,6 @@
     return "";
   }
 
-  // ================= 13. Excel 檔案匯入 (增強明細收集與防呆填滿) =================
   async function importExcelData() {
     const invInput = document.getElementById("invFile");
     const depInput = document.getElementById("depFile");
@@ -4155,14 +4155,13 @@
       const depMap = {};
       const depCustomerMap = {};
       const depOrderMap = {};
-      const depDetailsMap = {}; // 核心升級：記錄同一貨號所有客人的陣列清單
+      const depDetailsMap = {};
 
       let lastDepItemCode = "";
 
       depRows.forEach(row => {
         let itemCode = getRowValue(row, ["貨號", "商品代號", "條碼編號", "條碼", "國際條碼"]);
         
-        // 防呆向下填滿：若 ERP 輸出格式將同貨號第二列留空，系統自動補齊
         if (itemCode) {
           lastDepItemCode = itemCode;
         } else {
@@ -4194,7 +4193,6 @@
             depOrderMap[itemCode] = shortOrder;
           }
 
-          // 將該筆明細分群收集，防止同單號同名字被重複拆分
           if (!depDetailsMap[itemCode]) depDetailsMap[itemCode] = {};
           const detailKey = shortOrder + "_" + custName;
           if (!depDetailsMap[itemCode][detailKey]) {
@@ -4230,7 +4228,6 @@
         const reservedCustomer = depCustomerMap[barcode] || depCustomerMap[itemCode] || "";
         const reservedOrderNo = depOrderMap[barcode] || depOrderMap[itemCode] || "";
         
-        // 擷取整合好的明細陣列
         const reservedDetails = depDetailsMap[barcode] ? Object.values(depDetailsMap[barcode]) : (depDetailsMap[itemCode] ? Object.values(depDetailsMap[itemCode]) : []);
         
         totalStockSum += systemQty;
@@ -4323,7 +4320,7 @@
     });
   }
 
-  // ================= 14. 匯出盤差報表與資料重置 =================
+  // ================= 15. 匯出報表與資料重置 =================
   function exportReport() {
     const list = Object.values(fullInventory);
     if (list.length === 0) return alert("目前沒有盤點資料可匯出！");
@@ -4392,7 +4389,7 @@
     }
   }
 
-  // ================= 15. 鏡框進貨年份智能解析引擎 (置頂訂金 + 庫存<=0忽略) =================
+  // ================= 16. 鏡框進貨年份智能解析引擎 =================
   function parseFrameYear(code) {
     const raw = cleanString(code).toUpperCase();
     if (!raw.startsWith("A") || raw.length < 6) return null;
@@ -4415,7 +4412,6 @@
     const items = Object.values(fullInventory);
 
     items.forEach(item => {
-      // 鏡框年份系統：庫存 <= 0 忽略
       if ((parseFloat(item.systemQty) || 0) <= 0) return;
 
       const code = item.itemCode || item.barcode;
@@ -4494,7 +4490,6 @@
       const nameStr = item.name || item.model || '-';
       const colorStr = item.colorName ? ` (${item.colorName})` : '';
 
-      // 實盤數量下方：支援多筆客戶明細 (置頂總量 + 姓名(數量) 單號)
       let orderSubHtml = "";
       if (item.reservedDetails && item.reservedDetails.length > 0) {
         const detailListHtml = item.reservedDetails.map(d => {
@@ -4552,9 +4547,8 @@
       }, 10);
     });
   }
-  // ====== 支援樹狀結構的整組/個別取消功能 ======
-  
-  // 移除補貨大群組
+
+  // ================= 17. 樹狀結構整組/個別取消 =================
   function removeActiveRepGroup(gName, event) {
     event.stopPropagation();
     if(!confirm(`確定要取消套用大群組【${gName}】的所有條件嗎？`)) return;
@@ -4565,7 +4559,6 @@
     repRulesRef.update(updatePayload);
   }
 
-  // 移除補貨小包
   function removeActiveRepSubGroup(gName, sName, event) {
     event.stopPropagation();
     if(!confirm(`確定要取消套用小包【${sName}】的所有條件嗎？`)) return;
@@ -4577,7 +4570,6 @@
     repRulesRef.update(updatePayload);
   }
 
-  // 移除盤點大群組
   function removeActiveInvGroup(gName, event) {
     event.stopPropagation();
     if(!confirm(`確定要取消套用大群組【${gName}】的所有條件嗎？`)) return;
@@ -4588,7 +4580,6 @@
     rulesRef.update(updatePayload);
   }
 
-  // 移除盤點小包
   function removeActiveInvSubGroup(gName, sName, event) {
     event.stopPropagation();
     if(!confirm(`確定要取消套用小包【${sName}】的所有條件嗎？`)) return;
