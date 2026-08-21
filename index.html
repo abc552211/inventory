@@ -400,33 +400,36 @@
             </div>
           </div>
 
-          <!-- 盤點套用中條件清單 -->
-          <div class="fw-bold small text-success mb-1 mt-3">🟢 目前套用的盤點條件：</div>
-          <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 160px; overflow-y: auto; resize: vertical;">
-            <div id="filterRuleListContainer" class="d-flex flex-column gap-1">
-              <span class="text-muted small">尚無自訂條件，請在上方新增。</span>
+          <!-- 盤點套用中條件清單 (單一樹狀編輯區：加高並支援自由拉伸) -->
+          <div class="fw-bold small text-success mb-1 mt-3">🟢 目前套用的盤點條件 (樹狀編輯區)：</div>
+          <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 320px; min-height: 150px; max-height: 60vh; overflow-y: auto; resize: vertical;">
+            <div id="filterRuleListContainer" class="accordion accordion-flush gap-1 d-flex flex-column">
+              <span class="text-muted small">尚無套用條件，請套用下方快選或手動新增。</span>
             </div>
           </div>
           
           <div class="d-flex justify-content-between align-items-center mb-3">
             <button class="btn btn-outline-primary btn-sm" onclick="previewCurrentTargetItems()">預覽符合商品 (<span id="matchedItemsCount">0</span> 種)</button>
-            <div class="d-flex gap-1">
-              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="saveCurrentRulesAsPackage()">打包目前條件為快選</button>
-              <button class="btn btn-outline-danger btn-sm" onclick="clearAllFilterRules()">清空條件</button>
+            <div class="d-flex gap-1 align-items-center">
+              <input type="hidden" id="editingInvPackageId" value="">
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" id="btnSaveInvPackage" onclick="saveCurrentRulesAsPackage()">📦 打包目前條件為快選</button>
+              <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditInvPackage" onclick="cancelEditInvPackage()" style="display: none;">取消編輯</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="clearAllFilterRules()">取消套用條件</button>
             </div>
           </div>
 
           <!-- 常用快選條件包專區 -->
-          <div class="p-2 border rounded bg-light">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="small fw-bold text-secondary">⭐ 我的常用快選條件包：</span>
+          <div class="p-2 border rounded bg-light mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="small fw-bold text-secondary">⭐ 我的盤點常用快選包：</span>
               <div class="d-flex gap-1 align-items-center">
                 <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToInvModal()">🔄 從補貨複製</button>
-                <span id="presetCountBadge" class="badge bg-secondary small">0 組快選</span>
+                <button class="btn btn-outline-success btn-sm py-0 fw-bold" onclick="openCreateInvGroupModal()">➕ 合成盤點大群組</button>
+                <span id="presetCountBadge" class="badge bg-secondary small">0 組</span>
               </div>
             </div>
             <div id="presetPackagesContainer" class="d-flex flex-wrap gap-1">
-              <span class="text-muted small">尚未儲存常用快選包，設定好條件後點擊上方「打包」即可保存。</span>
+              <span class="text-muted small">尚未儲存常用快選包。</span>
             </div>
           </div>
         </div>
@@ -709,7 +712,7 @@
 
           <!-- 套用中條件清單 (升級為樹狀收合結構) -->
           <div class="fw-bold small text-success mb-1">🟢 套用中條件 (樹狀編輯區)：</div>
-          <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 220px; min-height: 100px; max-height: 60vh; overflow-y: auto; resize: vertical;">
+          <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 440px; min-height: 200px; max-height: 80vh; overflow-y: auto; resize: vertical;">
             <div id="repRuleCardsContainer" class="accordion accordion-flush gap-1 d-flex flex-column">
               <span class="text-muted small">尚未套用任何補貨條件。</span>
             </div>
@@ -721,7 +724,7 @@
               <input type="hidden" id="editingRepPackageId" value="">
               <button class="btn btn-primary btn-sm fw-bold shadow-sm" id="btnSaveRepPackage" onclick="saveCurrentReplenishPackage()">📦 打包目前補貨條件為快選</button>
               <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditRepPackage" onclick="cancelEditRepPackage()" style="display: none;">取消編輯</button>
-              <button class="btn btn-outline-danger btn-sm py-0" onclick="clearAllReplenishRules()">清空條件</button>
+              <button class="btn btn-outline-danger btn-sm py-0" onclick="clearAllReplenishRules()">取消套用條件</button>
             </div>
           </div>
 
@@ -1117,6 +1120,32 @@
       <div class="modal-footer py-2 bg-light border-0">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
         <button type="button" class="btn btn-success btn-sm fw-bold px-3" onclick="saveCombinedGroupPackage()">確認合成並打包</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 彈出視窗 10: 合成盤點大群組包彈窗 -->
+<div class="modal fade" id="createInvGroupModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-success text-white py-2 px-3">
+        <h6 class="modal-title fw-bold mb-0">合成盤點大群組包</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="mb-3">
+          <label class="form-label small fw-bold">1. 大群組名稱：</label>
+          <input type="text" id="newInvGroupPkgName" class="form-control form-control-sm" placeholder="例: 盤點全館特選包">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-bold">2. 請勾選要納入此大群組的小包：</label>
+          <div id="invGroupSelectableList" class="border rounded p-2 bg-light" style="max-height: 180px; overflow-y: auto;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer py-2 bg-light border-0">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-success btn-sm fw-bold px-3" onclick="saveCombinedInvGroupPackage()">確認合成並打包</button>
       </div>
     </div>
   </div>
@@ -2100,7 +2129,7 @@
     return matchCount > 0 && (matchCount >= Math.ceil(ruleList.length * 0.5));
   }
 
-  // 啟用或停用補貨快選包 (寫入時標記「所屬小包名稱 subPkgName」以供樹狀顯示)
+  // 啟用或停用補貨快選包 (精準分類：大群組>小包>單品，或 品牌>小包>單品)
   function toggleApplyRepPresetPackage(pkgId) {
     const pkg = repPresetPackages[pkgId];
     if (!pkg) return;
@@ -2123,9 +2152,9 @@
         const updatePayload = {};
         const vMoq = parseFloat(pkg.vendorMoq) || 1;
 
-        // 若為群組，逐一展開小包並標記來源；若為單一包則視為獨立條件
+        // 若為新版動態大群組，逐一展開小包並標記來源
         if (pkg.isGroup && pkg.subPackages) {
-          const subs = Object.values(pkg.subPackages);
+          const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
           subs.forEach(subId => {
             const subPkg = repPresetPackages[subId];
             if (subPkg && subPkg.rules) {
@@ -2133,17 +2162,25 @@
               rArray.forEach(r => {
                 const code = cleanString(r.barcode || r.keyword || r.itemCode);
                 if (code) {
-                  updatePayload[toSafeDbKey(code)] = { ...r, barcode: code, groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+                  updatePayload[toSafeDbKey(code)] = { 
+                    ...r, barcode: code, groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
+                  };
                 }
               });
             }
           });
         } else {
+          // 單一小包 或 舊版群組的處理邏輯
           const ruleList = getRulesArrayFromPackage(pkg);
           ruleList.forEach(r => {
             const code = cleanString(r.barcode || r.keyword || r.itemCode);
             if (code) {
-              updatePayload[toSafeDbKey(code)] = { ...r, barcode: code, groupPkgName: pkg.name, subPkgName: "獨立條件", vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+              // 單一小包套用時：大資料夾設為「品牌名」，子資料夾設為「小包名稱」
+              const gName = pkg.isGroup ? pkg.name : (cleanString(r.brand) || "未分類品牌");
+              const sName = pkg.isGroup ? "全部商品" : pkg.name;
+              updatePayload[toSafeDbKey(code)] = { 
+                ...r, barcode: code, groupPkgName: gName, subPkgName: sName, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
+              };
             }
           });
         }
@@ -2160,7 +2197,7 @@
     if (confirm(`確定要永久刪除快選包【${pkgName}】嗎？`)) repPresetsRef.child(pkgId).remove();
   }
 
-  // 渲染補貨快選包 (大群組強制置頂、修復 0 包問題、安全語法修正)
+  // 渲染補貨快選包 (大群組強制置頂、修復 0 包問題、移除個別複製)
   function renderRepPresetPackages() {
     const container = document.getElementById("repPresetPackagesContainer");
     if (!container) return;
@@ -2192,14 +2229,9 @@
       wrapper.className = "w-100 mb-1"; 
       
       if (pkg.isGroup) {
-        // 修復 0 包：精準過濾掉那些「已經被刪除的無效小包」
-        let subs = [];
-        if (pkg.subPackages) {
-          const rawSubs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
-          subs = rawSubs.filter(subId => repPresetPackages[subId]); 
-        }
+        // 修復 0 包：Firebase 存陣列有時會變 Object
+        const subs = pkg.subPackages ? Object.values(pkg.subPackages) : [];
         const subCount = subs.length;
-
         wrapper.innerHTML = `
           <div class="border rounded p-1 bg-light border-warning shadow-sm">
             <div class="d-flex justify-content-between align-items-center">
@@ -2212,15 +2244,12 @@
               <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
             </div>
             <div id="sub_pkg_${pkgId}" class="mt-1 ps-4 pe-1 d-none d-flex flex-wrap gap-1 border-top pt-1">
-              ${subCount === 0 
-                ? '<span class="text-danger small fw-bold">⚠️ 群組內的小包已被刪除或清空，請重新合成。</span>' 
-                : subs.map(subId => {
-                    const subPkg = repPresetPackages[subId];
-                    const subItemCount = Object.keys(subPkg.rules||{}).length;
-                    // 使用安全字串拼接，避免編輯器語法解析錯誤
-                    return '<span class="badge bg-white text-dark border border-secondary" title="包含 ' + subItemCount + ' 款商品">' + subPkg.name + ' <small class="text-muted">(' + subItemCount + ')</small></span>';
-                  }).join('')
-              }
+              ${subs.map(subId => {
+                const subPkg = repPresetPackages[subId];
+                if(!subPkg) return `<span class="badge bg-secondary">未知小包</span>`;
+                const subItemCount = Object.keys(subPkg.rules||{}).length;
+                return `<span class="badge bg-white text-dark border border-secondary" title="包含 ${subItemCount} 款商品">${subPkg.name} <small class="text-muted">(${subItemCount})</small></span>`;
+              }).join('')}
             </div>
           </div>
         `;
@@ -2308,11 +2337,11 @@
 
         return `
           <div class="border rounded mb-1 border-secondary">
-            <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
+            <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
               <span>🏷️ ${sName}</span>
               <span class="badge bg-secondary">${rules.length} 款 ▼</span>
             </button>
-            <div id="${subCollapseId}" class="collapse show">
+            <div id="${subCollapseId}" class="collapse">
               <div class="p-1 bg-white">${itemsHtml}</div>
             </div>
           </div>
@@ -2324,7 +2353,7 @@
 
       groupDiv.innerHTML = `
         <h2 class="accordion-header" id="heading_${collapseId}">
-          <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+          <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
             <span>📁 ${gName}</span>
             <span class="badge bg-primary">${totalItemsInGroup} 款總計 ▼</span>
           </button>
@@ -2669,31 +2698,114 @@
     if (opt) opt.style.display = (fieldVal === "brand") ? "block" : "none";
   }
 
+  // 1. 儲存或覆蓋更新盤點條件包
   function saveCurrentRulesAsPackage() {
+    const editPkgId = document.getElementById("editingInvPackageId").value;
     const ruleKeys = Object.keys(filterRules);
+    
     if (ruleKeys.length === 0) {
       return alert("⚠️ 目前沒有任何條件可打包！請先在上方新增至少一條篩選條件。");
     }
 
-    const pkgName = prompt(`📦 請輸入此快選條件包的自訂名稱：\n（例：博士倫大盤套餐、藥水隱眼組合、酷柏全系列）`, "");
-    if (!pkgName || !cleanString(pkgName)) return;
+    let pkgName = editPkgId && presetPackages[editPkgId] ? presetPackages[editPkgId].name : "";
+    if (pkgName) {
+      if (!confirm(`確定要將編輯區的條件覆蓋存回快選包【${pkgName}】嗎？`)) return;
+    } else {
+      const inputName = prompt(`📦 請輸入此快選條件包的自訂名稱：\n（例：博士倫大盤套餐、藥水隱眼組合、酷柏全系列）`, "");
+      if (!inputName || !cleanString(inputName)) return;
+      pkgName = cleanString(inputName);
+    }
 
-    const cleanedPkgName = cleanString(pkgName);
-    presetsRef.push({
-      name: cleanedPkgName,
+    const payload = {
+      name: pkgName,
       rules: filterRules,
-      createdAt: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => {
-      alert(`🎉 成功儲存快選包【${cleanedPkgName}】（共包含 ${ruleKeys.length} 組條件）！`);
-    });
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    const savePromise = editPkgId 
+      ? presetsRef.child(editPkgId).update(payload) 
+      : presetsRef.push({ ...payload, createdAt: firebase.database.ServerValue.TIMESTAMP });
+
+    savePromise.then(() => {
+      alert(`🎉 成功儲存快選包【${pkgName}】！`);
+      cancelEditInvPackage();
+    }).catch(err => alert("儲存失敗: " + err.message));
   }
 
+  // 2. 編輯盤點快選包 (將資料載入至樹狀區)
+  function editInvPresetPackage(pkgId, event) {
+    if (event) event.stopPropagation();
+    const pkg = presetPackages[pkgId];
+    if (!pkg) return;
+
+    if (confirm(`確定要載入快選包【${pkg.name}】至上方編輯區修改嗎？`)) {
+      const updatePayload = {};
+      if (pkg.isGroup && pkg.subPackages) {
+        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+        subs.forEach(subId => {
+          const subPkg = presetPackages[subId];
+          if (subPkg && subPkg.rules) {
+            const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+            rArray.forEach((r, i) => {
+              updatePayload[`group_${subId}_${i}`] = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name };
+            });
+          }
+        });
+      } else {
+        const rArray = Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
+        rArray.forEach((r, i) => {
+          updatePayload[`single_${pkgId}_${i}`] = { ...r, groupPkgName: "單一快選包", subPkgName: pkg.name };
+        });
+      }
+      
+      rulesRef.set(updatePayload).then(() => {
+        metaRef.update({ mode: "daily" });
+        document.getElementById("editingInvPackageId").value = pkgId;
+        const btnSave = document.getElementById("btnSaveInvPackage");
+        btnSave.className = "btn btn-success btn-sm fw-bold shadow-sm";
+        btnSave.innerText = `覆蓋更新【${pkg.name}】`;
+        document.getElementById("btnCancelEditInvPackage").style.display = "inline-block";
+        document.getElementById("filterRuleListContainer").scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+  }
+
+  // 3. 取消編輯狀態
+  function cancelEditInvPackage() {
+    document.getElementById("editingInvPackageId").value = "";
+    const btnSave = document.getElementById("btnSaveInvPackage");
+    btnSave.className = "btn btn-primary btn-sm fw-bold shadow-sm";
+    btnSave.innerText = "📦 打包目前條件為快選";
+    document.getElementById("btnCancelEditInvPackage").style.display = "none";
+  }
+
+  // 套用盤點快選包 (支援大群組解包)
   function applyPresetPackage(pkgId) {
     const pkg = presetPackages[pkgId];
-    if (!pkg || !pkg.rules) return;
+    if (!pkg) return;
 
-    if (confirm(`確定要套用常用快選【${pkg.name}】嗎？\n（系統將自動載入其設定的條件並切換至日常模式）`)) {
-      rulesRef.set(pkg.rules).then(() => {
+    if (confirm(`確定要套用快選【${pkg.name}】嗎？\n（系統將自動載入其設定的條件並切換至日常模式）`)) {
+      const updatePayload = {};
+      
+      if (pkg.isGroup && pkg.subPackages) {
+        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+        subs.forEach(subId => {
+          const subPkg = presetPackages[subId];
+          if (subPkg && subPkg.rules) {
+            const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+            rArray.forEach((r, i) => {
+              updatePayload[`group_${subId}_${i}`] = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name };
+            });
+          }
+        });
+      } else {
+        const rArray = Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
+        rArray.forEach((r, i) => {
+          updatePayload[`single_${pkgId}_${i}`] = { ...r, groupPkgName: "單一快選包", subPkgName: pkg.name };
+        });
+      }
+      
+      rulesRef.set(updatePayload).then(() => {
         metaRef.update({ mode: "daily" });
         showOperatorToast("已套用快選包", `【${pkg.name}】條件已全面生效`, "success");
       });
@@ -2707,33 +2819,7 @@
     }
   }
 
-  // 渲染盤點常用快選包 (移除個別複製按鈕)
-  function renderPresetPackages() {
-    const container = document.getElementById("presetPackagesContainer");
-    if (!container) return;
-    container.innerHTML = "";
-    const pkgKeys = Object.keys(presetPackages);
-    const badgeEl = document.getElementById("presetCountBadge");
-    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組快選`;
-    if (pkgKeys.length === 0) {
-      container.innerHTML = `<span class="text-muted small">尚未儲存常用快選包，設定好條件後點擊上方「打包」即可保存。</span>`;
-      return;
-    }
-    pkgKeys.forEach(pkgId => {
-      const pkg = presetPackages[pkgId];
-      const count = pkg.rules ? Object.keys(pkg.rules).length : 0;
-      const btn = document.createElement("div");
-      btn.className = "btn-group shadow-sm mb-1 me-1 d-inline-flex";
-      btn.style.height = "26px";
-      btn.innerHTML = `
-        <button type="button" class="btn btn-outline-dark fw-bold text-truncate py-0 px-2 bg-white" style="max-width: 140px; font-size: 0.8rem;" onclick="applyPresetPackage('${pkgId}')" title="${pkg.name}\n含 ${count} 條搜尋條件">
-          ⭐ ${pkg.name} <span class="badge bg-secondary" style="font-size:0.65rem;">${count}</span>
-        </button>
-        <button type="button" class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)" title="刪除此快選">✖</button>
-      `;
-      container.appendChild(btn);
-    });
-  }
+  
 
   // ==== 跨系統複製資料流橋樑 ====
   function copyToInventory(pkgId, source) {
@@ -2800,6 +2886,7 @@
     }).then(() => alert(`✅ 成功複製【${pkg.name}】至智慧補貨快選包！`));
   }
 
+  // 手動新增盤點條件
   function addFilterRule() {
     const field = document.getElementById("newFilterField").value;
     const keyword = cleanString(document.getElementById("newFilterKeyword").value);
@@ -2811,6 +2898,8 @@
       field, 
       keyword, 
       isBrandTotalMode: isBrandTotalMode,
+      groupPkgName: "手動新增條件",
+      subPkgName: "獨立條件",
       createdAt: firebase.database.ServerValue.TIMESTAMP 
     }).then(() => {
       document.getElementById("newFilterKeyword").value = "";
@@ -2821,40 +2910,242 @@
   function deleteFilterRule(ruleId) { rulesRef.child(ruleId).remove(); }
   function clearAllFilterRules() { if (confirm("確定要清空所有日常盤點條件嗎？")) rulesRef.remove(); }
 
+  // 盤點：取得包內規則
+  function getRulesArrayFromInvPackage(pkg) {
+    if (!pkg) return [];
+    if (pkg.isGroup && pkg.subPackages) {
+      let combined = [];
+      const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+      subs.forEach(subId => {
+        const subPkg = presetPackages[subId];
+        if (subPkg && subPkg.rules) {
+          combined = combined.concat(Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean));
+        }
+      });
+      return combined;
+    }
+    if (!pkg.rules) return [];
+    return Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
+  }
+
+  // 盤點：渲染快選包 (支援大群組置頂、展開與編輯功能)
+  function renderPresetPackages() {
+    const container = document.getElementById("presetPackagesContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    
+    const pkgKeys = Object.keys(presetPackages).sort((a, b) => {
+      const pkgA = presetPackages[a], pkgB = presetPackages[b];
+      return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
+    });
+
+    const badgeEl = document.getElementById("presetCountBadge");
+    if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組快選`;
+    
+    if (pkgKeys.length === 0) {
+      container.innerHTML = `<span class="text-muted small">尚未儲存常用快選包。</span>`;
+      return;
+    }
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = presetPackages[pkgId];
+      const ruleList = getRulesArrayFromInvPackage(pkg);
+      const count = ruleList.length;
+      
+      const wrapper = document.createElement("div");
+      wrapper.className = "w-100 mb-1"; 
+      
+      if (pkg.isGroup) {
+        let subs = [];
+        if (pkg.subPackages) {
+          const rawSubs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+          subs = rawSubs.filter(subId => presetPackages[subId]); 
+        }
+        const subCount = subs.length;
+
+        wrapper.innerHTML = `
+          <div class="border rounded p-1 bg-light border-info shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="d-flex gap-1 align-items-center">
+                <button class="btn btn-sm btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleInvGroupSub(this, '${pkgId}')" style="font-size: 0.75rem;">➕ 展開</button>
+                <button type="button" class="btn btn-outline-dark fw-bold text-truncate py-0 px-2 bg-white" style="max-width: 200px; font-size: 0.8rem;" onclick="applyPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 條條件">
+                  📁 ${pkg.name} <span class="badge bg-secondary" style="font-size:0.65rem;">${subCount} 包</span>
+                </button>
+              </div>
+              <div class="btn-group btn-group-sm" style="height: 24px;">
+                <button type="button" class="btn btn-outline-primary py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
+                <button type="button" class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
+              </div>
+            </div>
+            <div id="inv_sub_pkg_${pkgId}" class="mt-1 ps-4 pe-1 d-none d-flex flex-wrap gap-1 border-top pt-1">
+              ${subCount === 0 
+                ? '<span class="text-danger small fw-bold">⚠️ 群組內的小包已被刪除，請重新合成。</span>' 
+                : subs.map(subId => {
+                    const subPkg = presetPackages[subId];
+                    const subItemCount = Object.keys(subPkg.rules||{}).length;
+                    return '<span class="badge bg-white text-dark border border-secondary" title="包含 ' + subItemCount + ' 條條件">' + subPkg.name + ' <small class="text-muted">(' + subItemCount + ')</small></span>';
+                  }).join('')
+              }
+            </div>
+          </div>
+        `;
+      } else {
+        wrapper.innerHTML = `
+          <div class="btn-group shadow-sm mb-1 me-1 d-inline-flex" style="height: 26px;">
+            <button type="button" class="btn btn-outline-dark fw-bold text-truncate py-0 px-2 bg-white" style="max-width: 140px; font-size: 0.8rem;" onclick="applyPresetPackage('${pkgId}')" title="${pkg.name}\n含 ${count} 條搜尋條件">
+              ⭐ ${pkg.name} <span class="badge bg-secondary" style="font-size:0.65rem;">${count}</span>
+            </button>
+            <button type="button" class="btn btn-outline-primary py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
+            <button type="button" class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.7rem;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
+          </div>
+        `;
+        wrapper.className = "d-inline-block";
+      }
+      container.appendChild(wrapper);
+    });
+  }
+
+  function toggleInvGroupSub(btn, pkgId) {
+    const el = document.getElementById(`inv_sub_pkg_${pkgId}`);
+    if (el.classList.contains('d-none')) {
+      el.classList.remove('d-none');
+      btn.innerText = "➖ 收起";
+    } else {
+      el.classList.add('d-none');
+      btn.innerText = "➕ 展開";
+    }
+  }
+
+  // 盤點：渲染樹狀套用條件
   function renderFilterRules() {
     const container = document.getElementById("filterRuleListContainer");
     if (!container) return;
     container.innerHTML = "";
     const ruleKeys = Object.keys(filterRules || {});
-    
     let hasBrandTotalMode = false;
 
     if (ruleKeys.length === 0) {
-      container.innerHTML = `<span class="text-muted small">尚無自訂條件。</span>`;
-    } else {
-      ruleKeys.forEach(key => {
-        const rule = filterRules[key];
-        if (!rule) return;
-        if (rule.isBrandTotalMode) hasBrandTotalMode = true;
-        const totalTag = rule.isBrandTotalMode ? `<span class="badge bg-warning text-dark ms-2">總數模式</span>` : "";
-
-        const div = document.createElement("div");
-        div.className = "d-flex justify-content-between align-items-center py-1 px-2 border rounded bg-white shadow-sm mb-1";
-        div.innerHTML = `
-          <div class="text-truncate" style="font-size: 0.85rem;">
-            <strong class="text-primary">${fieldLabels[rule.field] || rule.field}</strong>
-            <span class="mx-1">含</span>
-            <em class="fw-bold">"${rule.keyword}"</em>
-            ${totalTag}
-          </div>
-          <button type="button" class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem;" onclick="deleteFilterRule('${key}')">刪除</button>
-        `;
-        container.appendChild(div);
-      });
+      container.innerHTML = `<span class="text-muted small">尚無套用條件，請套用下方快選。</span>`;
+      document.getElementById("brandTotalModeBadge").style.display = "none";
+      return;
     }
+
+    const groups = {};
+    ruleKeys.forEach(k => {
+      const r = filterRules[k];
+      if (!r) return;
+      if (r.isBrandTotalMode) hasBrandTotalMode = true;
+      const gName = r.groupPkgName || "未分類群組";
+      const sName = r.subPkgName || "獨立條件";
+      
+      if (!groups[gName]) groups[gName] = {};
+      if (!groups[gName][sName]) groups[gName][sName] = [];
+      groups[gName][sName].push({ key: k, ...r });
+    });
+
+    Object.entries(groups).forEach(([gName, subGroups], idx) => {
+      const collapseId = `inv_active_group_${idx}`;
+      const groupDiv = document.createElement("div");
+      groupDiv.className = "accordion-item border rounded mb-1 bg-white shadow-sm";
+      
+      let subsHtml = Object.entries(subGroups).map(([sName, rules], sIdx) => {
+        const subCollapseId = `inv_sub_${collapseId}_${sIdx}`;
+        
+        let itemsHtml = rules.map(r => `
+          <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light ms-2">
+            <div class="text-truncate" style="font-size: 0.8rem; max-width: 80%;">
+              <strong class="text-primary">${fieldLabels[r.field] || r.field}</strong>
+              <span class="mx-1">含</span>
+              <em class="fw-bold">"${r.keyword}"</em>
+              ${r.isBrandTotalMode ? `<span class="badge bg-warning text-dark ms-1">總數模式</span>` : ""}
+            </div>
+            <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteFilterRule('${r.key}')">刪除</button>
+          </div>
+        `).join('');
+
+        return `
+          <div class="border rounded mb-1 border-secondary">
+            <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
+              <span>🏷️ ${sName}</span>
+              <span class="badge bg-secondary">${rules.length} 項 ▼</span>
+            </button>
+            <div id="${subCollapseId}" class="collapse">
+              <div class="p-1 bg-white">${itemsHtml}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      let totalItemsInGroup = 0;
+      Object.values(subGroups).forEach(arr => totalItemsInGroup += arr.length);
+
+      groupDiv.innerHTML = `
+        <h2 class="accordion-header" id="heading_${collapseId}">
+          <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+            <span>📁 ${gName}</span>
+            <span class="badge bg-primary">${totalItemsInGroup} 項總計 ▼</span>
+          </button>
+        </h2>
+        <div id="${collapseId}" class="accordion-collapse collapse" aria-labelledby="heading_${collapseId}">
+          <div class="accordion-body p-2 pt-1 bg-white">
+            ${subsHtml}
+          </div>
+        </div>
+      `;
+      container.appendChild(groupDiv);
+    });
 
     const badgeEl = document.getElementById("brandTotalModeBadge");
     if (badgeEl) badgeEl.style.display = (hasBrandTotalMode && (metaData.mode === "daily")) ? "inline-block" : "none";
+  }
+
+  // 盤點：合成群組腳本
+  function openCreateInvGroupModal() {
+    const container = document.getElementById("invGroupSelectableList");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const pkgKeys = Object.keys(presetPackages).filter(k => !presetPackages[k].isGroup);
+    if (pkgKeys.length === 0) return alert("目前尚未建立任何盤點快選小包，請先在上方打包小包！");
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = presetPackages[pkgId];
+      const count = getRulesArrayFromInvPackage(pkg).length;
+      
+      const div = document.createElement("div");
+      div.className = "form-check mb-1";
+      div.innerHTML = `
+        <input class="form-check-input inv-group-pkg-checkbox" type="checkbox" value="${pkgId}" id="chk_inv_grp_${pkgId}">
+        <label class="form-check-label small" for="chk_inv_grp_${pkgId}">
+          <strong>${pkg.name}</strong> <span class="text-muted">(${count}條條件)</span>
+        </label>
+      `;
+      container.appendChild(div);
+    });
+
+    document.getElementById("newInvGroupPkgName").value = "";
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('createInvGroupModal')).show();
+  }
+
+  function saveCombinedInvGroupPackage() {
+    const groupName = cleanString(document.getElementById("newInvGroupPkgName").value);
+    const checkedBoxes = document.querySelectorAll(".inv-group-pkg-checkbox:checked");
+
+    if (!groupName) return alert("請輸入大群組名稱！");
+    if (checkedBoxes.length === 0) return alert("請至少勾選一個要納入的小包！");
+
+    const subPkgIds = [];
+    checkedBoxes.forEach(cb => subPkgIds.push(cb.value));
+
+    presetsRef.push({
+      name: groupName,
+      isGroup: true,
+      subPackages: subPkgIds,
+      createdAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+      alert(`🎉 成功建立盤點大群組【${groupName}】！`);
+      bootstrap.Modal.getInstance(document.getElementById('createInvGroupModal')).hide();
+    }).catch(err => alert("合成失敗: " + err.message));
   }
 
   function getBrandTotalRule(item) {
