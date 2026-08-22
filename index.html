@@ -1460,7 +1460,7 @@
     }
   }
 
-  // ================= 4. 即時動態 =================
+  // ================= 4. 即時動態 (依分區收納與標註位置) =================
   function renderLiveFeeds(logsData) {
     const globalContainer = document.getElementById("globalFeedContainer");
     const myContainer = document.getElementById("myFeedContainer");
@@ -1470,6 +1470,7 @@
       ...log
     })).reverse();
 
+    // 1. 全員即時動態
     if (logsArray.length === 0) {
       document.getElementById("globalScanCountBadge").innerText = `0 品項`;
       globalContainer.innerHTML = `<div class="text-center text-muted small py-3">尚無全員盤點紀錄</div>`;
@@ -1485,12 +1486,17 @@
             name: invItem.name || log.displayTag || "商品",
             totalCounted: 0,
             staffSet: new Set(),
-            scans: []
+            scansByLoc: {}
           };
         }
         globalGroupedMap[groupKey].totalCounted += (log.qty || 1);
         if (log.staff) globalGroupedMap[groupKey].staffSet.add(log.staff);
-        globalGroupedMap[groupKey].scans.push(log);
+        
+        const loc = log.location || "架上";
+        if (!globalGroupedMap[groupKey].scansByLoc[loc]) {
+          globalGroupedMap[groupKey].scansByLoc[loc] = [];
+        }
+        globalGroupedMap[groupKey].scansByLoc[loc].push(log);
       });
 
       const globalList = Object.values(globalGroupedMap);
@@ -1498,15 +1504,28 @@
 
       globalContainer.innerHTML = globalList.map((g, idx) => {
         const collapseId = `globalGroupCollapse_${idx}`;
-        const lastScan = g.scans[0];
         const staffSummary = Array.from(g.staffSet).join("、") || "門市人員";
 
-        const timeLogsHtml = g.scans.map(s => {
-          const tStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : "";
+        // 依分區群組輸出
+        const locSectionsHtml = Object.entries(g.scansByLoc).map(([locName, scans]) => {
+          const locTotal = scans.reduce((sum, s) => sum + (s.qty || 1), 0);
+          const logsHtml = scans.map(s => {
+            const tStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : "";
+            return `
+              <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light" style="font-size: 0.75rem;">
+                <span>👤 <strong>${s.staff || '人員'}</strong> (+${s.qty || 1}件)</span>
+                <span class="text-muted">🕒 ${tStr}</span>
+              </div>
+            `;
+          }).join("");
+
           return `
-            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light small text-muted">
-              <span>👤 <strong>${s.staff || '人員'}</strong> (+${s.qty || 1}件)</span>
-              <span>🕒 ${tStr}</span>
+            <div class="mb-2 p-2 bg-white rounded border border-light shadow-sm">
+              <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                <span class="badge bg-secondary" style="font-size: 0.72rem;">📍 ${locName}</span>
+                <span class="small fw-bold text-dark">該區小計: ${locTotal} 件</span>
+              </div>
+              ${logsHtml}
             </div>
           `;
         }).join("");
@@ -1530,15 +1549,16 @@
                 </button>
               </div>
             </div>
-            <div class="collapse mt-2 pt-1 bg-light p-2 rounded" id="${collapseId}">
-              <div class="small fw-bold text-dark mb-1">📋 全體人員掃描軌跡：</div>
-              ${timeLogsHtml}
+            <div class="collapse mt-2 pt-2 bg-light p-2 rounded" id="${collapseId}">
+              <div class="small fw-bold text-dark mb-2">📋 全體人員各分區掃描軌跡：</div>
+              ${locSectionsHtml}
             </div>
           </div>
         `;
       }).join("");
     }
 
+    // 2. 我的即時盤點動態
     const myLogs = logsArray.filter(log => log.staff === boundUser);
 
     if (myLogs.length === 0) {
@@ -1557,11 +1577,17 @@
           barcode: log.barcode,
           name: invItem.name || log.displayTag || "商品",
           totalCounted: 0,
-          scans: []
+          scansByLoc: {},
+          lastTime: log.timestamp
         };
       }
       myGroupedMap[groupKey].totalCounted += (log.qty || 1);
-      myGroupedMap[groupKey].scans.push(log);
+      
+      const loc = log.location || "架上";
+      if (!myGroupedMap[groupKey].scansByLoc[loc]) {
+        myGroupedMap[groupKey].scansByLoc[loc] = [];
+      }
+      myGroupedMap[groupKey].scansByLoc[loc].push(log);
     });
 
     const myGroupedList = Object.values(myGroupedMap);
@@ -1569,15 +1595,28 @@
 
     myContainer.innerHTML = myGroupedList.map((g, idx) => {
       const collapseId = `myGroupCollapse_${idx}`;
-      const lastScan = g.scans[0];
-      const lastTimeStr = lastScan.timestamp ? new Date(lastScan.timestamp).toTimeString().slice(0, 8) : "";
+      const lastTimeStr = g.lastTime ? new Date(g.lastTime).toTimeString().slice(0, 8) : "";
 
-      const timeLogsHtml = g.scans.map(s => {
-        const tStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : "";
+      // 依分區群組收納我的掃描明細
+      const myLocSectionsHtml = Object.entries(g.scansByLoc).map(([locName, scans]) => {
+        const locTotal = scans.reduce((sum, s) => sum + (s.qty || 1), 0);
+        const logsHtml = scans.map(s => {
+          const tStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : "";
+          return `
+            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light" style="font-size: 0.75rem;">
+              <span>🕒 ${tStr} (+${s.qty || 1}件)</span>
+              <button class="btn btn-link text-danger p-0 text-decoration-none" style="font-size: 0.72rem;" onclick="undoSingleLog('${s.logId}', '${s.itemKey || ''}', '${s.barcode || ''}', ${s.qty || 1})">扣回此筆</button>
+            </div>
+          `;
+        }).join("");
+
         return `
-          <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light small text-muted">
-            <span>🕒 ${tStr} (+${s.qty || 1}件)</span>
-            <button class="btn btn-link text-danger p-0 text-decoration-none" style="font-size: 0.75rem;" onclick="undoSingleLog('${s.logId}', '${s.itemKey || ''}', '${s.barcode || ''}', ${s.qty || 1})">扣回此筆</button>
+          <div class="mb-2 p-2 bg-white rounded border border-light shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+              <span class="badge bg-success" style="font-size: 0.72rem;">📍 ${locName}</span>
+              <span class="small fw-bold text-dark">本區實盤: ${locTotal} 件</span>
+            </div>
+            ${logsHtml}
           </div>
         `;
       }).join("");
@@ -1595,18 +1634,18 @@
                 ${g.name}
               </div>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
               <button class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.75rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
                 明細▼
               </button>
-              <button class="btn-delete-plain" onclick="openConfirmDeleteModal('${g.itemKey}', '${g.barcode}', '${lastScan.logId}', ${lastScan.qty || 1}, '${g.name.replace(/'/g, "\\'")}')" title="刪除最後一筆刷入紀錄">
-                ❌
+              <button class="btn btn-outline-danger btn-sm py-0 px-1 fw-bold" style="font-size: 0.72rem;" onclick="resetSingleItemCount('${g.itemKey}', '${g.barcode}', '${g.name.replace(/'/g, "\\'")}')" title="將此商品實盤數量全部歸零重盤">
+                全清歸零
               </button>
             </div>
           </div>
-          <div class="collapse mt-2 pt-1 bg-light p-2 rounded" id="${collapseId}">
-            <div class="small fw-bold text-dark mb-1">📋 我的掃描時間軌跡：</div>
-            ${timeLogsHtml}
+          <div class="collapse mt-2 pt-2 bg-light p-2 rounded" id="${collapseId}">
+            <div class="small fw-bold text-dark mb-2">📋 我的各分區掃描軌跡：</div>
+            ${myLocSectionsHtml}
           </div>
         </div>
       `;
@@ -3441,6 +3480,48 @@
           });
         }
       });
+    });
+  }
+  // 單品項全數歸零重盤
+  function resetSingleItemCount(itemKey, barcode, itemName) {
+    const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
+    const item = fullInventory[safeKey];
+    const currentCount = item ? (item.countedQty || 0) : 0;
+
+    if (!confirm(`⚠️ 確定要將商品【${itemName}】全部歸零嗎？\n\n・目前已盤數量：${currentCount} 件\n・執行後該商品實盤數量將變為 0，您可以重新掃描盤點。`)) {
+      return;
+    }
+
+    const itemRef = invRef.child(safeKey);
+
+    // 1. 將該商品的實盤數量與分區數據全數歸零
+    itemRef.transaction(current => {
+      if (current) {
+        current.countedQty = 0;
+        current.lastStaff = "";
+        current.locBreakdown = null;
+      }
+      return current;
+    }, (error, committed) => {
+      if (committed) {
+        // 2. 清除該品項的所有掃描紀錄
+        logsRef.once("value", snap => {
+          const logsData = snap.val() || {};
+          const updates = {};
+          Object.entries(logsData).forEach(([logId, log]) => {
+            if (log.itemKey === safeKey || log.barcode === barcode) {
+              updates[logId] = null;
+            }
+          });
+          if (Object.keys(updates).length > 0) {
+            logsRef.update(updates);
+          }
+        });
+
+        showOperatorToast("已全數歸零", `【${itemName}】實盤已歸零，可重新盤點`, "warning");
+      } else if (error) {
+        alert("操作失敗: " + error.message);
+      }
     });
   }
 
