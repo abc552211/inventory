@@ -653,6 +653,7 @@
           </div>
           <p class="small text-muted mb-2">搜尋品牌或品名關鍵字，系統會直接列出庫存中<strong>所有真實商品</strong>。可全選並批次填入水位，亦可各品項獨立修改，零誤差！</p>
           
+          <!-- 批次設定與關鍵字搜尋 -->
           <div class="bg-light p-3 rounded mb-3 border small">
             <div class="row g-2 mb-2 align-items-end">
               <div class="col-md-5 col-12">
@@ -665,13 +666,17 @@
               <div class="col-md-7 col-12">
                 <div class="d-flex gap-2 align-items-center justify-content-md-end flex-wrap">
                   <div class="d-flex align-items-center gap-1">
-                    <span class="fw-bold text-dark">批次水位:</span>
-                    <input type="number" id="batchSafetyVal" class="form-control form-control-sm text-center" style="width: 55px;" value="1" min="0">
-                    <button class="btn btn-outline-primary btn-sm fw-bold" type="button" onclick="applyBatchSafetyStock()">⚡ 套用</button>
+                    <span class="fw-bold text-dark">批次最高:</span>
+                    <input type="number" id="batchMaxVal" class="form-control form-control-sm text-center" style="width: 55px;" value="10" min="0">
                   </div>
                   <div class="d-flex align-items-center gap-1">
-                    <span class="fw-bold text-dark">單品MOQ:</span>
+                    <span class="fw-bold text-dark">最低水位:</span>
+                    <input type="number" id="batchSafetyVal" class="form-control form-control-sm text-center" style="width: 55px;" value="2" min="0">
+                  </div>
+                  <div class="d-flex align-items-center gap-1">
+                    <span class="fw-bold text-dark">倍數出貨量:</span>
                     <input type="number" id="batchMoqVal" class="form-control form-control-sm text-center" style="width: 50px;" value="1" min="1">
+                    <button class="btn btn-outline-primary btn-sm fw-bold" type="button" onclick="applyBatchSafetyStock()">⚡ 套用</button>
                   </div>
                 </div>
               </div>
@@ -696,13 +701,14 @@
                     </th>
                     <th>貨號 / 條碼</th>
                     <th>中文品名</th>
-                    <th class="text-center" style="width: 70px;">現存</th>
-                    <th class="text-center" style="width: 90px;">安全水位</th>
-                    <th class="text-center" style="width: 70px;">起訂MOQ</th>
+                    <th class="text-center" style="width: 60px;">現存</th>
+                    <th class="text-center" style="width: 80px;">最高置庫</th>
+                    <th class="text-center" style="width: 80px;">最低水位</th>
+                    <th class="text-center" style="width: 80px;">倍數出貨量</th>
                   </tr>
                 </thead>
                 <tbody id="directStockItemsTableBody">
-                  <tr><td colspan="6" class="text-center text-muted py-4">請先在上方輸入關鍵字並點擊「讀取商品」。</td></tr>
+                  <tr><td colspan="7" class="text-center text-muted py-4">請先在上方輸入關鍵字並點擊「讀取商品」。</td></tr>
                 </tbody>
               </table>
             </div>
@@ -710,6 +716,45 @@
             <div class="d-flex justify-content-between align-items-center mt-2">
               <span class="text-muted small">已勾選 <strong id="selectedDirectItemsCount" class="text-primary">0</strong> / <span id="totalDirectItemsCount">0</span> 筆商品</span>
               <button class="btn btn-success btn-sm px-4 fw-bold shadow-sm" onclick="saveDirectSelectedItemsAsRules()">💾 儲存已勾選商品至補貨清單</button>
+            </div>
+          </div>
+
+          <div class="fw-bold small text-success mb-1">🟢 套用中條件 (樹狀編輯區)：</div>
+          <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 440px; min-height: 200px; max-height: 80vh; overflow-y: auto; resize: vertical;">
+            <div id="repRuleCardsContainer" class="accordion accordion-flush gap-1 d-flex flex-column">
+              <span class="text-muted small">尚未套用任何補貨條件。</span>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small text-muted">共設定 <strong id="totalRepRulesCount" class="text-primary">0</strong> 筆商品條件</span>
+            <div class="d-flex gap-1 align-items-center">
+              <input type="hidden" id="editingRepPackageId" value="">
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" id="btnSaveRepPackage" onclick="saveCurrentReplenishPackage()">📦 打包目前補貨條件為快選</button>
+              <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditRepPackage" onclick="cancelEditRepPackage()" style="display: none;">取消編輯</button>
+              <button class="btn btn-outline-danger btn-sm py-0" onclick="clearAllReplenishRules()">取消套用條件</button>
+            </div>
+          </div>
+
+          <!-- 常用快選包專區 (含僅顯示群組開關) -->
+          <div class="p-2 border rounded bg-white mt-2">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <div class="d-flex align-items-center gap-2">
+                <span class="small fw-bold text-secondary">⭐ 我的補貨常用快選包：</span>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="chkOnlyShowRepGroups" checked onchange="renderRepPresetPackages()">
+                  <label class="form-check-label small fw-bold text-primary" for="chkOnlyShowRepGroups">僅顯示大群組</label>
+                </div>
+              </div>
+              <div class="d-flex gap-1 align-items-center">
+                <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToRepModal()">🔄 從盤點複製</button>
+                <button class="btn btn-outline-success btn-sm py-0 fw-bold" onclick="openCreateGroupModal()">➕ 合成廠商大群組</button>
+                <span id="repPresetCountBadge" class="badge bg-secondary small">0 組</span>
+              </div>
+            </div>
+            <input type="text" class="form-control form-control-sm mb-2" placeholder="🔍 搜尋快選包名稱..." onkeyup="filterPackages(this.value, 'repPresetPackagesContainer')">
+            <div id="repPresetPackagesContainer" class="row g-2">
+              <div class="col-12"><span class="text-muted small">尚未儲存補貨快選包。</span></div>
             </div>
           </div>
 
@@ -768,14 +813,15 @@
                 <th style="width: 140px;">條碼編號</th>
                 <th>貨號 / 中文品名</th>
                 <th style="width: 70px;">目前庫存</th>
-                <th style="width: 70px;">安全水位</th>
-                <th style="width: 80px;">起訂/倍數</th>
+                <th style="width: 70px;">最高置庫</th>
+                <th style="width: 70px;">最低水位</th>
+                <th style="width: 80px;">出貨倍數</th>
                 <th class="text-danger fw-bold" style="width: 90px;">建議補貨量</th>
                 <th style="width: 120px;">狀態</th>
               </tr>
             </thead>
             <tbody id="replenishTableBody">
-              <tr><td colspan="7" class="text-center text-muted py-3">正在計算補貨資料...</td></tr>
+              <tr><td colspan="8" class="text-center text-muted py-3">正在計算補貨資料...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1914,6 +1960,7 @@
     renderDirectStockItemsTable();
   }
 
+  // 渲染直讀商品表格 (最高置庫量、最低水位、倍數出貨量)
   function renderDirectStockItemsTable() {
     const tbody = document.getElementById("directStockItemsTableBody");
     tbody.innerHTML = "";
@@ -1921,12 +1968,13 @@
     document.getElementById("totalDirectItemsCount").innerText = currentSearchedItems.length;
 
     if (currentSearchedItems.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">查無符合關鍵字的庫存商品。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">查無符合關鍵字的庫存商品。</td></tr>`;
       document.getElementById("selectedDirectItemsCount").innerText = 0;
       return;
     }
 
-    const defaultSafety = parseFloat(document.getElementById("batchSafetyVal").value) || 1;
+    const defaultMax = parseFloat(document.getElementById("batchMaxVal").value) || 10;
+    const defaultSafety = parseFloat(document.getElementById("batchSafetyVal").value) || 2;
     const defaultMoq = parseFloat(document.getElementById("batchMoqVal").value) || 1;
 
     currentSearchedItems.sort((a, b) => cleanString(a.name).localeCompare(cleanString(b.name)));
@@ -1935,6 +1983,8 @@
       const code = cleanString(item.barcode || item.itemCode);
       const curStock = (item.countedQty !== undefined && item.countedQty > 0) ? item.countedQty : (item.systemQty || 0);
       const existingRule = customReplenishRules[toSafeDbKey(code)] || customReplenishRules[code] || {};
+      
+      const itemMax = existingRule.maxQty !== undefined ? existingRule.maxQty : defaultMax;
       const itemSafety = existingRule.safety !== undefined ? existingRule.safety : defaultSafety;
       const itemMoq = existingRule.moq !== undefined ? existingRule.moq : defaultMoq;
 
@@ -1947,10 +1997,13 @@
         <td class="text-truncate" style="max-width: 320px;" title="${item.name || '-'}">${item.name || '-'}</td>
         <td class="text-center fw-bold ${curStock === 0 ? 'text-danger' : ''}">${curStock}</td>
         <td class="text-center">
+          <input type="number" class="form-control form-control-sm text-center direct-item-max fw-bold text-success" data-index="${idx}" value="${itemMax}" min="0">
+        </td>
+        <td class="text-center">
           <input type="number" class="form-control form-control-sm text-center direct-item-safety fw-bold text-primary" data-index="${idx}" value="${itemSafety}" min="0">
         </td>
         <td class="text-center">
-          <input type="number" class="form-control form-control-sm text-center direct-item-moq" data-index="${idx}" value="${itemMoq}" min="1">
+          <input type="number" class="form-control form-control-sm text-center direct-item-moq fw-bold text-dark" data-index="${idx}" value="${itemMoq}" min="1">
         </td>
       `;
       tbody.appendChild(tr);
@@ -1970,20 +2023,23 @@
   }
 
   function applyBatchSafetyStock() {
-    const val = parseFloat(document.getElementById("batchSafetyVal").value) || 0;
+    const maxVal = parseFloat(document.getElementById("batchMaxVal").value) || 10;
+    const safetyVal = parseFloat(document.getElementById("batchSafetyVal").value) || 2;
     const moqVal = parseFloat(document.getElementById("batchMoqVal").value) || 1;
 
     document.querySelectorAll(".direct-item-check").forEach(cb => {
       if (cb.checked) {
         const idx = cb.getAttribute("data-index");
+        const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
         const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
         const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
-        if (safetyInput) safetyInput.value = val;
+        if (maxInput) maxInput.value = maxVal;
+        if (safetyInput) safetyInput.value = safetyVal;
         if (moqInput) moqInput.value = moqVal;
       }
     });
 
-    showOperatorToast("批次套用成功", `已將勾選品項安全水位全數填入 ${val} 件`, "success");
+    showOperatorToast("批次套用成功", `已更新勾選品項水位 (最高:${maxVal} / 最低:${safetyVal} / 倍數:${moqVal})`, "success");
   }
 
   function saveDirectSelectedItemsAsRules() {
@@ -2001,6 +2057,7 @@
       if (!item) return;
 
       const code = cleanString(item.barcode || item.itemCode);
+      const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
       const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
       const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
 
@@ -2012,7 +2069,8 @@
         name: cleanString(item.name) || "-",
         brand: searchKw,
         warehouse: cleanString(item.warehouse) || "",
-        safety: parseFloat(safetyInput ? safetyInput.value : 1) || 0,
+        maxQty: parseFloat(maxInput ? maxInput.value : 10) || 10,
+        safety: parseFloat(safetyInput ? safetyInput.value : 2) || 0,
         moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
         vendorMoq: vendorMoq,
         isDirectBound: true,
@@ -2021,7 +2079,7 @@
     });
 
     repRulesRef.update(updatePayload).then(() => {
-      alert(`成功儲存 ${checkboxes.length} 筆商品條件！(出貨門檻: ${vendorMoq} 盒)`);
+      alert(`成功儲存 ${checkboxes.length} 筆商品條件！`);
     }).catch(err => alert("儲存失敗: " + err.message));
   }
 
@@ -2158,6 +2216,7 @@
         const item = currentSearchedItems[idx];
         if (!item) return;
         const code = cleanString(item.barcode || item.itemCode);
+        const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
         const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
         const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
         
@@ -2169,7 +2228,8 @@
           name: cleanString(item.name) || "-",
           brand: searchKw,
           warehouse: cleanString(item.warehouse) || "",
-          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 0,
+          maxQty: parseFloat(maxInput ? maxInput.value : 10) || 10,
+          safety: parseFloat(safetyInput ? safetyInput.value : 2) || 0,
           moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
           vendorMoq: vendorMoq,
           isDirectBound: true,
@@ -2209,17 +2269,27 @@
     }).catch(err => alert("儲存失敗: " + err.message));
   }
 
+  // 1. 編輯補貨快選包：自動展開面板並帶入頂部編輯區
   function editRepPresetPackage(pkgId, event) {
     if (event) event.stopPropagation();
     const pkg = repPresetPackages[pkgId];
+    if (!pkg) return;
     const ruleList = getRulesArrayFromPackage(pkg);
     if (ruleList.length === 0) return alert("此快選包無商品內容！");
 
     if (confirm(`確定要載入快選包【${pkg.name}】至上方編輯區修改嗎？`)) {
-      const firstRule = ruleList[0] || {};
-      if (pkg.vendorMoq || firstRule.vendorMoq) {
-        document.getElementById("batchVendorMoqVal").value = pkg.vendorMoq || firstRule.vendorMoq;
+      // 確保展開補貨設定面板
+      const panel = document.getElementById("replenishAdminPanel");
+      const btn = document.getElementById("btnToggleRepAdmin");
+      if (panel && (panel.style.display === "none" || panel.style.display === "")) {
+        panel.style.display = "block";
+        if (btn) {
+          btn.innerText = "⬅️ 返回補貨清單";
+          btn.className = "btn btn-sm btn-secondary text-white fw-bold shadow-sm";
+        }
       }
+
+      const firstRule = ruleList[0] || {};
       if (firstRule.brand) {
         document.getElementById("directItemSearchKw").value = firstRule.brand;
       }
@@ -2227,6 +2297,18 @@
       const targetCodes = new Set(ruleList.map(r => cleanString(r.barcode || r.keyword || r.itemCode)));
       allSearchedRawItems = Object.values(fullInventory).filter(item => targetCodes.has(cleanString(item.barcode || item.itemCode)));
       
+      // 若在目前庫存中找不到商品，則以規則本身建構
+      if (allSearchedRawItems.length === 0) {
+        allSearchedRawItems = ruleList.map(r => ({
+          barcode: r.barcode || r.keyword,
+          itemCode: r.itemCode || r.barcode || r.keyword,
+          name: r.name || "-",
+          brand: r.brand || "",
+          systemQty: 0,
+          countedQty: 0
+        }));
+      }
+
       buildPivotSeriesBadges();
       filterByPivotSeries("all");
 
@@ -2235,20 +2317,22 @@
           const code = cleanString(item.barcode || item.itemCode);
           const matchedRule = ruleList.find(r => cleanString(r.barcode || r.keyword || r.itemCode) === code);
           if (matchedRule) {
+            const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
             const sInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
             const mInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
-            if (sInput) sInput.value = matchedRule.safety || 0;
-            if (mInput) mInput.value = matchedRule.moq || 1;
+            if (maxInput) maxInput.value = matchedRule.maxQty !== undefined ? matchedRule.maxQty : 10;
+            if (sInput) sInput.value = matchedRule.safety !== undefined ? matchedRule.safety : 2;
+            if (mInput) mInput.value = matchedRule.moq !== undefined ? matchedRule.moq : 1;
           }
         });
-      }, 60);
+      }, 100);
 
       document.getElementById("editingRepPackageId").value = pkgId;
       const btnSave = document.getElementById("btnSaveRepPackage");
       btnSave.className = "btn btn-success btn-sm fw-bold shadow-sm";
       btnSave.innerText = `覆蓋更新【${pkg.name}】`;
       document.getElementById("btnCancelEditRepPackage").style.display = "inline-block";
-      document.getElementById("replenishAdminPanel").scrollIntoView({ behavior: 'smooth' });
+      panel.scrollIntoView({ behavior: 'smooth' });
     }
   }
 
@@ -2260,8 +2344,9 @@
     document.getElementById("btnCancelEditRepPackage").style.display = "none";
   }
 
+  // 檢查快選包或大群組是否處於「套用中」狀態
   function isPackageActive(pkg) {
-    if (!pkg || !pkg.rules || !customReplenishRules || Object.keys(customReplenishRules).length === 0) return false;
+    if (!pkg || !customReplenishRules || Object.keys(customReplenishRules).length === 0) return false;
     const ruleList = getRulesArrayFromPackage(pkg);
     if (ruleList.length === 0) return false;
 
@@ -2345,21 +2430,28 @@
     if (confirm(`確定要永久刪除快選包【${pkgName}】嗎？`)) repPresetsRef.child(pkgId).remove();
   }
 
+  // 2 & 3. 渲染快選包 (支援僅顯示群組切換 + 啟用變色)
   function renderRepPresetPackages() {
     const container = document.getElementById("repPresetPackagesContainer");
     if (!container) return;
     container.innerHTML = "";
     
-    const pkgKeys = Object.keys(repPresetPackages).sort((a, b) => {
+    const onlyShowGroups = document.getElementById("chkOnlyShowRepGroups") ? document.getElementById("chkOnlyShowRepGroups").checked : false;
+
+    let pkgKeys = Object.keys(repPresetPackages).sort((a, b) => {
       const pkgA = repPresetPackages[a], pkgB = repPresetPackages[b];
       return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
     });
+
+    if (onlyShowGroups) {
+      pkgKeys = pkgKeys.filter(k => repPresetPackages[k].isGroup);
+    }
 
     const badgeEl = document.getElementById("repPresetCountBadge");
     if (badgeEl) badgeEl.innerText = `${pkgKeys.length} 組`;
 
     if (pkgKeys.length === 0) {
-      container.innerHTML = `<div class="col-12"><span class="text-muted small">尚未儲存補貨快選包。</span></div>`;
+      container.innerHTML = `<div class="col-12"><span class="text-muted small">${onlyShowGroups ? '目前尚無大群組包，請取消勾選「僅顯示大群組」或點擊上方合成群組。' : '尚未儲存補貨快選包。'}</span></div>`;
       return;
     }
 
@@ -2368,7 +2460,11 @@
       const ruleList = getRulesArrayFromPackage(pkg);
       const count = ruleList.length;
       const isActive = isPackageActive(pkg);
-      const activeBtnClass = isActive ? "btn btn-success text-white fw-bold shadow-sm" : "btn btn-outline-warning text-dark fw-bold bg-white";
+      
+      // 3. 套用群組時按鈕顯著變色 (綠底白字/陰影)
+      const activeBtnClass = isActive 
+        ? "btn btn-success text-white fw-bold shadow-sm" 
+        : "btn btn-outline-warning text-dark fw-bold bg-white";
       const prefixText = isActive ? "✅ " : "⭐ ";
       
       const wrapper = document.createElement("div");
@@ -2384,10 +2480,10 @@
         const subCount = subs.length;
 
         wrapper.innerHTML = `
-          <div class="border rounded bg-light border-warning shadow-sm d-flex flex-column justify-content-between h-100">
+          <div class="border rounded ${isActive ? 'border-success bg-success bg-opacity-10' : 'bg-light border-warning'} shadow-sm d-flex flex-column justify-content-between h-100">
             <div class="d-flex justify-content-between align-items-center p-1">
               <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 款商品">
-                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-success fw-bold' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
               </button>
               <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
                 <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
@@ -2410,7 +2506,7 @@
         wrapper.innerHTML = `
           <div class="btn-group shadow-sm w-100" style="height: 32px;">
             <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="${pkg.name}\n共包含 ${count} 款商品">
-              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
+              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-light text-success fw-bold' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
             <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editRepPresetPackage('${pkgId}', event)">編輯</button>
             <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
@@ -2607,7 +2703,7 @@
     }).then(() => alert(`✅ 成功匯入【${pkg.name}】至智慧補貨！`));
   }
 
-  // ================= 7. 補貨計算與列印 =================
+  // 4. 補貨規則計算 (觸發條件已改為：庫存 < 最低水位)
   function calculateReplenishment() {
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
     const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
@@ -2621,11 +2717,13 @@
     ruleKeys.forEach(rk => {
       const rule = customReplenishRules[rk];
       const targetCode = cleanString(rule.barcode || rule.keyword);
-      const safety = parseFloat(rule.safety) || 0;
-      const moq = parseFloat(rule.moq) || 1;
+      
+      const maxQty = parseFloat(rule.maxQty) || 1;       // 最高置庫量
+      const safety = parseFloat(rule.safety) || 1;       // 最低水位
+      const moq = Math.max(1, parseFloat(rule.moq) || 1); // 倍數出貨量 n (例如 1, 6...)
+      
       const vendorMoq = parseFloat(rule.vendorMoq) || 1;
       const brandName = cleanString(rule.brand) || "預設廠商";
-      
       const groupKey = cleanString(rule.groupPkgName) || brandName;
 
       const safeKey = barcodeToKeyMap[targetCode];
@@ -2638,10 +2736,21 @@
       let needQty = 0;
       let status = `<span class="text-success">充足</span>`;
 
+      // 核心修改：觸發條件嚴格小於 (庫存 < 最低水位)
       if (currentStock < safety) {
-        const rawDeficit = safety - currentStock;
-        needQty = Math.max(rawDeficit, moq);
-        status = ``; 
+        // 以倍數 moq (n) 累加，加到最接近最高置庫量且不超過為原則
+        let k = 1;
+        while (currentStock + (k + 1) * moq <= maxQty) {
+          k++;
+        }
+        needQty = k * moq;
+        
+        // 若連 1 倍加下去都大於 maxQty，則以最基本 1 倍下訂
+        if (needQty <= 0) {
+          needQty = moq;
+        }
+
+        status = currentStock === 0 ? `<span class="badge bg-danger">斷貨</span>` : `<span class="badge bg-warning text-dark">低水位</span>`;
         totalNeedCount++;
         totalQtySum += needQty;
       }
@@ -2654,10 +2763,10 @@
         groupKey: groupKey,
         warehouse: matchedItem ? (matchedItem.warehouse || "") : "",
         currentStock: currentStock,
+        maxStock: maxQty,
         safetyStock: safety,
         moq: moq,
         vendorMoq: vendorMoq,
-        batch: 1,
         needQty: needQty,
         status: status
       });
@@ -2667,17 +2776,6 @@
     const totalQtyEl = document.getElementById("repTotalQtySum");
     if (needCountEl) needCountEl.innerText = totalNeedCount;
     if (totalQtyEl) totalQtyEl.innerText = totalQtySum;
-
-    const vendorSummaryMap = {};
-    calculatedReplenishList.forEach(item => {
-      if (item.needQty > 0) {
-        const bKey = item.groupKey || "未分類廠商"; 
-        if (!vendorSummaryMap[bKey]) {
-          vendorSummaryMap[bKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
-        }
-        vendorSummaryMap[bKey].totalQty += item.needQty;
-      }
-    });
 
     const tbody = document.getElementById("replenishTableBody");
     if (!tbody) return;
@@ -2689,7 +2787,7 @@
     }
 
     if (displayList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-success py-3">目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
       return;
     }
 
@@ -2697,18 +2795,6 @@
       const tr = document.createElement("tr");
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `web_rep_bc_${index}`;
-
-      let vendorStatusBadge = "";
-      const bKey = item.groupKey || "未分類廠商"; 
-      const vInfo = vendorSummaryMap[bKey];
-
-      if (vInfo && vInfo.threshold > 1) {
-        if (vInfo.totalQty >= vInfo.threshold) {
-          vendorStatusBadge = `<div class="mt-1 small text-success fw-bold">(已達出貨門檻 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
-        } else {
-          vendorStatusBadge = `<div class="mt-1 small text-danger fw-bold">(未達出貨門檻 ${vInfo.totalQty}/${vInfo.threshold})</div>`;
-        }
-      }
 
       tr.innerHTML = `
         <td class="text-center align-middle">
@@ -2720,12 +2806,12 @@
           <div style="font-size: 0.9rem; line-height: 1.2;">${item.name || '-'}</div>
         </td>
         <td class="fw-bold text-center align-middle ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
+        <td class="text-center fw-bold text-success align-middle">${item.maxStock}</td>
         <td class="text-center fw-bold text-primary align-middle">${item.safetyStock}</td>
-        <td class="small text-center align-middle">MOQ:${item.moq}</td>
+        <td class="text-center align-middle"><span class="badge bg-light text-dark border">×${item.moq}</span></td>
         <td class="fw-bold text-center fs-5 align-middle ${item.needQty > 0 ? 'text-danger' : 'text-muted'}">${item.needQty}</td>
         <td class="text-center align-middle">
           ${item.status}
-          ${vendorStatusBadge}
         </td>
       `;
       tbody.appendChild(tr);
