@@ -129,10 +129,10 @@
     
     #myScanToast {
       position: fixed;
-      bottom: 18px;
+      top: 60px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 1080;
+      z-index: 10000;
       min-width: 86%;
       max-width: 380px;
       display: none;
@@ -3819,7 +3819,10 @@
   function handleManualBarcodeSubmit() {
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(inputEl.value);
-    if (!barcode) return;
+    if (!barcode) {
+      if (inputEl) inputEl.focus();
+      return;
+    }
 
     const safeKey = barcodeToKeyMap[barcode];
     const existingItem = safeKey ? fullInventory[safeKey] : null;
@@ -3828,16 +3831,22 @@
       playBeep("warning");
       triggerVisualFlash("warning");
       showOperatorToast("非本庫存商品", `條碼/貨號【${barcode}】不在清單中`, "warning");
+      inputEl.value = "";
+      inputEl.focus();
       return;
     }
 
     inputEl.value = "";
-    inputEl.blur();
 
     const mode = document.querySelector('input[name="camScanMode"]:checked').value;
     if (mode === "auto") {
       executeScan(barcode, 1);
+      // 維持游標焦點在輸入框內
+      setTimeout(() => {
+        if (inputEl) inputEl.focus();
+      }, 50);
     } else {
+      inputEl.blur();
       openCalculatorKeypad(barcode, existingItem);
     }
   }
@@ -4012,6 +4021,13 @@
   }
 
   function startScanner() {
+    const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
+    if (!locRadio) {
+      playBeep("warning");
+      showOperatorToast("尚未選擇位置", "⚠️ 請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）再開啟相機！", "warning");
+      return;
+    }
+
     document.getElementById("scannerContainer").style.display = "block";
     document.getElementById("btnToggleCam").innerText = "⏹️ 關閉相機";
     document.getElementById("btnToggleCam").className = "btn btn-outline-danger btn-sm py-1 px-2 fw-bold";
@@ -4047,7 +4063,7 @@
         aspectRatio: 2.0,
         videoConstraints: {
           facingMode: "environment",
-          width: { min: 1280, ideal: 1920, max: 1920 }, // 強制 1080p 高畫質取樣
+          width: { min: 1280, ideal: 1920, max: 1920 },
           height: { min: 720, ideal: 1080, max: 1080 },
           focusMode: "continuous"
         }
@@ -4088,7 +4104,6 @@
     ).then(() => {
       resetCamIdleTimer();
 
-      // 開啟相機後顯示 1.5x 望遠按鈕
       const zoomBtn = document.getElementById("btnToggleZoom");
       if (zoomBtn) {
         zoomBtn.style.display = "inline-block";
