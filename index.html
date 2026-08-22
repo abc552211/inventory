@@ -667,11 +667,11 @@
                 <div class="d-flex gap-2 align-items-center justify-content-md-end flex-wrap">
                   <div class="d-flex align-items-center gap-1">
                     <span class="fw-bold text-dark">批次最高:</span>
-                    <input type="number" id="batchMaxVal" class="form-control form-control-sm text-center" style="width: 55px;" value="10" min="0">
+                    <input type="number" id="batchMaxVal" class="form-control form-control-sm text-center" style="width: 55px;" value="1" min="0">
                   </div>
                   <div class="d-flex align-items-center gap-1">
                     <span class="fw-bold text-dark">最低水位:</span>
-                    <input type="number" id="batchSafetyVal" class="form-control form-control-sm text-center" style="width: 55px;" value="2" min="0">
+                    <input type="number" id="batchSafetyVal" class="form-control form-control-sm text-center" style="width: 55px;" value="1" min="0">
                   </div>
                   <div class="d-flex align-items-center gap-1">
                     <span class="fw-bold text-dark">倍數出貨量:</span>
@@ -2430,7 +2430,7 @@
     if (confirm(`確定要永久刪除快選包【${pkgName}】嗎？`)) repPresetsRef.child(pkgId).remove();
   }
 
-  // 2 & 3. 渲染快選包 (支援僅顯示群組切換 + 啟用變色)
+  // 2 & 3. 渲染補貨快選包 (大群組: 深綠底白字 / 小包: 淺綠底深綠字)
   function renderRepPresetPackages() {
     const container = document.getElementById("repPresetPackagesContainer");
     if (!container) return;
@@ -2460,11 +2460,6 @@
       const ruleList = getRulesArrayFromPackage(pkg);
       const count = ruleList.length;
       const isActive = isPackageActive(pkg);
-      
-      // 3. 套用群組時按鈕顯著變色 (綠底白字/陰影)
-      const activeBtnClass = isActive 
-        ? "btn btn-success text-white fw-bold shadow-sm" 
-        : "btn btn-outline-warning text-dark fw-bold bg-white";
       const prefixText = isActive ? "✅ " : "⭐ ";
       
       const wrapper = document.createElement("div");
@@ -2472,6 +2467,12 @@
       wrapper.setAttribute('data-pkg-name', pkg.name);
       
       if (pkg.isGroup) {
+        // 大群組套用樣式：深綠底白字
+        const groupBtnClass = isActive 
+          ? "btn text-white fw-bold shadow-sm" 
+          : "btn btn-outline-warning text-dark fw-bold bg-white";
+        const groupBtnStyle = isActive ? "background-color: #198754 !important; border-color: #198754 !important;" : "";
+
         let subs = [];
         if (pkg.subPackages) {
           const rawSubs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
@@ -2480,10 +2481,10 @@
         const subCount = subs.length;
 
         wrapper.innerHTML = `
-          <div class="border rounded ${isActive ? 'border-success bg-success bg-opacity-10' : 'bg-light border-warning'} shadow-sm d-flex flex-column justify-content-between h-100">
+          <div class="border rounded ${isActive ? 'border-success' : 'bg-light border-warning'} shadow-sm d-flex flex-column justify-content-between h-100" style="${isActive ? 'background-color: #e8f5e9;' : ''}">
             <div class="d-flex justify-content-between align-items-center p-1">
-              <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 款商品">
-                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-success fw-bold' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+              <button type="button" class="${groupBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem; ${groupBtnStyle}" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 款商品">
+                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
               </button>
               <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
                 <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
@@ -2503,10 +2504,18 @@
           </div>
         `;
       } else {
+        // 單一小包套用樣式：柔和淺綠底 + 深綠字
+        const singleBtnClass = isActive 
+          ? "btn fw-bold shadow-sm" 
+          : "btn btn-outline-warning text-dark fw-bold bg-white";
+        const singleBtnStyle = isActive 
+          ? "background-color: #d1e7dd !important; color: #0f5132 !important; border: 1px solid #badbcc !important;" 
+          : "";
+
         wrapper.innerHTML = `
           <div class="btn-group shadow-sm w-100" style="height: 32px;">
-            <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem;" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="${pkg.name}\n共包含 ${count} 款商品">
-              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-light text-success fw-bold' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
+            <button type="button" class="${singleBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem; ${singleBtnStyle}" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="${pkg.name}\n共包含 ${count} 款商品">
+              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-success text-white' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
             <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editRepPresetPackage('${pkgId}', event)">編輯</button>
             <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
@@ -2703,7 +2712,7 @@
     }).then(() => alert(`✅ 成功匯入【${pkg.name}】至智慧補貨！`));
   }
 
-  // 4. 補貨規則計算 (觸發條件已改為：庫存 < 最低水位)
+  // 4. 補貨規則計算 (移除斷貨/低水位標籤，狀態欄位僅保留簡約門檻達標提示)
   function calculateReplenishment() {
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
     const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
@@ -2718,8 +2727,8 @@
       const rule = customReplenishRules[rk];
       const targetCode = cleanString(rule.barcode || rule.keyword);
       
-      const maxQty = parseFloat(rule.maxQty) || 1;       // 最高置庫量
-      const safety = parseFloat(rule.safety) || 1;       // 最低水位
+      const maxQty = parseFloat(rule.maxQty) !== undefined ? parseFloat(rule.maxQty) : 1; // 預設最高置庫 1
+      const safety = parseFloat(rule.safety) !== undefined ? parseFloat(rule.safety) : 1; // 預設最低水位 1
       const moq = Math.max(1, parseFloat(rule.moq) || 1); // 倍數出貨量 n (例如 1, 6...)
       
       const vendorMoq = parseFloat(rule.vendorMoq) || 1;
@@ -2734,9 +2743,8 @@
         : 0;
 
       let needQty = 0;
-      let status = `<span class="text-success">充足</span>`;
 
-      // 核心修改：觸發條件嚴格小於 (庫存 < 最低水位)
+      // 觸發條件：庫存 < 最低水位
       if (currentStock < safety) {
         // 以倍數 moq (n) 累加，加到最接近最高置庫量且不超過為原則
         let k = 1;
@@ -2750,7 +2758,6 @@
           needQty = moq;
         }
 
-        status = currentStock === 0 ? `<span class="badge bg-danger">斷貨</span>` : `<span class="badge bg-warning text-dark">低水位</span>`;
         totalNeedCount++;
         totalQtySum += needQty;
       }
@@ -2767,8 +2774,7 @@
         safetyStock: safety,
         moq: moq,
         vendorMoq: vendorMoq,
-        needQty: needQty,
-        status: status
+        needQty: needQty
       });
     });
 
@@ -2776,6 +2782,18 @@
     const totalQtyEl = document.getElementById("repTotalQtySum");
     if (needCountEl) needCountEl.innerText = totalNeedCount;
     if (totalQtyEl) totalQtyEl.innerText = totalQtySum;
+
+    // 計算廠商/大群組補貨累計總量與出貨門檻
+    const vendorSummaryMap = {};
+    calculatedReplenishList.forEach(item => {
+      if (item.needQty > 0) {
+        const vKey = item.groupKey || item.brand || "未分類廠商";
+        if (!vendorSummaryMap[vKey]) {
+          vendorSummaryMap[vKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
+        }
+        vendorSummaryMap[vKey].totalQty += item.needQty;
+      }
+    });
 
     const tbody = document.getElementById("replenishTableBody");
     if (!tbody) return;
@@ -2796,6 +2814,20 @@
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `web_rep_bc_${index}`;
 
+      // 僅顯示簡約門檻達標提示
+      let vendorStatusHtml = `<span class="text-muted" style="font-size: 0.8rem;">-</span>`;
+      const vKey = item.groupKey || item.brand || "未分類廠商";
+      const vInfo = vendorSummaryMap[vKey];
+
+      if (vInfo && vInfo.threshold > 1) {
+        if (vInfo.totalQty >= vInfo.threshold) {
+          vendorStatusHtml = `<div class="fw-bold" style="font-size: 0.75rem; color: #198754; line-height: 1.1;">已達門檻<br><span style="font-size: 0.7rem;">(${vInfo.totalQty}/${vInfo.threshold})</span></div>`;
+        } else {
+          const diff = vInfo.threshold - vInfo.totalQty;
+          vendorStatusHtml = `<div class="fw-bold" style="font-size: 0.75rem; color: #dc3545; line-height: 1.1;">缺 ${diff} 達標<br><span style="font-size: 0.7rem;">(${vInfo.totalQty}/${vInfo.threshold})</span></div>`;
+        }
+      }
+
       tr.innerHTML = `
         <td class="text-center align-middle">
           <svg id="${svgId}" class="barcode-svg" style="height: 32px;"></svg>
@@ -2810,8 +2842,8 @@
         <td class="text-center fw-bold text-primary align-middle">${item.safetyStock}</td>
         <td class="text-center align-middle"><span class="badge bg-light text-dark border">×${item.moq}</span></td>
         <td class="fw-bold text-center fs-5 align-middle ${item.needQty > 0 ? 'text-danger' : 'text-muted'}">${item.needQty}</td>
-        <td class="text-center align-middle">
-          ${item.status}
+        <td class="text-center align-middle" style="line-height: 1.2;">
+          ${vendorStatusHtml}
         </td>
       `;
       tbody.appendChild(tr);
@@ -3188,7 +3220,7 @@
     });
   }
 
-  // 盤點：渲染快選包 (雙欄網格化、淺藍色套用狀態、純藍勾勾 ☑️、固定按鈕靠右)
+  // 盤點：渲染快選包 (大群組: 深藍底白字 / 小包: 淺藍底深藍字)
   function renderPresetPackages() {
     const container = document.getElementById("presetPackagesContainer");
     if (!container) return;
@@ -3212,18 +3244,19 @@
       const ruleList = getRulesArrayFromInvPackage(pkg);
       const count = ruleList.length;
       const isActive = isInvPackageActive(pkg);
-
-      // 淺藍色啟用樣式與純藍色勾勾
-      const activeBtnClass = isActive 
-        ? "btn btn-info bg-opacity-25 text-primary border-info fw-bold shadow-sm" 
-        : "btn btn-outline-dark fw-bold bg-white text-dark";
-      const prefixText = isActive ? `<span class="text-primary fw-bold me-1">☑️</span>` : `⭐ `;
       
       const wrapper = document.createElement("div");
       wrapper.className = "col-12 col-md-6 pkg-col-item"; 
       wrapper.setAttribute('data-pkg-name', pkg.name);
       
       if (pkg.isGroup) {
+        // 盤點大群組套用樣式：深藍底白字
+        const groupBtnClass = isActive 
+          ? "btn text-white fw-bold shadow-sm" 
+          : "btn btn-outline-dark fw-bold bg-white text-dark";
+        const groupBtnStyle = isActive ? "background-color: #0d6efd !important; border-color: #0d6efd !important;" : "";
+        const prefixText = isActive ? `<span class="text-white fw-bold me-1">☑️</span>` : `⭐ `;
+
         let subs = [];
         if (pkg.subPackages) {
           const rawSubs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
@@ -3232,10 +3265,10 @@
         const subCount = subs.length;
 
         wrapper.innerHTML = `
-          <div class="border rounded ${isActive ? 'bg-info bg-opacity-10 border-info' : 'bg-light border-info'} shadow-sm d-flex flex-column justify-content-between h-100">
+          <div class="border rounded ${isActive ? 'border-primary' : 'bg-light border-info'} shadow-sm d-flex flex-column justify-content-between h-100" style="${isActive ? 'background-color: #e7f1ff;' : ''}">
             <div class="d-flex justify-content-between align-items-center p-1">
-              <button type="button" class="btn ${activeBtnClass} text-start text-truncate flex-grow-1 border-0 bg-transparent px-2" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此大群組' : '點擊啟用此大群組'}\n包含 ${subCount} 個小包，共 ${count} 條條件">
-                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-primary text-white' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+              <button type="button" class="${groupBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem; ${groupBtnStyle}" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此大群組' : '點擊啟用此大群組'}\n包含 ${subCount} 個小包，共 ${count} 條條件">
+                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
               </button>
               <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
                 <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleInvGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
@@ -3255,9 +3288,18 @@
           </div>
         `;
       } else {
+        // 盤點單一小包套用樣式：柔和淺藍底 + 深藍字
+        const singleBtnClass = isActive 
+          ? "btn fw-bold shadow-sm" 
+          : "btn btn-outline-dark fw-bold bg-white text-dark";
+        const singleBtnStyle = isActive 
+          ? "background-color: #cfe2ff !important; color: #084298 !important; border: 1px solid #b6d4fe !important;" 
+          : "";
+        const prefixText = isActive ? `<span class="text-primary fw-bold me-1">☑️</span>` : `⭐ `;
+
         wrapper.innerHTML = `
           <div class="btn-group shadow-sm w-100" style="height: 32px;">
-            <button type="button" class="${activeBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem;" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此快選' : '點擊啟用此快選'}\n含 ${count} 條條件">
+            <button type="button" class="${singleBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem; ${singleBtnStyle}" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此快選' : '點擊啟用此快選'}\n含 ${count} 條條件">
               ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-primary text-white' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
             <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
