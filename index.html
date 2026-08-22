@@ -597,19 +597,21 @@
           <button class="btn btn-primary px-3 fw-bold" type="button" onclick="handleManualBarcodeSubmit()">🔍 盤入</button>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center pt-1 border-top">
+        <!-- 控制按鈕列 (支援 2x 遠距對焦與補光) -->
+        <div class="d-flex justify-content-between align-items-center pt-1 border-top flex-wrap gap-1">
           <div class="d-flex gap-1">
-            <button class="btn btn-success btn-sm py-1 px-3 fw-bold" id="btnToggleCam" onclick="toggleScanner()" style="font-size: 0.82rem;">📷 開啟相機掃描</button>
+            <button class="btn btn-success btn-sm py-1 px-2 fw-bold" id="btnToggleCam" onclick="toggleScanner()" style="font-size: 0.82rem;">📷 開啟相機</button>
+            <button class="btn btn-light border-dark text-dark btn-sm py-1 px-2 fw-bold shadow-sm" id="btnToggleZoom" onclick="toggleCameraZoom()" style="display: none; font-size: 0.82rem;" title="遠距放大對焦">🔍 1.5x 望遠</button>
             <button class="btn btn-outline-warning text-dark btn-sm py-1 px-2 fw-bold" id="btnToggleTorch" onclick="toggleTorch()" style="display: none; font-size: 0.82rem;" title="切換補光燈">💡 補光</button>
           </div>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 align-items-center">
             <div class="form-check form-check-inline mb-0" style="font-size: 0.78rem;">
               <input class="form-check-input" type="radio" name="camScanMode" id="scanModeAuto" value="auto">
               <label class="form-check-label" for="scanModeAuto">連續(+1)</label>
             </div>
             <div class="form-check form-check-inline mb-0" style="font-size: 0.78rem;">
               <input class="form-check-input" type="radio" name="camScanMode" id="scanModeManual" value="manual" checked>
-              <label class="form-check-label fw-bold text-primary" for="scanModeManual">單刷手動量</label>
+              <label class="form-check-label fw-bold text-primary" for="scanModeManual">手動量</label>
             </div>
           </div>
         </div>
@@ -670,10 +672,6 @@
                   <div class="d-flex align-items-center gap-1">
                     <span class="fw-bold text-dark">單品MOQ:</span>
                     <input type="number" id="batchMoqVal" class="form-control form-control-sm text-center" style="width: 50px;" value="1" min="1">
-                  </div>
-                  <div class="d-flex align-items-center gap-1 bg-warning bg-opacity-25 px-2 py-1 rounded border border-warning">
-                    <span class="fw-bold text-dark" title="該廠商/品牌全部缺貨品項合計需滿多少盒才出貨">廠商合併門檻:</span>
-                    <input type="number" id="batchVendorMoqVal" class="form-control form-control-sm text-center fw-bold text-danger" style="width: 55px;" value="1" min="1" placeholder="盒數">
                   </div>
                 </div>
               </div>
@@ -1266,6 +1264,7 @@
     rulesRef.on("value", snap => {
       filterRules = snap.val() || {};
       renderFilterRules();
+      renderPresetPackages(); // 核心修復：條件異動時立即刷新快選包按鈕狀態與勾勾
       recalculateStats();
     });
 
@@ -1952,7 +1951,8 @@
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     if (checkboxes.length === 0) return alert("請至少勾選一項商品！");
 
-    const vendorMoq = parseFloat(document.getElementById("batchVendorMoqVal").value) || 1;
+    const vMoqEl = document.getElementById("batchVendorMoqVal");
+    const vendorMoq = vMoqEl ? (parseFloat(vMoqEl.value) || 1) : 1;
     const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "常用廠商";
     const updatePayload = {};
 
@@ -2109,7 +2109,8 @@
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     let rulesToSave = {};
 
-    const vendorMoq = parseFloat(document.getElementById("batchVendorMoqVal").value) || 1;
+    const vMoqEl = document.getElementById("batchVendorMoqVal");
+    const vendorMoq = vMoqEl ? (parseFloat(vMoqEl.value) || 1) : 1;
     const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "預設廠商";
 
     if (checkboxes.length > 0) {
@@ -3663,12 +3664,60 @@
     }
   }
 
-  // ================= 11. 相機掃描 =================
+  // ================= 9. 專業級相機掃描引擎 (通用 2x 數位望遠 + 90秒休眠) =================
   let lastScannedBarcode = "";
   let lastScannedTime = 0;
   let isTorchOn = false;
+  let currentZoom = 1.0;
+  let camIdleTimer = null;
+  const CAM_IDLE_TIMEOUT_MS = 90000; // 90 秒無操作自動休眠
+
+  function resetCamIdleTimer() {
+    if (camIdleTimer) clearTimeout(camIdleTimer);
+    if (isScanning) {
+      camIdleTimer = setTimeout(() => {
+        if (isScanning) {
+          stopScanner();
+          showOperatorToast("相機已休眠", "已閒置超過 90 秒，相機自動關閉以省電防熱。", "warning");
+        }
+      }, CAM_IDLE_TIMEOUT_MS);
+    }
+  }
 
   function toggleScanner() { isScanning ? stopScanner() : startScanner(); }
+
+  // 通用 1.5x 望遠：結合硬體 Zoom 與 CSS 數位裁切放大，按鈕高對比切換
+  function toggleCameraZoom() {
+    if (!isScanning) return;
+    currentZoom = (currentZoom === 1.0) ? 1.5 : 1.0;
+    
+    // 1. 嘗試硬體級縮放支援
+    if (html5QrCode) {
+      try {
+        html5QrCode.applyVideoConstraints({ advanced: [{ zoom: currentZoom }] }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // 2. CSS 數位放大 (保證 iOS Safari 與所有機型皆能精準放大 1.5x)
+    const videoEl = document.querySelector("#reader video");
+    if (videoEl) {
+      videoEl.style.transition = "transform 0.2s ease";
+      videoEl.style.transform = currentZoom === 1.5 ? "scale(1.5)" : "scale(1.0)";
+    }
+
+    // 3. 高對比按鈕切換 (放大中時採用高對比深底或高亮樣式)
+    const zoomBtn = document.getElementById("btnToggleZoom");
+    if (zoomBtn) {
+      if (currentZoom === 1.5) {
+        zoomBtn.innerText = "🔍 1.0x 標準 (已放大)";
+        zoomBtn.className = "btn btn-dark text-warning border-warning btn-sm py-1 px-2 fw-bold shadow";
+      } else {
+        zoomBtn.innerText = "🔍 1.5x 望遠";
+        zoomBtn.className = "btn btn-light border-dark text-dark btn-sm py-1 px-2 fw-bold shadow-sm";
+      }
+    }
+    showOperatorToast("鏡頭縮放", `已切換至 ${currentZoom}x 模式 ${currentZoom === 1.5 ? '(請拿遠10~15cm對焦)' : ''}`, "success");
+  }
 
   function toggleTorch() {
     if (!html5QrCode || !isScanning) return;
@@ -3691,34 +3740,52 @@
   function startScanner() {
     document.getElementById("scannerContainer").style.display = "block";
     document.getElementById("btnToggleCam").innerText = "⏹️ 關閉相機";
-    document.getElementById("btnToggleCam").className = "btn btn-outline-danger btn-sm py-1 px-3 fw-bold";
+    document.getElementById("btnToggleCam").className = "btn btn-outline-danger btn-sm py-1 px-2 fw-bold";
 
-    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode = new Html5Qrcode("reader", {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ],
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      }
+    });
 
+    // 高畫質動態取樣視窗
     const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
-      const w = Math.floor(viewfinderWidth * 0.88);
-      const h = Math.floor(Math.min(viewfinderHeight * 0.78, 110));
-      return { width: Math.max(w, 220), height: Math.max(h, 80) };
+      const minDim = Math.min(viewfinderWidth, viewfinderHeight);
+      const boxWidth = Math.min(viewfinderWidth * 0.9, 320);
+      const boxHeight = Math.min(viewfinderHeight * 0.8, 140);
+      return { width: Math.floor(boxWidth), height: Math.floor(boxHeight) };
     };
 
     html5QrCode.start(
       { facingMode: "environment" },
       { 
-        fps: 20,
+        fps: 25,
         qrbox: qrboxFunction,
-        aspectRatio: 2.2,
+        aspectRatio: 2.0,
         videoConstraints: {
           facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { min: 1280, ideal: 1920, max: 1920 }, // 強制 1080p 高畫質取樣
+          height: { min: 720, ideal: 1080, max: 1080 },
+          focusMode: "continuous"
         }
       },
       (decodedText) => {
+        resetCamIdleTimer();
+
         const cleanedText = cleanString(decodedText);
         if (!cleanedText) return;
 
         const now = Date.now();
-        if (cleanedText === lastScannedBarcode && (now - lastScannedTime < 2500)) return;
+        if (cleanedText === lastScannedBarcode && (now - lastScannedTime < 2200)) return;
 
         lastScannedBarcode = cleanedText;
         lastScannedTime = now;
@@ -3745,12 +3812,23 @@
       },
       () => {}
     ).then(() => {
+      resetCamIdleTimer();
+
+      // 開啟相機後顯示 1.5x 望遠按鈕
+      const zoomBtn = document.getElementById("btnToggleZoom");
+      if (zoomBtn) {
+        zoomBtn.style.display = "inline-block";
+        zoomBtn.innerText = "🔍 1.5x 望遠";
+        zoomBtn.className = "btn btn-light border-dark text-dark btn-sm py-1 px-2 fw-bold shadow-sm";
+      }
+
       try {
         const capabilities = html5QrCode.getRunningTrackCapabilities();
+        const torchBtn = document.getElementById("btnToggleTorch");
         if (capabilities && capabilities.torch) {
-          document.getElementById("btnToggleTorch").style.display = "inline-block";
+          if (torchBtn) torchBtn.style.display = "inline-block";
         } else {
-          document.getElementById("btnToggleTorch").style.display = "none";
+          if (torchBtn) torchBtn.style.display = "none";
         }
       } catch (e) {
         document.getElementById("btnToggleTorch").style.display = "inline-block";
@@ -3763,18 +3841,31 @@
   }
 
   function stopScanner() {
+    if (camIdleTimer) clearTimeout(camIdleTimer);
+
     if (html5QrCode && isScanning) {
       isTorchOn = false;
+      currentZoom = 1.0;
+
+      const videoEl = document.querySelector("#reader video");
+      if (videoEl) videoEl.style.transform = "scale(1.0)";
+
       const torchBtn = document.getElementById("btnToggleTorch");
       if (torchBtn) {
         torchBtn.style.display = "none";
         torchBtn.innerText = "💡 補光";
       }
+      const zoomBtn = document.getElementById("btnToggleZoom");
+      if (zoomBtn) {
+        zoomBtn.style.display = "none";
+        zoomBtn.innerText = "🔍 1.5x 望遠";
+        zoomBtn.className = "btn btn-light border-dark text-dark btn-sm py-1 px-2 fw-bold shadow-sm";
+      }
 
       html5QrCode.stop().then(() => {
         document.getElementById("scannerContainer").style.display = "none";
-        document.getElementById("btnToggleCam").innerText = "📷 開啟相機掃描";
-        document.getElementById("btnToggleCam").className = "btn btn-success btn-sm py-1 px-3 fw-bold";
+        document.getElementById("btnToggleCam").innerText = "📷 開啟相機";
+        document.getElementById("btnToggleCam").className = "btn btn-success btn-sm py-1 px-2 fw-bold";
         isScanning = false;
       });
     }
