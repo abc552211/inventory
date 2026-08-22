@@ -713,9 +713,15 @@
               </table>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mt-2">
+            <!-- 表格下方按鈕列：左側顯示勾選筆數，右側排列【覆蓋更新 / 取消編輯 / 移至套用區】 -->
+            <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
               <span class="text-muted small">已勾選 <strong id="selectedDirectItemsCount" class="text-primary">0</strong> / <span id="totalDirectItemsCount">0</span> 筆商品</span>
-              <button class="btn btn-success btn-sm px-4 fw-bold shadow-sm" onclick="saveDirectSelectedItemsAsRules()">💾 儲存已勾選商品至補貨清單</button>
+              <div class="d-flex gap-1 align-items-center ms-auto">
+                <input type="hidden" id="editingRepPackageId" value="">
+                <button class="btn btn-success btn-sm fw-bold shadow-sm" id="btnSaveRepPackage" onclick="saveCurrentReplenishPackage()" style="display: none;">覆蓋更新</button>
+                <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditRepPackage" onclick="cancelEditRepPackage()" style="display: none;">取消編輯</button>
+                <button class="btn btn-primary btn-sm px-3 fw-bold shadow-sm" onclick="saveDirectSelectedItemsAsRules()">💾 移至套用區</button>
+              </div>
             </div>
           </div>
 
@@ -729,9 +735,7 @@
           <div class="d-flex justify-content-between align-items-center mb-2">
             <span class="small text-muted">共設定 <strong id="totalRepRulesCount" class="text-primary">0</strong> 筆商品條件</span>
             <div class="d-flex gap-1 align-items-center">
-              <input type="hidden" id="editingRepPackageId" value="">
-              <button class="btn btn-primary btn-sm fw-bold shadow-sm" id="btnSaveRepPackage" onclick="saveCurrentReplenishPackage()">📦 打包目前補貨條件為快選</button>
-              <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditRepPackage" onclick="cancelEditRepPackage()" style="display: none;">取消編輯</button>
+              <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="saveCurrentRulesAsNewPackage()">📦 打包目前補貨條件為快選</button>
               <button class="btn btn-outline-danger btn-sm py-0" onclick="clearAllReplenishRules()">取消套用條件</button>
             </div>
           </div>
@@ -746,38 +750,6 @@
                   <label class="form-check-label small fw-bold text-primary" for="chkOnlyShowRepGroups">僅顯示大群組</label>
                 </div>
               </div>
-              <div class="d-flex gap-1 align-items-center">
-                <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToRepModal()">🔄 從盤點複製</button>
-                <button class="btn btn-outline-success btn-sm py-0 fw-bold" onclick="openCreateGroupModal()">➕ 合成廠商大群組</button>
-                <span id="repPresetCountBadge" class="badge bg-secondary small">0 組</span>
-              </div>
-            </div>
-            <input type="text" class="form-control form-control-sm mb-2" placeholder="🔍 搜尋快選包名稱..." onkeyup="filterPackages(this.value, 'repPresetPackagesContainer')">
-            <div id="repPresetPackagesContainer" class="row g-2">
-              <div class="col-12"><span class="text-muted small">尚未儲存補貨快選包。</span></div>
-            </div>
-          </div>
-
-          <div class="fw-bold small text-success mb-1">🟢 套用中條件 (樹狀編輯區)：</div>
-          <div class="border rounded p-2 bg-light mb-2 shadow-inner" style="height: 440px; min-height: 200px; max-height: 80vh; overflow-y: auto; resize: vertical;">
-            <div id="repRuleCardsContainer" class="accordion accordion-flush gap-1 d-flex flex-column">
-              <span class="text-muted small">尚未套用任何補貨條件。</span>
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="small text-muted">共設定 <strong id="totalRepRulesCount" class="text-primary">0</strong> 筆商品條件</span>
-            <div class="d-flex gap-1 align-items-center">
-              <input type="hidden" id="editingRepPackageId" value="">
-              <button class="btn btn-primary btn-sm fw-bold shadow-sm" id="btnSaveRepPackage" onclick="saveCurrentReplenishPackage()">📦 打包目前補貨條件為快選</button>
-              <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditRepPackage" onclick="cancelEditRepPackage()" style="display: none;">取消編輯</button>
-              <button class="btn btn-outline-danger btn-sm py-0" onclick="clearAllReplenishRules()">取消套用條件</button>
-            </div>
-          </div>
-
-          <div class="p-2 border rounded bg-white mt-2">
-            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-              <span class="small fw-bold text-secondary">⭐ 我的補貨常用快選包：</span>
               <div class="d-flex gap-1 align-items-center">
                 <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToRepModal()">🔄 從盤點複製</button>
                 <button class="btn btn-outline-success btn-sm py-0 fw-bold" onclick="openCreateGroupModal()">➕ 合成廠商大群組</button>
@@ -2201,8 +2173,8 @@
     }
   }
 
-  function saveCurrentReplenishPackage() {
-    const editPkgId = document.getElementById("editingRepPackageId").value;
+  // 另存全新快選包
+  function saveCurrentRulesAsNewPackage() {
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     let rulesToSave = {};
 
@@ -2228,8 +2200,8 @@
           name: cleanString(item.name) || "-",
           brand: searchKw,
           warehouse: cleanString(item.warehouse) || "",
-          maxQty: parseFloat(maxInput ? maxInput.value : 10) || 10,
-          safety: parseFloat(safetyInput ? safetyInput.value : 2) || 0,
+          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
           moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
           vendorMoq: vendorMoq,
           isDirectBound: true,
@@ -2243,14 +2215,71 @@
     const ruleCount = Object.keys(rulesToSave).length;
     if (ruleCount === 0) return alert("目前沒有任何商品條件可打包！");
 
-    let pkgName = editPkgId && repPresetPackages[editPkgId] ? repPresetPackages[editPkgId].name : "";
-    if (pkgName) {
-      if (!confirm(`確定要將編輯區的 ${ruleCount} 筆設定覆蓋存回快選包【${pkgName}】嗎？`)) return;
+    const inputName = prompt(`請輸入此補貨快選包的自訂名稱：`, "");
+    if (!inputName || !cleanString(inputName)) return;
+    const pkgName = cleanString(inputName);
+
+    const payload = {
+      name: pkgName,
+      rules: rulesToSave,
+      vendorMoq: vendorMoq,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    repPresetsRef.push(payload).then(() => {
+      alert(`成功儲存快選包【${pkgName}】！`);
+      cancelEditRepPackage();
+    }).catch(err => alert("儲存失敗: " + err.message));
+  }
+
+  // 覆蓋更新當前編輯中的快選包
+  function saveCurrentReplenishPackage() {
+    const editPkgId = document.getElementById("editingRepPackageId").value;
+    if (!editPkgId || !repPresetPackages[editPkgId]) return;
+
+    const checkboxes = document.querySelectorAll(".direct-item-check:checked");
+    let rulesToSave = {};
+
+    const vMoqEl = document.getElementById("batchVendorMoqVal");
+    const vendorMoq = vMoqEl ? (parseFloat(vMoqEl.value) || 1) : 1;
+    const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "預設廠商";
+
+    if (checkboxes.length > 0) {
+      checkboxes.forEach(cb => {
+        const idx = cb.getAttribute("data-index");
+        const item = currentSearchedItems[idx];
+        if (!item) return;
+        const code = cleanString(item.barcode || item.itemCode);
+        const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
+        const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
+        const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
+        
+        rulesToSave[toSafeDbKey(code)] = {
+          field: "barcode",
+          keyword: code,
+          barcode: code,
+          itemCode: cleanString(item.itemCode) || code,
+          name: cleanString(item.name) || "-",
+          brand: searchKw,
+          warehouse: cleanString(item.warehouse) || "",
+          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
+          moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+          vendorMoq: vendorMoq,
+          isDirectBound: true,
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+      });
     } else {
-      const inputName = prompt(`請輸入此補貨快選包的自訂名稱：`, "");
-      if (!inputName || !cleanString(inputName)) return;
-      pkgName = cleanString(inputName);
+      rulesToSave = customReplenishRules;
     }
+
+    const ruleCount = Object.keys(rulesToSave).length;
+    if (ruleCount === 0) return alert("目前沒有任何商品條件可打包！");
+
+    const pkgName = repPresetPackages[editPkgId].name;
+    if (!confirm(`確定要將編輯區的 ${ruleCount} 筆設定覆蓋存回快選包【${pkgName}】嗎？`)) return;
 
     const payload = {
       name: pkgName,
@@ -2259,17 +2288,12 @@
       updatedAt: firebase.database.ServerValue.TIMESTAMP
     };
 
-    const savePromise = editPkgId 
-      ? repPresetsRef.child(editPkgId).update(payload) 
-      : repPresetsRef.push({ ...payload, createdAt: firebase.database.ServerValue.TIMESTAMP });
-
-    savePromise.then(() => {
-      alert(`成功儲存快選包【${pkgName}】！`);
+    repPresetsRef.child(editPkgId).update(payload).then(() => {
+      alert(`成功覆蓋更新快選包【${pkgName}】！`);
       cancelEditRepPackage();
     }).catch(err => alert("儲存失敗: " + err.message));
   }
 
-  // 1. 編輯補貨快選包：自動展開面板並帶入頂部編輯區
   function editRepPresetPackage(pkgId, event) {
     if (event) event.stopPropagation();
     const pkg = repPresetPackages[pkgId];
@@ -2277,71 +2301,68 @@
     const ruleList = getRulesArrayFromPackage(pkg);
     if (ruleList.length === 0) return alert("此快選包無商品內容！");
 
-    if (confirm(`確定要載入快選包【${pkg.name}】至上方編輯區修改嗎？`)) {
-      // 確保展開補貨設定面板
-      const panel = document.getElementById("replenishAdminPanel");
-      const btn = document.getElementById("btnToggleRepAdmin");
-      if (panel && (panel.style.display === "none" || panel.style.display === "")) {
-        panel.style.display = "block";
-        if (btn) {
-          btn.innerText = "⬅️ 返回補貨清單";
-          btn.className = "btn btn-sm btn-secondary text-white fw-bold shadow-sm";
-        }
+    const panel = document.getElementById("replenishAdminPanel");
+    const btn = document.getElementById("btnToggleRepAdmin");
+    if (panel && (panel.style.display === "none" || panel.style.display === "")) {
+      panel.style.display = "block";
+      if (btn) {
+        btn.innerText = "⬅️ 返回補貨清單";
+        btn.className = "btn btn-sm btn-secondary text-white fw-bold shadow-sm";
       }
-
-      const firstRule = ruleList[0] || {};
-      if (firstRule.brand) {
-        document.getElementById("directItemSearchKw").value = firstRule.brand;
-      }
-
-      const targetCodes = new Set(ruleList.map(r => cleanString(r.barcode || r.keyword || r.itemCode)));
-      allSearchedRawItems = Object.values(fullInventory).filter(item => targetCodes.has(cleanString(item.barcode || item.itemCode)));
-      
-      // 若在目前庫存中找不到商品，則以規則本身建構
-      if (allSearchedRawItems.length === 0) {
-        allSearchedRawItems = ruleList.map(r => ({
-          barcode: r.barcode || r.keyword,
-          itemCode: r.itemCode || r.barcode || r.keyword,
-          name: r.name || "-",
-          brand: r.brand || "",
-          systemQty: 0,
-          countedQty: 0
-        }));
-      }
-
-      buildPivotSeriesBadges();
-      filterByPivotSeries("all");
-
-      setTimeout(() => {
-        currentSearchedItems.forEach((item, idx) => {
-          const code = cleanString(item.barcode || item.itemCode);
-          const matchedRule = ruleList.find(r => cleanString(r.barcode || r.keyword || r.itemCode) === code);
-          if (matchedRule) {
-            const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
-            const sInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
-            const mInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
-            if (maxInput) maxInput.value = matchedRule.maxQty !== undefined ? matchedRule.maxQty : 10;
-            if (sInput) sInput.value = matchedRule.safety !== undefined ? matchedRule.safety : 2;
-            if (mInput) mInput.value = matchedRule.moq !== undefined ? matchedRule.moq : 1;
-          }
-        });
-      }, 100);
-
-      document.getElementById("editingRepPackageId").value = pkgId;
-      const btnSave = document.getElementById("btnSaveRepPackage");
-      btnSave.className = "btn btn-success btn-sm fw-bold shadow-sm";
-      btnSave.innerText = `覆蓋更新【${pkg.name}】`;
-      document.getElementById("btnCancelEditRepPackage").style.display = "inline-block";
-      panel.scrollIntoView({ behavior: 'smooth' });
     }
+
+    const firstRule = ruleList[0] || {};
+    if (firstRule.brand) {
+      document.getElementById("directItemSearchKw").value = firstRule.brand;
+    }
+
+    const targetCodes = new Set(ruleList.map(r => cleanString(r.barcode || r.keyword || r.itemCode)));
+    allSearchedRawItems = Object.values(fullInventory).filter(item => targetCodes.has(cleanString(item.barcode || item.itemCode)));
+    
+    if (allSearchedRawItems.length === 0) {
+      allSearchedRawItems = ruleList.map(r => ({
+        barcode: r.barcode || r.keyword,
+        itemCode: r.itemCode || r.barcode || r.keyword,
+        name: r.name || "-",
+        brand: r.brand || "",
+        systemQty: 0,
+        countedQty: 0
+      }));
+    }
+
+    buildPivotSeriesBadges();
+    filterByPivotSeries("all");
+
+    setTimeout(() => {
+      currentSearchedItems.forEach((item, idx) => {
+        const code = cleanString(item.barcode || item.itemCode);
+        const matchedRule = ruleList.find(r => cleanString(r.barcode || r.keyword || r.itemCode) === code);
+        if (matchedRule) {
+          const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
+          const sInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
+          const mInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
+          if (maxInput) maxInput.value = matchedRule.maxQty !== undefined ? matchedRule.maxQty : 1;
+          if (sInput) sInput.value = matchedRule.safety !== undefined ? matchedRule.safety : 1;
+          if (mInput) mInput.value = matchedRule.moq !== undefined ? matchedRule.moq : 1;
+        }
+      });
+    }, 100);
+
+    document.getElementById("editingRepPackageId").value = pkgId;
+    const btnSave = document.getElementById("btnSaveRepPackage");
+    btnSave.innerText = `覆蓋更新【${pkg.name}】`;
+    btnSave.style.display = "inline-block";
+    document.getElementById("btnCancelEditRepPackage").style.display = "inline-block";
+    
+    renderRepPresetPackages(); // 立即刷新快選包按鈕變色
+    panel.scrollIntoView({ behavior: 'smooth' });
   }
 
   function cancelEditRepPackage() {
     document.getElementById("editingRepPackageId").value = "";
-    const btnSave = document.getElementById("btnSaveRepPackage");
-    btnSave.className = "btn btn-primary btn-sm fw-bold shadow-sm";
-    btnSave.innerText = "📦 打包目前補貨條件為快選";
+    document.getElementById("btnSaveRepPackage").style.display = "none";
     document.getElementById("btnCancelEditRepPackage").style.display = "none";
+    renderRepPresetPackages(); // 恢復快選包原本配色
   }
 
   // 檢查快選包或大群組是否處於「套用中」狀態
@@ -2430,12 +2451,13 @@
     if (confirm(`確定要永久刪除快選包【${pkgName}】嗎？`)) repPresetsRef.child(pkgId).remove();
   }
 
-  // 2 & 3. 渲染補貨快選包 (大群組: 深綠底白字 / 小包: 淺綠底深綠字)
+  // 渲染補貨快選包 (加入【編輯中】專屬橘色高亮與狀態切換)
   function renderRepPresetPackages() {
     const container = document.getElementById("repPresetPackagesContainer");
     if (!container) return;
     container.innerHTML = "";
     
+    const editingPkgId = document.getElementById("editingRepPackageId") ? document.getElementById("editingRepPackageId").value : "";
     const onlyShowGroups = document.getElementById("chkOnlyShowRepGroups") ? document.getElementById("chkOnlyShowRepGroups").checked : false;
 
     let pkgKeys = Object.keys(repPresetPackages).sort((a, b) => {
@@ -2460,18 +2482,29 @@
       const ruleList = getRulesArrayFromPackage(pkg);
       const count = ruleList.length;
       const isActive = isPackageActive(pkg);
-      const prefixText = isActive ? "✅ " : "⭐ ";
+      const isEditing = (editingPkgId === pkgId);
+      
+      const prefixText = isEditing ? "✏️ " : (isActive ? "✅ " : "⭐ ");
       
       const wrapper = document.createElement("div");
       wrapper.className = "col-12 col-md-6 pkg-col-item"; 
       wrapper.setAttribute('data-pkg-name', pkg.name);
       
       if (pkg.isGroup) {
-        // 大群組套用樣式：深綠底白字
-        const groupBtnClass = isActive 
-          ? "btn text-white fw-bold shadow-sm" 
-          : "btn btn-outline-warning text-dark fw-bold bg-white";
-        const groupBtnStyle = isActive ? "background-color: #198754 !important; border-color: #198754 !important;" : "";
+        // 大群組樣式 (若編輯中則切換為醒目橘黃底色與橘色陰影)
+        let groupBtnClass = "btn btn-outline-warning text-dark fw-bold bg-white";
+        let groupBtnStyle = "";
+        let cardBgStyle = "";
+
+        if (isEditing) {
+          groupBtnClass = "btn text-white fw-bold shadow";
+          groupBtnStyle = "background-color: #ff9800 !important; border-color: #e65100 !important;";
+          cardBgStyle = "background-color: #fff3e0 !important; border: 2px solid #ff9800 !important; box-shadow: 0 0 10px rgba(255, 152, 0, 0.45) !important;";
+        } else if (isActive) {
+          groupBtnClass = "btn text-white fw-bold shadow-sm";
+          groupBtnStyle = "background-color: #198754 !important; border-color: #198754 !important;";
+          cardBgStyle = "background-color: #e8f5e9 !important; border: 1px solid #198754 !important;";
+        }
 
         let subs = [];
         if (pkg.subPackages) {
@@ -2481,14 +2514,14 @@
         const subCount = subs.length;
 
         wrapper.innerHTML = `
-          <div class="border rounded ${isActive ? 'border-success' : 'bg-light border-warning'} shadow-sm d-flex flex-column justify-content-between h-100" style="${isActive ? 'background-color: #e8f5e9;' : ''}">
+          <div class="border rounded shadow-sm d-flex flex-column justify-content-between h-100" style="${cardBgStyle || 'background-color: #f8f9fa; border: 1px solid #ffc107;'}">
             <div class="d-flex justify-content-between align-items-center p-1">
               <button type="button" class="${groupBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem; ${groupBtnStyle}" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 款商品">
-                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+                ${prefixText}📁 ${pkg.name} <span class="badge ${isEditing || isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
               </button>
               <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
                 <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
-                <button type="button" class="btn btn-outline-primary py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="editRepGroup('${pkgId}')">編輯</button>
+                <button type="button" class="btn ${isEditing ? 'btn-warning text-dark fw-bold' : 'btn-outline-primary'} py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="editRepGroup('${pkgId}')">${isEditing ? '修改中' : '編輯'}</button>
                 <button type="button" class="btn btn-outline-danger py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
               </div>
             </div>
@@ -2504,20 +2537,24 @@
           </div>
         `;
       } else {
-        // 單一小包套用樣式：柔和淺綠底 + 深綠字
-        const singleBtnClass = isActive 
-          ? "btn fw-bold shadow-sm" 
-          : "btn btn-outline-warning text-dark fw-bold bg-white";
-        const singleBtnStyle = isActive 
-          ? "background-color: #d1e7dd !important; color: #0f5132 !important; border: 1px solid #badbcc !important;" 
-          : "";
+        // 單一小包樣式 (若編輯中則呈現亮橘金配色)
+        let singleBtnClass = "btn btn-outline-warning text-dark fw-bold bg-white";
+        let singleBtnStyle = "";
+
+        if (isEditing) {
+          singleBtnClass = "btn text-white fw-bold shadow";
+          singleBtnStyle = "background-color: #ff9800 !important; color: #ffffff !important; border: 2px solid #e65100 !important; box-shadow: 0 0 10px rgba(255, 152, 0, 0.45) !important;";
+        } else if (isActive) {
+          singleBtnClass = "btn fw-bold shadow-sm";
+          singleBtnStyle = "background-color: #d1e7dd !important; color: #0f5132 !important; border: 1px solid #badbcc !important;";
+        }
 
         wrapper.innerHTML = `
           <div class="btn-group shadow-sm w-100" style="height: 32px;">
             <button type="button" class="${singleBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem; ${singleBtnStyle}" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="${pkg.name}\n共包含 ${count} 款商品">
-              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-success text-white' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
+              ${prefixText}${pkg.name} <span class="badge ${isEditing ? 'bg-light text-dark' : (isActive ? 'bg-success text-white' : 'bg-secondary')} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
-            <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editRepPresetPackage('${pkgId}', event)">編輯</button>
+            <button type="button" class="btn ${isEditing ? 'btn-warning text-dark fw-bold' : 'btn-outline-primary'} py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editRepPresetPackage('${pkgId}', event)">${isEditing ? '修改中' : '編輯'}</button>
             <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
           </div>
         `;
@@ -2545,6 +2582,7 @@
     if (confirm("確定要清空所有已設定的補貨條件規則嗎？")) repRulesRef.remove();
   }
 
+  // 1. 渲染套用中樹狀條件：詳細顯示最高、水位、倍數
   function renderReplenishRulesList() {
     const container = document.getElementById("repRuleCardsContainer");
     if (!container) return;
@@ -2578,15 +2616,21 @@
       let subsHtml = Object.entries(subGroups).map(([sName, rules], sIdx) => {
         const subCollapseId = `sub_${collapseId}_${sIdx}`;
         
-        let itemsHtml = rules.map(r => `
-          <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light ms-2">
-            <div class="text-truncate" style="font-size: 0.8rem; max-width: 80%;">
-              <strong>${r.name || r.barcode || '-'}</strong> <span class="badge bg-light text-dark border font-monospace" style="font-size:0.65rem;">${r.barcode || r.itemCode || ''}</span>
-              <div class="text-muted" style="font-size: 0.7rem;">水位: <strong class="text-primary">${r.safety}</strong> | MOQ: ${r.moq || 1} | 門檻: ${r.vendorMoq || 1}</div>
+        let itemsHtml = rules.map(r => {
+          const maxVal = r.maxQty !== undefined ? r.maxQty : 1;
+          const safetyVal = r.safety !== undefined ? r.safety : 1;
+          const moqVal = r.moq !== undefined ? r.moq : 1;
+
+          return `
+            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light ms-2">
+              <div class="text-truncate" style="font-size: 0.8rem; max-width: 80%;">
+                <strong>${r.name || r.barcode || '-'}</strong> <span class="badge bg-light text-dark border font-monospace" style="font-size:0.65rem;">${r.barcode || r.itemCode || ''}</span>
+                <div class="text-muted" style="font-size: 0.72rem;">最高: <strong class="text-success">${maxVal}</strong> | 水位: <strong class="text-primary">${safetyVal}</strong> | 倍數: <strong class="text-dark">${moqVal}</strong></div>
+              </div>
+              <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteReplenishRule('${r.key}')">取消</button>
             </div>
-            <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteReplenishRule('${r.key}')">取消</button>
-          </div>
-        `).join('');
+          `;
+        }).join('');
 
         return `
           <div class="border rounded mb-1 border-secondary">
@@ -3060,6 +3104,8 @@
         btnSave.className = "btn btn-success btn-sm fw-bold shadow-sm";
         btnSave.innerText = `覆蓋更新【${pkg.name}】`;
         document.getElementById("btnCancelEditInvPackage").style.display = "inline-block";
+        
+        renderPresetPackages(); // 立即刷新盤點快選包變色
         document.getElementById("filterRuleListContainer").scrollIntoView({ behavior: 'smooth' });
       });
     }
@@ -3071,6 +3117,7 @@
     btnSave.className = "btn btn-primary btn-sm fw-bold shadow-sm";
     btnSave.innerText = "📦 打包目前條件為快選";
     document.getElementById("btnCancelEditInvPackage").style.display = "none";
+    renderPresetPackages(); // 恢復盤點快選包原本配色
   }
 
   // 檢查盤點快選包/群組是否處於「套用中」狀態
@@ -3220,12 +3267,14 @@
     });
   }
 
-  // 盤點：渲染快選包 (大群組: 深藍底白字 / 小包: 淺藍底深藍字)
+  // 盤點：渲染快選包 (加入【編輯中】專屬金黃高亮)
   function renderPresetPackages() {
     const container = document.getElementById("presetPackagesContainer");
     if (!container) return;
     container.innerHTML = "";
     
+    const editingPkgId = document.getElementById("editingInvPackageId") ? document.getElementById("editingInvPackageId").value : "";
+
     const pkgKeys = Object.keys(presetPackages).sort((a, b) => {
       const pkgA = presetPackages[a], pkgB = presetPackages[b];
       return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
@@ -3244,18 +3293,29 @@
       const ruleList = getRulesArrayFromInvPackage(pkg);
       const count = ruleList.length;
       const isActive = isInvPackageActive(pkg);
+      const isEditing = (editingPkgId === pkgId);
       
       const wrapper = document.createElement("div");
       wrapper.className = "col-12 col-md-6 pkg-col-item"; 
       wrapper.setAttribute('data-pkg-name', pkg.name);
       
       if (pkg.isGroup) {
-        // 盤點大群組套用樣式：深藍底白字
-        const groupBtnClass = isActive 
-          ? "btn text-white fw-bold shadow-sm" 
-          : "btn btn-outline-dark fw-bold bg-white text-dark";
-        const groupBtnStyle = isActive ? "background-color: #0d6efd !important; border-color: #0d6efd !important;" : "";
-        const prefixText = isActive ? `<span class="text-white fw-bold me-1">☑️</span>` : `⭐ `;
+        let groupBtnClass = "btn btn-outline-dark fw-bold bg-white text-dark";
+        let groupBtnStyle = "";
+        let cardBgStyle = "";
+        let prefixText = `⭐ `;
+
+        if (isEditing) {
+          groupBtnClass = "btn text-dark fw-bold shadow";
+          groupBtnStyle = "background-color: #ffc107 !important; border-color: #ff9800 !important;";
+          cardBgStyle = "background-color: #fff9db !important; border: 2px solid #ffc107 !important; box-shadow: 0 0 10px rgba(255, 193, 7, 0.45) !important;";
+          prefixText = `<span class="text-dark fw-bold me-1">✏️</span>`;
+        } else if (isActive) {
+          groupBtnClass = "btn text-white fw-bold shadow-sm";
+          groupBtnStyle = "background-color: #0d6efd !important; border-color: #0d6efd !important;";
+          cardBgStyle = "background-color: #e7f1ff !important; border: 1px solid #0d6efd !important;";
+          prefixText = `<span class="text-white fw-bold me-1">☑️</span>`;
+        }
 
         let subs = [];
         if (pkg.subPackages) {
@@ -3265,14 +3325,14 @@
         const subCount = subs.length;
 
         wrapper.innerHTML = `
-          <div class="border rounded ${isActive ? 'border-primary' : 'bg-light border-info'} shadow-sm d-flex flex-column justify-content-between h-100" style="${isActive ? 'background-color: #e7f1ff;' : ''}">
+          <div class="border rounded shadow-sm d-flex flex-column justify-content-between h-100" style="${cardBgStyle || 'background-color: #f8f9fa; border: 1px solid #0dcaf0;'}">
             <div class="d-flex justify-content-between align-items-center p-1">
               <button type="button" class="${groupBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem; ${groupBtnStyle}" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此大群組' : '點擊啟用此大群組'}\n包含 ${subCount} 個小包，共 ${count} 條條件">
-                ${prefixText}📁 ${pkg.name} <span class="badge ${isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+                ${prefixText}📁 ${pkg.name} <span class="badge ${isEditing ? 'bg-dark text-white' : (isActive ? 'bg-light text-dark' : 'bg-secondary')} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
               </button>
               <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
                 <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleInvGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
-                <button type="button" class="btn btn-outline-primary py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="editInvGroup('${pkgId}')">編輯</button>
+                <button type="button" class="btn ${isEditing ? 'btn-warning text-dark fw-bold' : 'btn-outline-primary'} py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="editInvGroup('${pkgId}')">${isEditing ? '修改中' : '編輯'}</button>
                 <button type="button" class="btn btn-outline-danger py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
               </div>
             </div>
@@ -3288,21 +3348,26 @@
           </div>
         `;
       } else {
-        // 盤點單一小包套用樣式：柔和淺藍底 + 深藍字
-        const singleBtnClass = isActive 
-          ? "btn fw-bold shadow-sm" 
-          : "btn btn-outline-dark fw-bold bg-white text-dark";
-        const singleBtnStyle = isActive 
-          ? "background-color: #cfe2ff !important; color: #084298 !important; border: 1px solid #b6d4fe !important;" 
-          : "";
-        const prefixText = isActive ? `<span class="text-primary fw-bold me-1">☑️</span>` : `⭐ `;
+        let singleBtnClass = "btn btn-outline-dark fw-bold bg-white text-dark";
+        let singleBtnStyle = "";
+        let prefixText = `⭐ `;
+
+        if (isEditing) {
+          singleBtnClass = "btn text-dark fw-bold shadow";
+          singleBtnStyle = "background-color: #fff3cd !important; color: #664d03 !important; border: 2px solid #ffc107 !important; box-shadow: 0 0 10px rgba(255, 193, 7, 0.45) !important;";
+          prefixText = `<span class="text-warning-emphasis fw-bold me-1">✏️</span>`;
+        } else if (isActive) {
+          singleBtnClass = "btn fw-bold shadow-sm";
+          singleBtnStyle = "background-color: #cfe2ff !important; color: #084298 !important; border: 1px solid #b6d4fe !important;";
+          prefixText = `<span class="text-primary fw-bold me-1">☑️</span>`;
+        }
 
         wrapper.innerHTML = `
           <div class="btn-group shadow-sm w-100" style="height: 32px;">
             <button type="button" class="${singleBtnClass} text-start text-truncate flex-grow-1 px-2" style="font-size: 0.85rem; ${singleBtnStyle}" onclick="applyPresetPackage('${pkgId}')" title="${isActive ? '點擊停用此快選' : '點擊啟用此快選'}\n含 ${count} 條條件">
-              ${prefixText}${pkg.name} <span class="badge ${isActive ? 'bg-primary text-white' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${count}</span>
+              ${prefixText}${pkg.name} <span class="badge ${isEditing ? 'bg-dark text-white' : (isActive ? 'bg-primary text-white' : 'bg-secondary')} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
-            <button type="button" class="btn btn-outline-primary py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editInvPresetPackage('${pkgId}', event)">編輯</button>
+            <button type="button" class="btn ${isEditing ? 'btn-warning text-dark fw-bold' : 'btn-outline-primary'} py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editInvPresetPackage('${pkgId}', event)">${isEditing ? '修改中' : '編輯'}</button>
             <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deletePresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
           </div>
         `;
@@ -4862,23 +4927,27 @@
   }
 
   // ================= 17. 樹狀結構整組/個別取消 =================
+  // 2. 取消大群組：點擊直接取消，不跳出確認對話框
   function removeActiveRepGroup(gName, event) {
-    event.stopPropagation();
-    if(!confirm(`確定要取消套用大群組【${gName}】的所有條件嗎？`)) return;
+    if (event) event.stopPropagation();
     const updatePayload = {};
     Object.keys(customReplenishRules).forEach(k => {
-      if ((customReplenishRules[k].groupPkgName || customReplenishRules[k].brand || "未分類單品") === gName) updatePayload[k] = null;
+      if ((customReplenishRules[k].groupPkgName || customReplenishRules[k].brand || "未分類單品") === gName) {
+        updatePayload[k] = null;
+      }
     });
     repRulesRef.update(updatePayload);
   }
 
+  // 2. 取消小包：點擊直接取消，不跳出確認對話框
   function removeActiveRepSubGroup(gName, sName, event) {
-    event.stopPropagation();
-    if(!confirm(`確定要取消套用小包【${sName}】的所有條件嗎？`)) return;
+    if (event) event.stopPropagation();
     const updatePayload = {};
     Object.keys(customReplenishRules).forEach(k => {
       const r = customReplenishRules[k];
-      if ((r.groupPkgName || r.brand || "未分類單品") === gName && (r.subPkgName || "獨立條件") === sName) updatePayload[k] = null;
+      if ((r.groupPkgName || r.brand || "未分類單品") === gName && (r.subPkgName || "獨立條件") === sName) {
+        updatePayload[k] = null;
+      }
     });
     repRulesRef.update(updatePayload);
   }
