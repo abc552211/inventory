@@ -245,6 +245,20 @@
         height: 28px !important;
       }
     }
+    /* 現代膠囊分段切換器樣式 */
+    .btn-check:checked + label.btn-sm {
+      background-color: #0d6efd !important;
+      color: #ffffff !important;
+      box-shadow: 0 2px 6px rgba(13, 110, 253, 0.35) !important;
+    }
+    .btn-check:not(:checked) + label.btn-sm {
+      background-color: transparent !important;
+      color: #6c757d !important;
+      border-color: transparent !important;
+    }
+    .btn-check:not(:checked) + label.btn-sm:hover {
+      color: #212529 !important;
+    }
   </style>
 
   <!-- SheetJS, Html5-QRCode, JsBarcode, Firebase Compat SDK -->
@@ -604,15 +618,12 @@
             <button class="btn btn-light border-dark text-dark btn-sm py-1 px-2 fw-bold shadow-sm" id="btnToggleZoom" onclick="toggleCameraZoom()" style="display: none; font-size: 0.82rem;" title="遠距放大對焦">🔍 1.5x 望遠</button>
             <button class="btn btn-outline-warning text-dark btn-sm py-1 px-2 fw-bold" id="btnToggleTorch" onclick="toggleTorch()" style="display: none; font-size: 0.82rem;" title="切換補光燈">💡 補光</button>
           </div>
-          <div class="d-flex gap-2 align-items-center">
-            <div class="form-check form-check-inline mb-0" style="font-size: 0.78rem;">
-              <input class="form-check-input" type="radio" name="camScanMode" id="scanModeAuto" value="auto">
-              <label class="form-check-label" for="scanModeAuto">連續(+1)</label>
-            </div>
-            <div class="form-check form-check-inline mb-0" style="font-size: 0.78rem;">
-              <input class="form-check-input" type="radio" name="camScanMode" id="scanModeManual" value="manual" checked>
-              <label class="form-check-label fw-bold text-primary" for="scanModeManual">手動量</label>
-            </div>
+          <div class="btn-group p-1 bg-light border rounded-pill shadow-inner" role="group" style="height: 32px;">
+            <input type="radio" class="btn-check" name="camScanMode" id="scanModeAuto" value="auto" autocomplete="off">
+            <label class="btn btn-sm rounded-pill py-0 px-2 d-flex align-items-center fw-bold" for="scanModeAuto" style="font-size: 0.76rem;">⚡ 連續(+1)</label>
+
+            <input type="radio" class="btn-check" name="camScanMode" id="scanModeManual" value="manual" autocomplete="off" checked>
+            <label class="btn btn-sm rounded-pill py-0 px-2 d-flex align-items-center fw-bold" for="scanModeManual" style="font-size: 0.76rem;">🔢 手動量</label>
           </div>
         </div>
       </div>
@@ -3819,6 +3830,18 @@
   function handleManualBarcodeSubmit() {
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(inputEl.value);
+
+    // 1. 前置防呆：未選擇分區時立即攔截並提示
+    const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
+    if (!locRadio) {
+      playBeep("warning");
+      triggerVisualFlash("warning");
+      showOperatorToast("尚未選擇位置", "⚠️ 請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）再盤入！", "warning");
+      if (inputEl) inputEl.focus();
+      return;
+    }
+
+    // 2. 空值防呆
     if (!barcode) {
       if (inputEl) inputEl.focus();
       return;
@@ -3841,7 +3864,6 @@
     const mode = document.querySelector('input[name="camScanMode"]:checked').value;
     if (mode === "auto") {
       executeScan(barcode, 1);
-      // 維持游標焦點在輸入框內
       setTimeout(() => {
         if (inputEl) inputEl.focus();
       }, 50);
