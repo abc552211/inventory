@@ -472,27 +472,56 @@
     </div>
   </div>
 
-  <!-- ================= 視圖 5: 資料上傳 ================= -->
+  <!-- ================= 視圖 5: 資料上傳 (單一智慧入口) ================= -->
   <div id="viewUpload" class="page-view no-print">
     <div class="card shadow-sm mb-3">
       <div class="card-body">
         <div class="p-3 mb-3 border rounded bg-white">
-          <h6 class="fw-bold text-primary">📁 檔案匯入 (自動去除 ERP 不可見控制碼)</h6>
-          <p class="small text-muted mb-2">自動相容 ERP 隱藏格式、不可見字元與空格，<strong>條件與人員名單永久保留</strong>。</p>
-          <div class="row g-2 mb-2">
-            <div class="col-md-6">
-              <label class="form-label small fw-bold">1. 庫存檔案 (.xlsx/.csv)</label>
-              <input type="file" id="invFile" class="form-control form-control-sm" accept=".xlsx, .xls, .csv">
+          <h6 class="fw-bold text-primary mb-1">📁 智慧檔案匯入 (自動辨識庫存/訂金檔案)</h6>
+          <p class="small text-muted mb-3">自動依照檔名辨識檔案類型並去除 ERP 控制碼。<strong>人員名單與日常自訂條件將永久保留</strong>。</p>
+          
+          <!-- 已載入檔案狀態卡片 -->
+          <div class="row g-2 mb-3">
+            <div class="col-md-6 col-12">
+              <div class="p-2 border rounded bg-light d-flex justify-content-between align-items-center" id="boxInvFileStatus">
+                <div class="text-truncate me-2">
+                  <div class="small fw-bold text-dark">1. 庫存檔案 (StockQuickSearch)：</div>
+                  <div class="small font-monospace text-truncate text-muted" id="txtInvFileName">尚未載入</div>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                  <span class="badge bg-secondary" id="badgeInvStatus">未就緒</span>
+                  <button class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold" id="btnClearInvFile" onclick="clearUploadedFile('inv')" style="display: none; font-size: 0.75rem;">清除</button>
+                </div>
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label small fw-bold">2. 訂金未銷貨檔案 (.xlsx/.csv)</label>
-              <input type="file" id="depFile" class="form-control form-control-sm" accept=".xlsx, .xls, .csv">
+
+            <div class="col-md-6 col-12">
+              <div class="p-2 border rounded bg-light d-flex justify-content-between align-items-center" id="boxDepFileStatus">
+                <div class="text-truncate me-2">
+                  <div class="small fw-bold text-dark">2. 訂金未銷檔案 (RSIRUnGet)：</div>
+                  <div class="small font-monospace text-truncate text-muted" id="txtDepFileName">尚未載入 (非必填)</div>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                  <span class="badge bg-secondary" id="badgeDepStatus">未就緒</span>
+                  <button class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold" id="btnClearDepFile" onclick="clearUploadedFile('dep')" style="display: none; font-size: 0.75rem;">清除</button>
+                </div>
+              </div>
             </div>
           </div>
+
+          <!-- 單一檔案上傳入口 -->
+          <div class="mb-3 p-3 border border-2 border-primary border-opacity-50 rounded bg-light text-center">
+            <label for="smartFileInput" class="form-label fw-bold text-primary mb-1" style="cursor: pointer;">
+              📂 點擊此處或拖曳檔案進行自動辨識上傳 (.xls / .xlsx / .csv)
+            </label>
+            <input type="file" id="smartFileInput" class="form-control form-control-sm mx-auto" style="max-width: 420px;" accept=".xlsx, .xls, .csv" onchange="handleSmartFileUpload(this)">
+          </div>
+
           <div class="d-flex gap-2">
-            <button id="btnStartImport" class="btn btn-primary btn-sm" onclick="importExcelData()">⚡ 開始解析並分批上傳</button>
-            <button class="btn btn-outline-success btn-sm" onclick="exportReport()">匯出盤差 Excel</button>
+            <button id="btnStartImport" class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="importExcelData()">⚡ 開始解析並分批上傳</button>
+            <button class="btn btn-outline-success btn-sm fw-bold" onclick="exportReport()">匯出盤差 Excel</button>
           </div>
+
           <div id="importProgressBar" class="progress mt-2 d-none" style="height: 20px;">
             <div id="importProgress" class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: 0%;">0%</div>
           </div>
@@ -4691,15 +4720,99 @@
     return "";
   }
 
+  // ================= 14. 單一入口檔案辨識與 Excel 匯入 =================
+  let loadedInvFile = null;
+  let loadedDepFile = null;
+
+  // 智慧判別傳入之檔案
+  function handleSmartFileUpload(inputEl) {
+    if (!inputEl.files || !inputEl.files[0]) return;
+    const file = inputEl.files[0];
+    const fileName = file.name;
+
+    // 1. 庫存檔案判定 (檔名含 StockQuickSearch)
+    if (fileName.includes("StockQuickSearch")) {
+      if (loadedInvFile) {
+        alert(`⚠️ 已存在庫存檔案【${loadedInvFile.name}】！\n若要替換，請先點擊該卡片右側的「清除」按鈕。`);
+        inputEl.value = "";
+        return;
+      }
+      loadedInvFile = file;
+      document.getElementById("txtInvFileName").innerText = fileName;
+      document.getElementById("txtInvFileName").className = "small font-monospace text-truncate text-primary fw-bold";
+      document.getElementById("badgeInvStatus").className = "badge bg-success";
+      document.getElementById("badgeInvStatus").innerText = "已就緒";
+      document.getElementById("btnClearInvFile").style.display = "inline-block";
+      showOperatorToast("檔案已就緒", `已識別庫存檔案：${fileName}`, "success");
+
+    // 2. 訂金未銷檔案判定 (檔名含 RSIRUnGet)
+    } else if (fileName.includes("RSIRUnGet")) {
+      if (loadedDepFile) {
+        alert(`⚠️ 已存在訂金未銷檔案【${loadedDepFile.name}】！\n若要替換，請先點擊該卡片右側的「清除」按鈕。`);
+        inputEl.value = "";
+        return;
+      }
+      loadedDepFile = file;
+      document.getElementById("txtDepFileName").innerText = fileName;
+      document.getElementById("txtDepFileName").className = "small font-monospace text-truncate text-primary fw-bold";
+      document.getElementById("badgeDepStatus").className = "badge bg-success";
+      document.getElementById("badgeDepStatus").innerText = "已就緒";
+      document.getElementById("btnClearDepFile").style.display = "inline-block";
+      showOperatorToast("檔案已就緒", `已識別訂金檔案：${fileName}`, "success");
+
+    // 3. 不符合命名規則
+    } else {
+      alert(`❌ 無法識別檔案類型！\n\n檔名規則提示：\n・庫存檔案必須包含：StockQuickSearch\n・訂金檔案必須包含：RSIRUnGet\n\n您上傳的檔名為：${fileName}`);
+    }
+
+    inputEl.value = "";
+  }
+
+  // 清除已上傳檔案狀態
+  function clearUploadedFile(type) {
+    if (type === "inv") {
+      loadedInvFile = null;
+      document.getElementById("txtInvFileName").innerText = "尚未載入";
+      document.getElementById("txtInvFileName").className = "small font-monospace text-truncate text-muted";
+      document.getElementById("badgeInvStatus").className = "badge bg-secondary";
+      document.getElementById("badgeInvStatus").innerText = "未就緒";
+      document.getElementById("btnClearInvFile").style.display = "none";
+    } else if (type === "dep") {
+      loadedDepFile = null;
+      document.getElementById("txtDepFileName").innerText = "尚未載入 (非必填)";
+      document.getElementById("txtDepFileName").className = "small font-monospace text-truncate text-muted";
+      document.getElementById("badgeDepStatus").className = "badge bg-secondary";
+      document.getElementById("badgeDepStatus").innerText = "未就緒";
+      document.getElementById("btnClearDepFile").style.display = "none";
+    }
+  }
+
+  function getRowValue(row, possibleKeys) {
+    const rowKeys = Object.keys(row);
+    for (let pKey of possibleKeys) {
+      const cleanP = cleanString(pKey).toLowerCase();
+      for (let rKey of rowKeys) {
+        const cleanR = cleanString(rKey).toLowerCase();
+        if (cleanR === cleanP || cleanR.includes(cleanP)) {
+          if (row[rKey] !== undefined && row[rKey] !== null) {
+            const val = cleanString(row[rKey]);
+            if (val !== "") return val;
+          }
+        }
+      }
+    }
+    return "";
+  }
+
   async function importExcelData() {
-    const invInput = document.getElementById("invFile");
-    const depInput = document.getElementById("depFile");
     const status = document.getElementById("importStatus");
     const progressContainer = document.getElementById("importProgressBar");
     const progressBar = document.getElementById("importProgress");
     const btn = document.getElementById("btnStartImport");
 
-    if (!invInput.files[0]) return alert("請務必選擇【庫存檔案】！");
+    if (!loadedInvFile) {
+      return alert("⚠️ 尚未載入【庫存檔案 (含 StockQuickSearch)】！請先選取庫存檔案。");
+    }
 
     btn.disabled = true;
     progressContainer.classList.remove("d-none");
@@ -4710,10 +4823,10 @@
     await new Promise(r => setTimeout(r, 60));
 
     try {
-      const invRows = await readExcelRows(invInput.files[0]);
+      const invRows = await readExcelRows(loadedInvFile);
       let depRows = [];
-      if (depInput.files[0]) {
-        depRows = await readExcelRows(depInput.files[0]);
+      if (loadedDepFile) {
+        depRows = await readExcelRows(loadedDepFile);
       }
 
       progressBar.style.width = "30%";
