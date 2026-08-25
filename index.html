@@ -698,22 +698,35 @@
       <div class="card-body">
         <div id="replenishAdminPanel" class="p-3 mb-3 border rounded bg-white shadow-sm" style="display: none;">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="fw-bold text-primary mb-0">🎯 精準品項勾選與批次水位設定 (直接綁定真實貨號)</h6>
+            <h6 class="fw-bold text-primary mb-0">精準品項勾選與批次水位設定 (直接綁定真實貨號)</h6>
+            <button class="btn btn-outline-secondary btn-sm py-0 px-2 fw-bold" type="button" onclick="toggleRepSearchBox()" id="btnToggleRepSearchBox" style="font-size: 0.78rem;">
+              展開搜尋與批次設定
+            </button>
           </div>
-          <p class="small text-muted mb-2">搜尋品牌或品名關鍵字，系統會直接列出庫存中<strong>所有真實商品</strong>。可全選並批次填入水位，亦可各品項獨立修改，零誤差！</p>
+          <p class="small text-muted mb-2">搜尋品牌或品名關鍵字，系統會列出庫存中所有真實商品。可全選並批次填入水位，亦可各品項獨立修改。</p>
           
-          <!-- 批次設定與關鍵字搜尋 -->
-          <div class="bg-light p-3 rounded mb-3 border small">
+          <!-- 批次設定與關鍵字搜尋 (預設收起，顏色與套用區區隔) -->
+          <div id="repSearchAndBatchBox" class="p-3 rounded mb-3 border small" style="display: none; background-color: #f1f5f9; border-color: #cbd5e1 !important;">
             <div class="row g-2 mb-2 align-items-end">
               <div class="col-md-5 col-12">
-                <label class="fw-bold">搜尋廠商或品名關鍵字：</label>
+                <label class="fw-bold">搜尋品項關鍵字：</label>
                 <div class="input-group input-group-sm">
-                  <input type="text" id="directItemSearchKw" class="form-control" placeholder="例: 美若康 / 酷柏 / 博士倫" list="existingPrefixList" onkeydown="if(event.key==='Enter') searchDirectStockItems()">
-                  <button class="btn btn-primary fw-bold" type="button" onclick="searchDirectStockItems()">🔍 讀取商品</button>
+                  <select id="directItemSearchField" class="form-select form-select-sm" style="max-width: 110px;">
+                    <option value="all" selected>全部欄位</option>
+                    <option value="itemCode">貨號/條碼</option>
+                    <option value="name">中文品名</option>
+                    <option value="brand">品牌/廠商</option>
+                  </select>
+                  <input type="text" id="directItemSearchKw" class="form-control" placeholder="輸入關鍵字..." list="existingPrefixList" onkeydown="if(event.key==='Enter') searchDirectStockItems()">
+                  <button class="btn btn-primary fw-bold" type="button" onclick="searchDirectStockItems()">讀取商品</button>
                 </div>
               </div>
               <div class="col-md-7 col-12">
                 <div class="d-flex gap-2 align-items-center justify-content-md-end flex-wrap">
+                  <div class="form-check form-switch mb-0 me-2">
+                    <input class="form-check-input" type="checkbox" id="chkRepNameMode" onchange="toggleRepNameMode(this.checked)">
+                    <label class="form-check-label small fw-bold text-dark" for="chkRepNameMode">中文品名模式(合併同名)</label>
+                  </div>
                   <div class="d-flex align-items-center gap-1">
                     <span class="fw-bold text-dark">批次最高:</span>
                     <input type="number" id="batchMaxVal" class="form-control form-control-sm text-center" style="width: 55px;" value="1" min="0">
@@ -725,7 +738,7 @@
                   <div class="d-flex align-items-center gap-1">
                     <span class="fw-bold text-dark">倍數出貨量:</span>
                     <input type="number" id="batchMoqVal" class="form-control form-control-sm text-center" style="width: 50px;" value="1" min="1">
-                    <button class="btn btn-outline-primary btn-sm fw-bold" type="button" onclick="applyBatchSafetyStock()">⚡ 套用</button>
+                    <button class="btn btn-outline-primary btn-sm fw-bold" type="button" onclick="applyBatchSafetyStock()">套用</button>
                   </div>
                 </div>
               </div>
@@ -735,7 +748,7 @@
               <div class="d-flex justify-content-between align-items-center">
                 <span class="small fw-bold text-secondary" id="pivotSummaryLabel">樞紐系列分類：</span>
                 <button class="btn btn-outline-secondary btn-sm py-0 px-2 fw-bold" type="button" onclick="togglePivotCollapse()" id="btnTogglePivotCollapse" style="font-size: 0.75rem;">
-                  收起 ▲
+                  收起
                 </button>
               </div>
               <div id="pivotSeriesBadges" class="flex-wrap gap-1 mt-2" style="display: flex;"></div>
@@ -748,7 +761,7 @@
                     <th style="width: 40px;" class="text-center">
                       <input type="checkbox" id="checkAllDirectItems" onchange="toggleSelectAllDirectItems(this.checked)" checked>
                     </th>
-                    <th>貨號 / 條碼</th>
+                    <th id="thRepItemCode">貨號 / 條碼</th>
                     <th>中文品名</th>
                     <th class="text-center" style="width: 60px;">現存</th>
                     <th class="text-center" style="width: 80px;">最高置庫</th>
@@ -762,14 +775,14 @@
               </table>
             </div>
 
-            <!-- 表格下方按鈕列：左側顯示勾選筆數，右側排列【覆蓋更新 / 取消編輯 / 移至套用區】 -->
+            <!-- 表格下方按鈕列 -->
             <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
-              <span class="text-muted small">已勾選 <strong id="selectedDirectItemsCount" class="text-primary">0</strong> / <span id="totalDirectItemsCount">0</span> 筆商品</span>
+              <span class="text-muted small">已勾選 <strong id="selectedDirectItemsCount" class="text-primary">0</strong> / <span id="totalDirectItemsCount">0</span> 筆品項</span>
               <div class="d-flex gap-1 align-items-center ms-auto">
                 <input type="hidden" id="editingRepPackageId" value="">
                 <button class="btn btn-success btn-sm fw-bold shadow-sm" id="btnSaveRepPackage" onclick="saveCurrentReplenishPackage()" style="display: none;">覆蓋更新</button>
                 <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditRepPackage" onclick="cancelEditRepPackage()" style="display: none;">取消編輯</button>
-                <button class="btn btn-primary btn-sm px-3 fw-bold shadow-sm" onclick="saveDirectSelectedItemsAsRules()">💾 移至套用區</button>
+                <button class="btn btn-primary btn-sm px-3 fw-bold shadow-sm" onclick="saveDirectSelectedItemsAsRules()">移至套用區</button>
               </div>
             </div>
           </div>
@@ -1963,9 +1976,35 @@
   let currentSelectedPivotSeries = "all";
   let isPivotCollapsed = false;
 
+  // 補貨搜尋與批次區塊收合切換
+  function toggleRepSearchBox() {
+    const box = document.getElementById("repSearchAndBatchBox");
+    const btn = document.getElementById("btnToggleRepSearchBox");
+    if (!box || !btn) return;
+    if (box.style.display === "none" || box.style.display === "") {
+      box.style.display = "block";
+      btn.innerText = "收起搜尋設定";
+      btn.className = "btn btn-secondary text-white btn-sm py-0 px-2 fw-bold";
+    } else {
+      box.style.display = "none";
+      btn.innerText = "展開搜尋與批次設定";
+      btn.className = "btn btn-outline-secondary btn-sm py-0 px-2 fw-bold";
+    }
+  }
+
+  function toggleRepNameMode(isChecked) {
+    const thCode = document.getElementById("thRepItemCode");
+    if (thCode) {
+      thCode.style.display = isChecked ? "none" : "";
+    }
+    renderDirectStockItemsTable();
+  }
+
+  // 讀取庫存商品 (支援中文品名模式合併多年份貨號)
   function searchDirectStockItems() {
     const kw = cleanString(document.getElementById("directItemSearchKw").value).toLowerCase();
-    if (!kw) return alert("請輸入要搜尋的廠商或品名關鍵字！");
+    const field = document.getElementById("directItemSearchField") ? document.getElementById("directItemSearchField").value : "all";
+    if (!kw) return alert("請輸入要搜尋的關鍵字！");
 
     const stockList = Object.values(fullInventory);
     allSearchedRawItems = [];
@@ -1976,10 +2015,32 @@
       const code = cleanString(item.itemCode).toLowerCase();
       const barcode = cleanString(item.barcode).toLowerCase();
 
-      if (name.includes(kw) || brand.includes(kw) || code.includes(kw) || barcode.includes(kw)) {
+      let isMatch = false;
+      if (field === "itemCode") {
+        isMatch = code.includes(kw) || barcode.includes(kw);
+      } else if (field === "name") {
+        isMatch = name.includes(kw);
+      } else if (field === "brand") {
+        isMatch = brand.includes(kw);
+      } else {
+        isMatch = name.includes(kw) || brand.includes(kw) || code.includes(kw) || barcode.includes(kw);
+      }
+
+      if (isMatch) {
         allSearchedRawItems.push(item);
       }
     });
+
+    // 展開搜尋設定區域
+    const box = document.getElementById("repSearchAndBatchBox");
+    const btn = document.getElementById("btnToggleRepSearchBox");
+    if (box && (box.style.display === "none" || box.style.display === "")) {
+      box.style.display = "block";
+      if (btn) {
+        btn.innerText = "收起搜尋設定";
+        btn.className = "btn btn-secondary text-white btn-sm py-0 px-2 fw-bold";
+      }
+    }
 
     buildPivotSeriesBadges();
     filterByPivotSeries("all");
@@ -2007,14 +2068,14 @@
 
     if (isPivotCollapsed) {
       badgesBox.style.setProperty("display", "none", "important");
-      toggleBtn.innerText = "展開 ▼";
+      toggleBtn.innerText = "展開";
       toggleBtn.className = "btn btn-primary btn-sm py-0 px-2 fw-bold";
-      if (label) label.innerText = `樞紐系列分類 (已收起，點擊展開)`;
+      if (label) label.innerText = "樞紐系列分類 (已收起，點擊展開)";
     } else {
       badgesBox.style.setProperty("display", "flex", "important");
-      toggleBtn.innerText = "收起 ▲";
+      toggleBtn.innerText = "收起";
       toggleBtn.className = "btn btn-outline-secondary btn-sm py-0 px-2 fw-bold";
-      if (label) label.innerText = `樞紐系列分類：`;
+      if (label) label.innerText = "樞紐系列分類：";
     }
   }
 
@@ -2035,10 +2096,10 @@
     isPivotCollapsed = false;
     badgesBox.style.setProperty("display", "flex", "important");
     if (toggleBtn) {
-      toggleBtn.innerText = "收起 ▲";
+      toggleBtn.innerText = "收起";
       toggleBtn.className = "btn btn-outline-secondary btn-sm py-0 px-2 fw-bold";
     }
-    if (label) label.innerText = `樞紐系列分類：`;
+    if (label) label.innerText = "樞紐系列分類：";
 
     const seriesCountMap = {};
     allSearchedRawItems.forEach(item => {
@@ -2085,30 +2146,58 @@
     renderDirectStockItemsTable();
   }
 
-  // 渲染直讀商品表格 (最高置庫量、最低水位、倍數出貨量)
+  // 渲染直讀商品表格 (品名模式自動合併同名商品數量)
   function renderDirectStockItemsTable() {
     const tbody = document.getElementById("directStockItemsTableBody");
     tbody.innerHTML = "";
 
-    document.getElementById("totalDirectItemsCount").innerText = currentSearchedItems.length;
+    const isNameMode = document.getElementById("chkRepNameMode") ? document.getElementById("chkRepNameMode").checked : false;
+    let listToRender = [];
 
-    if (currentSearchedItems.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">查無符合關鍵字的庫存商品。</td></tr>`;
+    if (isNameMode) {
+      // 中文品名模式：合併同名商品
+      const nameMap = {};
+      currentSearchedItems.forEach(item => {
+        const pName = cleanString(item.name) || "未命名商品";
+        const curStock = (item.countedQty !== undefined && item.countedQty > 0) ? item.countedQty : (item.systemQty || 0);
+        if (!nameMap[pName]) {
+          nameMap[pName] = {
+            isNameGroup: true,
+            name: pName,
+            brand: item.brand || "",
+            warehouse: item.warehouse || "",
+            combinedStock: 0,
+            codes: []
+          };
+        }
+        nameMap[pName].combinedStock += curStock;
+        if (item.barcode) nameMap[pName].codes.push(item.barcode);
+      });
+      listToRender = Object.values(nameMap);
+    } else {
+      listToRender = [...currentSearchedItems];
+    }
+
+    document.getElementById("totalDirectItemsCount").innerText = listToRender.length;
+
+    if (listToRender.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${isNameMode ? 6 : 7}" class="text-center text-muted py-4">查無符合關鍵字的庫存商品。</td></tr>`;
       document.getElementById("selectedDirectItemsCount").innerText = 0;
       return;
     }
 
-    const defaultMax = parseFloat(document.getElementById("batchMaxVal").value) || 10;
-    const defaultSafety = parseFloat(document.getElementById("batchSafetyVal").value) || 2;
+    const defaultMax = parseFloat(document.getElementById("batchMaxVal").value) || 1;
+    const defaultSafety = parseFloat(document.getElementById("batchSafetyVal").value) || 1;
     const defaultMoq = parseFloat(document.getElementById("batchMoqVal").value) || 1;
 
-    currentSearchedItems.sort((a, b) => cleanString(a.name).localeCompare(cleanString(b.name)));
+    listToRender.sort((a, b) => cleanString(a.name).localeCompare(cleanString(b.name)));
 
-    currentSearchedItems.forEach((item, idx) => {
-      const code = cleanString(item.barcode || item.itemCode);
-      const curStock = (item.countedQty !== undefined && item.countedQty > 0) ? item.countedQty : (item.systemQty || 0);
-      const existingRule = customReplenishRules[toSafeDbKey(code)] || customReplenishRules[code] || {};
+    listToRender.forEach((item, idx) => {
+      const pName = cleanString(item.name);
+      const bindKey = isNameMode ? `NAME_${toSafeDbKey(pName)}` : toSafeDbKey(cleanString(item.barcode || item.itemCode));
+      const curStock = isNameMode ? item.combinedStock : ((item.countedQty !== undefined && item.countedQty > 0) ? item.countedQty : (item.systemQty || 0));
       
+      const existingRule = customReplenishRules[bindKey] || {};
       const itemMax = existingRule.maxQty !== undefined ? existingRule.maxQty : defaultMax;
       const itemSafety = existingRule.safety !== undefined ? existingRule.safety : defaultSafety;
       const itemMoq = existingRule.moq !== undefined ? existingRule.moq : defaultMoq;
@@ -2118,8 +2207,8 @@
         <td class="text-center">
           <input type="checkbox" class="direct-item-check" data-index="${idx}" checked onchange="updateDirectItemSelectionCount()">
         </td>
-        <td><strong>${code}</strong></td>
-        <td class="text-truncate" style="max-width: 320px;" title="${item.name || '-'}">${item.name || '-'}</td>
+        ${!isNameMode ? `<td><strong>${cleanString(item.barcode || item.itemCode)}</strong></td>` : ''}
+        <td class="text-truncate" style="max-width: 320px;" title="${pName}">${pName}</td>
         <td class="text-center fw-bold ${curStock === 0 ? 'text-danger' : ''}">${curStock}</td>
         <td class="text-center">
           <input type="number" class="form-control form-control-sm text-center direct-item-max fw-bold text-success" data-index="${idx}" value="${itemMax}" min="0">
@@ -2148,8 +2237,8 @@
   }
 
   function applyBatchSafetyStock() {
-    const maxVal = parseFloat(document.getElementById("batchMaxVal").value) || 10;
-    const safetyVal = parseFloat(document.getElementById("batchSafetyVal").value) || 2;
+    const maxVal = parseFloat(document.getElementById("batchMaxVal").value) || 1;
+    const safetyVal = parseFloat(document.getElementById("batchSafetyVal").value) || 1;
     const moqVal = parseFloat(document.getElementById("batchMoqVal").value) || 1;
 
     document.querySelectorAll(".direct-item-check").forEach(cb => {
@@ -2167,10 +2256,12 @@
     showOperatorToast("批次套用成功", `已更新勾選品項水位 (最高:${maxVal} / 最低:${safetyVal} / 倍數:${moqVal})`, "success");
   }
 
+  // 移至補貨套用區 (支援中文品名模式)
   function saveDirectSelectedItemsAsRules() {
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     if (checkboxes.length === 0) return alert("請至少勾選一項商品！");
 
+    const isNameMode = document.getElementById("chkRepNameMode") ? document.getElementById("chkRepNameMode").checked : false;
     const vMoqEl = document.getElementById("batchVendorMoqVal");
     const vendorMoq = vMoqEl ? (parseFloat(vMoqEl.value) || 1) : 1;
     const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "常用廠商";
@@ -2178,29 +2269,54 @@
 
     checkboxes.forEach(cb => {
       const idx = cb.getAttribute("data-index");
-      const item = currentSearchedItems[idx];
-      if (!item) return;
-
-      const code = cleanString(item.barcode || item.itemCode);
       const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
       const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
       const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
 
-      updatePayload[toSafeDbKey(code)] = {
-        field: "barcode",
-        keyword: code,
-        barcode: code,
-        itemCode: cleanString(item.itemCode) || code,
-        name: cleanString(item.name) || "-",
-        brand: searchKw,
-        warehouse: cleanString(item.warehouse) || "",
-        maxQty: parseFloat(maxInput ? maxInput.value : 10) || 10,
-        safety: parseFloat(safetyInput ? safetyInput.value : 2) || 0,
-        moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
-        vendorMoq: vendorMoq,
-        isDirectBound: true,
-        updatedAt: firebase.database.ServerValue.TIMESTAMP
-      };
+      if (isNameMode) {
+        // 中文品名模式儲存
+        const item = currentSearchedItems[idx];
+        if (!item) return;
+        const pName = cleanString(item.name);
+        const bindKey = `NAME_${toSafeDbKey(pName)}`;
+
+        updatePayload[bindKey] = {
+          field: "name",
+          keyword: pName,
+          name: pName,
+          isNameMode: true,
+          brand: searchKw,
+          warehouse: cleanString(item.warehouse) || "",
+          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
+          moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+          vendorMoq: vendorMoq,
+          isDirectBound: true,
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+      } else {
+        // 條碼/貨號模式儲存
+        const item = currentSearchedItems[idx];
+        if (!item) return;
+        const code = cleanString(item.barcode || item.itemCode);
+
+        updatePayload[toSafeDbKey(code)] = {
+          field: "barcode",
+          keyword: code,
+          barcode: code,
+          itemCode: cleanString(item.itemCode) || code,
+          name: cleanString(item.name) || "-",
+          isNameMode: false,
+          brand: searchKw,
+          warehouse: cleanString(item.warehouse) || "",
+          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
+          moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+          vendorMoq: vendorMoq,
+          isDirectBound: true,
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+      }
     });
 
     repRulesRef.update(updatePayload).then(() => {
@@ -2314,13 +2430,13 @@
 
     if (currentEditingRepGroupId) {
       repPresetsRef.child(currentEditingRepGroupId).update(payload).then(() => {
-        alert(`🎉 成功更新大群組【${groupName}】！`);
+        alert(`成功更新大群組【${groupName}】！`);
         bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
       }).catch(err => alert("更新失敗: " + err.message));
     } else {
       payload.createdAt = firebase.database.ServerValue.TIMESTAMP;
       repPresetsRef.push(payload).then(() => {
-        alert(`🎉 成功建立動態大群組【${groupName}】！`);
+        alert(`成功建立動態大群組【${groupName}】！`);
         bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
       }).catch(err => alert("合成失敗: " + err.message));
     }
@@ -2331,6 +2447,7 @@
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     let rulesToSave = {};
 
+    const isNameMode = document.getElementById("chkRepNameMode") ? document.getElementById("chkRepNameMode").checked : false;
     const vMoqEl = document.getElementById("batchVendorMoqVal");
     const vendorMoq = vMoqEl ? (parseFloat(vMoqEl.value) || 1) : 1;
     const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "預設廠商";
@@ -2340,26 +2457,47 @@
         const idx = cb.getAttribute("data-index");
         const item = currentSearchedItems[idx];
         if (!item) return;
-        const code = cleanString(item.barcode || item.itemCode);
+
         const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
         const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
         const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
         
-        rulesToSave[toSafeDbKey(code)] = {
-          field: "barcode",
-          keyword: code,
-          barcode: code,
-          itemCode: cleanString(item.itemCode) || code,
-          name: cleanString(item.name) || "-",
-          brand: searchKw,
-          warehouse: cleanString(item.warehouse) || "",
-          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
-          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
-          moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
-          vendorMoq: vendorMoq,
-          isDirectBound: true,
-          updatedAt: firebase.database.ServerValue.TIMESTAMP
-        };
+        if (isNameMode) {
+          const pName = cleanString(item.name);
+          const bindKey = `NAME_${toSafeDbKey(pName)}`;
+          rulesToSave[bindKey] = {
+            field: "name",
+            keyword: pName,
+            name: pName,
+            isNameMode: true,
+            brand: searchKw,
+            warehouse: cleanString(item.warehouse) || "",
+            maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+            safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
+            moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+            vendorMoq: vendorMoq,
+            isDirectBound: true,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+          };
+        } else {
+          const code = cleanString(item.barcode || item.itemCode);
+          rulesToSave[toSafeDbKey(code)] = {
+            field: "barcode",
+            keyword: code,
+            barcode: code,
+            itemCode: cleanString(item.itemCode) || code,
+            name: cleanString(item.name) || "-",
+            isNameMode: false,
+            brand: searchKw,
+            warehouse: cleanString(item.warehouse) || "",
+            maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+            safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
+            moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+            vendorMoq: vendorMoq,
+            isDirectBound: true,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+          };
+        }
       });
     } else {
       rulesToSave = customReplenishRules;
@@ -2368,7 +2506,7 @@
     const ruleCount = Object.keys(rulesToSave).length;
     if (ruleCount === 0) return alert("目前沒有任何商品條件可打包！");
 
-    const inputName = prompt(`請輸入此補貨快選包的自訂名稱：`, "");
+    const inputName = prompt("請輸入此補貨快選包的自訂名稱：", "");
     if (!inputName || !cleanString(inputName)) return;
     const pkgName = cleanString(inputName);
 
@@ -2394,6 +2532,7 @@
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     let rulesToSave = {};
 
+    const isNameMode = document.getElementById("chkRepNameMode") ? document.getElementById("chkRepNameMode").checked : false;
     const vMoqEl = document.getElementById("batchVendorMoqVal");
     const vendorMoq = vMoqEl ? (parseFloat(vMoqEl.value) || 1) : 1;
     const searchKw = cleanString(document.getElementById("directItemSearchKw").value) || "預設廠商";
@@ -2403,26 +2542,47 @@
         const idx = cb.getAttribute("data-index");
         const item = currentSearchedItems[idx];
         if (!item) return;
-        const code = cleanString(item.barcode || item.itemCode);
+
         const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
         const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
         const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
         
-        rulesToSave[toSafeDbKey(code)] = {
-          field: "barcode",
-          keyword: code,
-          barcode: code,
-          itemCode: cleanString(item.itemCode) || code,
-          name: cleanString(item.name) || "-",
-          brand: searchKw,
-          warehouse: cleanString(item.warehouse) || "",
-          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
-          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
-          moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
-          vendorMoq: vendorMoq,
-          isDirectBound: true,
-          updatedAt: firebase.database.ServerValue.TIMESTAMP
-        };
+        if (isNameMode) {
+          const pName = cleanString(item.name);
+          const bindKey = `NAME_${toSafeDbKey(pName)}`;
+          rulesToSave[bindKey] = {
+            field: "name",
+            keyword: pName,
+            name: pName,
+            isNameMode: true,
+            brand: searchKw,
+            warehouse: cleanString(item.warehouse) || "",
+            maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+            safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
+            moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+            vendorMoq: vendorMoq,
+            isDirectBound: true,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+          };
+        } else {
+          const code = cleanString(item.barcode || item.itemCode);
+          rulesToSave[toSafeDbKey(code)] = {
+            field: "barcode",
+            keyword: code,
+            barcode: code,
+            itemCode: cleanString(item.itemCode) || code,
+            name: cleanString(item.name) || "-",
+            isNameMode: false,
+            brand: searchKw,
+            warehouse: cleanString(item.warehouse) || "",
+            maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
+            safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
+            moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+            vendorMoq: vendorMoq,
+            isDirectBound: true,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+          };
+        }
       });
     } else {
       rulesToSave = customReplenishRules;
@@ -2459,7 +2619,7 @@
     if (panel && (panel.style.display === "none" || panel.style.display === "")) {
       panel.style.display = "block";
       if (btn) {
-        btn.innerText = "⬅️ 返回補貨清單";
+        btn.innerText = "返回補貨清單";
         btn.className = "btn btn-sm btn-secondary text-white fw-bold shadow-sm";
       }
     }
@@ -2507,7 +2667,7 @@
     btnSave.style.display = "inline-block";
     document.getElementById("btnCancelEditRepPackage").style.display = "inline-block";
     
-    renderRepPresetPackages(); // 立即刷新快選包按鈕變色
+    renderRepPresetPackages();
     panel.scrollIntoView({ behavior: 'smooth' });
   }
 
@@ -2515,7 +2675,7 @@
     document.getElementById("editingRepPackageId").value = "";
     document.getElementById("btnSaveRepPackage").style.display = "none";
     document.getElementById("btnCancelEditRepPackage").style.display = "none";
-    renderRepPresetPackages(); // 恢復快選包原本配色
+    renderRepPresetPackages();
   }
 
   // 檢查快選包或大群組是否處於「套用中」狀態
@@ -2529,11 +2689,12 @@
       if (r.barcode) activeBarcodes.add(cleanString(r.barcode));
       if (r.keyword) activeBarcodes.add(cleanString(r.keyword));
       if (r.itemCode) activeBarcodes.add(cleanString(r.itemCode));
+      if (r.name) activeBarcodes.add(cleanString(r.name));
     });
 
     let matchCount = 0;
     ruleList.forEach(r => {
-      const target = cleanString(r.barcode || r.keyword || r.itemCode);
+      const target = cleanString(r.barcode || r.keyword || r.itemCode || r.name);
       if (target && activeBarcodes.has(target)) matchCount++;
     });
 
@@ -2551,7 +2712,11 @@
         const ruleList = getRulesArrayFromPackage(pkg);
         ruleList.forEach(r => {
           const code = cleanString(r.barcode || r.keyword || r.itemCode);
-          if (code) updatePayload[toSafeDbKey(code)] = null;
+          if (r.isNameMode && r.name) {
+            updatePayload[`NAME_${toSafeDbKey(r.name)}`] = null;
+          } else if (code) {
+            updatePayload[toSafeDbKey(code)] = null;
+          }
         });
         repRulesRef.update(updatePayload).then(() => {
           showOperatorToast("已停用", `已收回【${pkg.name}】`, "warning");
@@ -2570,7 +2735,11 @@
               const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
               rArray.forEach(r => {
                 const code = cleanString(r.barcode || r.keyword || r.itemCode);
-                if (code) {
+                if (r.isNameMode && r.name) {
+                  updatePayload[`NAME_${toSafeDbKey(r.name)}`] = { 
+                    ...r, groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
+                  };
+                } else if (code) {
                   updatePayload[toSafeDbKey(code)] = { 
                     ...r, barcode: code, groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
                   };
@@ -2582,9 +2751,13 @@
           const ruleList = getRulesArrayFromPackage(pkg);
           ruleList.forEach(r => {
             const code = cleanString(r.barcode || r.keyword || r.itemCode);
-            if (code) {
-              const gName = pkg.isGroup ? pkg.name : (cleanString(r.brand) || "未分類品牌");
-              const sName = pkg.isGroup ? "全部商品" : pkg.name;
+            const gName = pkg.isGroup ? pkg.name : (cleanString(r.brand) || "未分類品牌");
+            const sName = pkg.isGroup ? "全部商品" : pkg.name;
+            if (r.isNameMode && r.name) {
+              updatePayload[`NAME_${toSafeDbKey(r.name)}`] = { 
+                ...r, groupPkgName: gName, subPkgName: sName, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
+              };
+            } else if (code) {
               updatePayload[toSafeDbKey(code)] = { 
                 ...r, barcode: code, groupPkgName: gName, subPkgName: sName, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
               };
@@ -2637,14 +2810,13 @@
       const isActive = isPackageActive(pkg);
       const isEditing = (editingPkgId === pkgId);
       
-      const prefixText = isEditing ? "✏️ " : (isActive ? "✅ " : "⭐ ");
+      const prefixText = isEditing ? "修改中: " : (isActive ? "已套用: " : "");
       
       const wrapper = document.createElement("div");
       wrapper.className = "col-12 col-md-6 pkg-col-item"; 
       wrapper.setAttribute('data-pkg-name', pkg.name);
       
       if (pkg.isGroup) {
-        // 大群組樣式 (若編輯中則切換為醒目橘黃底色與橘色陰影)
         let groupBtnClass = "btn btn-outline-warning text-dark fw-bold bg-white";
         let groupBtnStyle = "";
         let cardBgStyle = "";
@@ -2670,17 +2842,17 @@
           <div class="border rounded shadow-sm d-flex flex-column justify-content-between h-100" style="${cardBgStyle || 'background-color: #f8f9fa; border: 1px solid #ffc107;'}">
             <div class="d-flex justify-content-between align-items-center p-1">
               <button type="button" class="${groupBtnClass} text-start text-truncate flex-grow-1 border-0 px-2" style="font-size: 0.85rem; ${groupBtnStyle}" onclick="toggleApplyRepPresetPackage('${pkgId}')" title="大群組: ${pkg.name}\n包含 ${subCount} 個小包，共 ${count} 款商品">
-                ${prefixText}📁 ${pkg.name} <span class="badge ${isEditing || isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
+                ${prefixText}${pkg.name} <span class="badge ${isEditing || isActive ? 'bg-light text-dark' : 'bg-secondary'} ms-1" style="font-size:0.65rem;">${subCount} 包</span>
               </button>
               <div class="btn-group btn-group-sm flex-shrink-0" style="height: 26px;">
-                <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">➕ 展開</button>
+                <button type="button" class="btn btn-light border py-0 px-2 fw-bold text-muted" onclick="toggleGroupSub(this, '${pkgId}')" style="font-size: 0.75rem; flex: 0 0 auto !important;">展開</button>
                 <button type="button" class="btn ${isEditing ? 'btn-warning text-dark fw-bold' : 'btn-outline-primary'} py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="editRepGroup('${pkgId}')">${isEditing ? '修改中' : '編輯'}</button>
                 <button type="button" class="btn btn-outline-danger py-0 px-0 bg-white text-center" style="font-size: 0.7rem; flex: 0 0 auto !important; width: 45px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">刪除</button>
               </div>
             </div>
             <div id="sub_pkg_${pkgId}" class="px-2 pb-2 d-none d-flex flex-wrap gap-1 border-top pt-1 mt-1 bg-white rounded-bottom">
               ${subCount === 0 
-                ? '<span class="text-danger small fw-bold">⚠️ 群組空了，請重新編輯。</span>' 
+                ? '<span class="text-danger small fw-bold">群組空了，請重新編輯。</span>' 
                 : subs.map(subId => {
                     const subItemCount = Object.keys(repPresetPackages[subId].rules||{}).length;
                     return '<span class="badge bg-light text-dark border border-secondary" title="包含 ' + subItemCount + ' 款商品">' + repPresetPackages[subId].name + '</span>';
@@ -2690,7 +2862,6 @@
           </div>
         `;
       } else {
-        // 單一小包樣式 (若編輯中則呈現亮橘金配色)
         let singleBtnClass = "btn btn-outline-warning text-dark fw-bold bg-white";
         let singleBtnStyle = "";
 
@@ -2708,7 +2879,7 @@
               ${prefixText}${pkg.name} <span class="badge ${isEditing ? 'bg-light text-dark' : (isActive ? 'bg-success text-white' : 'bg-secondary')} ms-1" style="font-size:0.65rem;">${count}</span>
             </button>
             <button type="button" class="btn ${isEditing ? 'btn-warning text-dark fw-bold' : 'btn-outline-primary'} py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 50px;" onclick="editRepPresetPackage('${pkgId}', event)">${isEditing ? '修改中' : '編輯'}</button>
-            <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✖</button>
+            <button type="button" class="btn btn-outline-danger py-0 px-0 flex-shrink-0 bg-white text-center" style="font-size: 0.75rem; flex: 0 0 auto !important; width: 35px;" onclick="deleteRepPresetPackage('${pkgId}', '${pkg.name.replace(/'/g, "\\'")}', event)">✕</button>
           </div>
         `;
       }
@@ -2720,10 +2891,10 @@
     const el = document.getElementById(`sub_pkg_${pkgId}`);
     if (el.classList.contains('d-none')) {
       el.classList.remove('d-none');
-      btn.innerText = "➖ 收起";
+      btn.innerText = "收起";
     } else {
       el.classList.add('d-none');
-      btn.innerText = "➕ 展開";
+      btn.innerText = "展開";
     }
   }
 
@@ -2773,11 +2944,12 @@
           const maxVal = r.maxQty !== undefined ? r.maxQty : 1;
           const safetyVal = r.safety !== undefined ? r.safety : 1;
           const moqVal = r.moq !== undefined ? r.moq : 1;
+          const tagCode = r.isNameMode ? '中文品名' : (r.barcode || r.itemCode || '');
 
           return `
             <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light ms-2">
               <div class="text-truncate" style="font-size: 0.8rem; max-width: 80%;">
-                <strong>${r.name || r.barcode || '-'}</strong> <span class="badge bg-light text-dark border font-monospace" style="font-size:0.65rem;">${r.barcode || r.itemCode || ''}</span>
+                <strong>${r.name || r.barcode || '-'}</strong> <span class="badge bg-light text-dark border font-monospace" style="font-size:0.65rem;">${tagCode}</span>
                 <div class="text-muted" style="font-size: 0.72rem;">最高: <strong class="text-success">${maxVal}</strong> | 水位: <strong class="text-primary">${safetyVal}</strong> | 倍數: <strong class="text-dark">${moqVal}</strong></div>
               </div>
               <button class="btn btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteReplenishRule('${r.key}')">取消</button>
@@ -2788,7 +2960,7 @@
         return `
           <div class="border rounded mb-1 border-secondary">
             <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
-              <div class="text-truncate" style="max-width: 65%;">🏷️ ${sName}</div>
+              <div class="text-truncate" style="max-width: 65%;">${sName}</div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-secondary">${rules.length} 款 ▼</span>
                 <span class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.65rem;" onclick="removeActiveRepSubGroup('${gName}', '${sName}', event)">取消此包</span>
@@ -2807,7 +2979,7 @@
       groupDiv.innerHTML = `
         <h2 class="accordion-header" id="heading_${collapseId}">
           <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
-            <div class="text-truncate" style="max-width: 60%;">📁 ${gName}</div>
+            <div class="text-truncate" style="max-width: 60%;">${gName}</div>
             <div class="d-flex align-items-center gap-2">
               <span class="badge bg-primary">${totalItemsInGroup} 款總計 ▼</span>
               <span class="btn btn-danger py-0 px-2 fw-bold text-white shadow-sm" style="font-size: 0.7rem;" onclick="removeActiveRepGroup('${gName}', event)">取消群組</span>
@@ -2824,92 +2996,7 @@
     });
   }
 
-  // ================= 6. 跨系統匯入與複製 =================
-  function openImportToInvModal() {
-    const listContainer = document.getElementById("importCrossList");
-    listContainer.innerHTML = "";
-    document.getElementById("importCrossTitle").innerText = "🔄 從【智慧補貨】匯入快選";
-    document.getElementById("importCrossDesc").innerText = "請選擇要從補貨系統拷貝至盤點日常的快選包：";
-    
-    const repKeys = Object.keys(repPresetPackages).filter(k => !repPresetPackages[k].isGroup);
-    if(repKeys.length === 0) {
-      listContainer.innerHTML = `<span class="text-muted small p-2">補貨系統目前沒有可用的小包。</span>`;
-    } else {
-      repKeys.forEach(k => {
-        const pkg = repPresetPackages[k];
-        const btn = document.createElement("button");
-        btn.className = "btn btn-outline-dark btn-sm text-start fw-bold w-100 mb-1";
-        btn.innerHTML = `⭐ ${pkg.name} <span class="badge bg-secondary ms-2">${Object.keys(pkg.rules||{}).length} 款</span>`;
-        btn.onclick = () => {
-          executeImportToInventory(k, pkg);
-          bootstrap.Modal.getInstance(document.getElementById('importCrossModal')).hide();
-        };
-        listContainer.appendChild(btn);
-      });
-    }
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('importCrossModal')).show();
-  }
-
-  function openImportToRepModal() {
-    const listContainer = document.getElementById("importCrossList");
-    listContainer.innerHTML = "";
-    document.getElementById("importCrossTitle").innerText = "🔄 從【盤點日常】匯入快選";
-    document.getElementById("importCrossDesc").innerText = "請選擇要從盤點系統拷貝至智慧補貨的快選包：";
-    
-    const invKeys = Object.keys(presetPackages);
-    if(invKeys.length === 0) {
-      listContainer.innerHTML = `<span class="text-muted small p-2">盤點系統目前沒有可用的快選包。</span>`;
-    } else {
-      invKeys.forEach(k => {
-        const pkg = presetPackages[k];
-        const btn = document.createElement("button");
-        btn.className = "btn btn-outline-dark btn-sm text-start fw-bold w-100 mb-1";
-        btn.innerHTML = `⭐ ${pkg.name} <span class="badge bg-secondary ms-2">${Object.keys(pkg.rules||{}).length} 條</span>`;
-        btn.onclick = () => {
-          executeImportToReplenish(k, pkg);
-          bootstrap.Modal.getInstance(document.getElementById('importCrossModal')).hide();
-        };
-        listContainer.appendChild(btn);
-      });
-    }
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('importCrossModal')).show();
-  }
-
-  function executeImportToInventory(sourceId, pkg) {
-    const newRules = {};
-    const ruleList = getRulesArrayFromPackage(pkg);
-    ruleList.forEach((r, idx) => {
-      const kw = r.barcode || r.keyword || r.itemCode;
-      if(kw) {
-        newRules[`copy_${idx}_${Date.now()}`] = { field: "barcode", keyword: kw, isBrandTotalMode: false, createdAt: firebase.database.ServerValue.TIMESTAMP };
-      }
-    });
-    presetsRef.push({
-      name: `(補貨拷貝) ${pkg.name}`,
-      rules: newRules,
-      createdAt: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => alert(`✅ 成功匯入【${pkg.name}】至盤點日常！`));
-  }
-
-  function executeImportToReplenish(sourceId, pkg) {
-    const newRules = {};
-    Object.values(pkg.rules || {}).forEach(r => {
-      const code = cleanString(r.keyword);
-      if(code) {
-        newRules[toSafeDbKey(code)] = {
-          field: "barcode", keyword: code, barcode: code, itemCode: code, name: "-",
-          brand: "自盤點匯入", warehouse: "", safety: 1, moq: 1, vendorMoq: 1, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP
-        };
-      }
-    });
-    repPresetsRef.push({
-      name: `(盤點拷貝) ${pkg.name}`,
-      rules: newRules,
-      vendorMoq: 1, isGroup: false, createdAt: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => alert(`✅ 成功匯入【${pkg.name}】至智慧補貨！`));
-  }
-
-  // 4. 補貨規則計算 (移除斷貨/低水位標籤，狀態欄位僅保留簡約門檻達標提示)
+  // 補貨規則計算 (支援中文品名模式合併庫存計算)
   function calculateReplenishment() {
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
     const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
@@ -2922,50 +3009,76 @@
 
     ruleKeys.forEach(rk => {
       const rule = customReplenishRules[rk];
-      const targetCode = cleanString(rule.barcode || rule.keyword);
-      
-      const maxQty = parseFloat(rule.maxQty) !== undefined ? parseFloat(rule.maxQty) : 1; // 預設最高置庫 1
-      const safety = parseFloat(rule.safety) !== undefined ? parseFloat(rule.safety) : 1; // 預設最低水位 1
-      const moq = Math.max(1, parseFloat(rule.moq) || 1); // 倍數出貨量 n (例如 1, 6...)
+      const maxQty = parseFloat(rule.maxQty) !== undefined ? parseFloat(rule.maxQty) : 1;
+      const safety = parseFloat(rule.safety) !== undefined ? parseFloat(rule.safety) : 1;
+      const moq = Math.max(1, parseFloat(rule.moq) || 1);
       
       const vendorMoq = parseFloat(rule.vendorMoq) || 1;
       const brandName = cleanString(rule.brand) || "預設廠商";
       const groupKey = cleanString(rule.groupPkgName) || brandName;
 
-      const safeKey = barcodeToKeyMap[targetCode];
-      const matchedItem = safeKey ? fullInventory[safeKey] : null;
+      let currentStock = 0;
+      let displayCode = "";
+      let displayName = rule.name || "";
+      let itemWarehouse = rule.warehouse || "";
 
-      const currentStock = matchedItem 
-        ? ((matchedItem.countedQty !== undefined && matchedItem.countedQty > 0) ? matchedItem.countedQty : (matchedItem.systemQty || 0))
-        : 0;
+      if (rule.isNameMode) {
+        // 中文品名模式：加總庫存內所有同品名商品的數量
+        displayCode = "[品名模式]";
+        displayName = cleanString(rule.name || rule.keyword);
+        Object.values(fullInventory).forEach(invItem => {
+          if (cleanString(invItem.name) === displayName) {
+            const stk = (invItem.countedQty !== undefined && invItem.countedQty > 0) ? invItem.countedQty : (invItem.systemQty || 0);
+            currentStock += stk;
+            if (invItem.warehouse && !itemWarehouse) itemWarehouse = invItem.warehouse;
+          }
+        });
+      } else {
+        // 單品貨號模式
+        const targetCode = cleanString(rule.barcode || rule.keyword);
+        const safeKey = barcodeToKeyMap[targetCode];
+        const matchedItem = safeKey ? fullInventory[safeKey] : null;
+
+        currentStock = matchedItem 
+          ? ((matchedItem.countedQty !== undefined && matchedItem.countedQty > 0) ? matchedItem.countedQty : (matchedItem.systemQty || 0))
+          : 0;
+
+        displayCode = matchedItem ? (matchedItem.barcode || targetCode) : targetCode;
+        displayName = matchedItem ? matchedItem.name : (rule.name || targetCode);
+        itemWarehouse = matchedItem ? (matchedItem.warehouse || "") : "";
+      }
 
       let needQty = 0;
 
-      // 觸發條件：庫存 < 最低水位
-      if (currentStock < safety) {
-        // 以倍數 moq (n) 累加，加到最接近最高置庫量且不超過為原則
-        let k = 1;
-        while (currentStock + (k + 1) * moq <= maxQty) {
-          k++;
-        }
-        needQty = k * moq;
-        
-        // 若連 1 倍加下去都大於 maxQty，則以最基本 1 倍下訂
-        if (needQty <= 0) {
-          needQty = moq;
+      // 觸發條件：現有庫存 <= 最低水位，且「現有庫存尚未達到最高置庫量」
+      if (currentStock <= safety && currentStock < maxQty) {
+        let targetQty = 0;
+
+        // 以出貨倍數 (moq) 累加，加到 <= 最高置庫量 (maxQty) 的最大數量
+        while (currentStock + targetQty + moq <= maxQty) {
+          targetQty += moq;
         }
 
-        totalNeedCount++;
-        totalQtySum += needQty;
+        // 若庫存歸零 (斷貨) 但起訂倍數 (moq) 大於 maxQty，以最基本 1 個 moq 補入
+        if (currentStock === 0 && targetQty === 0) {
+          targetQty = moq;
+        }
+
+        if (targetQty > 0) {
+          needQty = targetQty;
+          totalNeedCount++;
+          totalQtySum += needQty;
+        }
       }
 
       calculatedReplenishList.push({
-        barcode: matchedItem ? (matchedItem.barcode || targetCode) : targetCode,
-        itemCode: matchedItem ? (matchedItem.itemCode || targetCode) : targetCode,
-        name: matchedItem ? matchedItem.name : (rule.name || targetCode),
+        barcode: displayCode,
+        itemCode: displayCode,
+        name: displayName,
         brand: brandName,
         groupKey: groupKey,
-        warehouse: matchedItem ? (matchedItem.warehouse || "") : "",
+        isNameMode: !!rule.isNameMode,
+        warehouse: itemWarehouse,
         currentStock: currentStock,
         maxStock: maxQty,
         safetyStock: safety,
@@ -2980,7 +3093,6 @@
     if (needCountEl) needCountEl.innerText = totalNeedCount;
     if (totalQtyEl) totalQtyEl.innerText = totalQtySum;
 
-    // 計算廠商/大群組補貨累計總量與出貨門檻
     const vendorSummaryMap = {};
     calculatedReplenishList.forEach(item => {
       if (item.needQty > 0) {
@@ -3011,7 +3123,6 @@
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `web_rep_bc_${index}`;
 
-      // 僅顯示簡約門檻達標提示
       let vendorStatusHtml = `<span class="text-muted" style="font-size: 0.8rem;">-</span>`;
       const vKey = item.groupKey || item.brand || "未分類廠商";
       const vInfo = vendorSummaryMap[vKey];
@@ -3027,11 +3138,13 @@
 
       tr.innerHTML = `
         <td class="text-center align-middle">
-          <svg id="${svgId}" class="barcode-svg" style="height: 32px;"></svg>
-          <div class="fw-bold mt-1" style="font-size: 0.85rem;">${item.barcode}</div>
+          ${item.isNameMode 
+            ? '<span class="badge bg-secondary">中文品名模式</span>' 
+            : `<svg id="${svgId}" class="barcode-svg" style="height: 32px;"></svg><div class="fw-bold mt-1" style="font-size: 0.85rem;">${item.barcode}</div>`
+          }
         </td>
         <td class="align-middle text-wrap" style="max-width: 250px;">
-          <div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>
+          ${!item.isNameMode ? `<div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>` : ''}
           <div style="font-size: 0.9rem; line-height: 1.2;">${item.name || '-'}</div>
         </td>
         <td class="fw-bold text-center align-middle ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
@@ -3045,13 +3158,15 @@
       `;
       tbody.appendChild(tr);
 
-      setTimeout(() => {
-        try {
-          JsBarcode(`#${svgId}`, safeCode, {
-            format: "CODE128", width: 1.2, height: 26, displayValue: false, margin: 0
-          });
-        } catch (e) {}
-      }, 10);
+      if (!item.isNameMode) {
+        setTimeout(() => {
+          try {
+            JsBarcode(`#${svgId}`, safeCode, {
+              format: "CODE128", width: 1.2, height: 26, displayValue: false, margin: 0
+            });
+          } catch (e) {}
+        }, 10);
+      }
     });
   }
 
