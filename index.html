@@ -388,41 +388,50 @@
         <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="toggleAdmin()">⬅️ 返回盤點總覽</button>
       </div>
       <div class="card-body">
-        <!-- 區塊 A: 日常盤點多條件維護庫 -->
+        <!-- 區塊 A: 日常盤點條件比對與維護庫 -->
         <div class="p-3 mb-3 border rounded bg-white">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="fw-bold text-primary mb-0">日常模式：自訂多條件自訂</h6>
+            <h6 class="fw-bold text-primary mb-0">日常模式：搜尋比對與條件新增</h6>
             <div class="form-check form-switch mb-0">
               <input class="form-check-input" type="checkbox" id="switchTaskMode" onchange="toggleTaskModeSwitch(this.checked)">
               <label class="form-check-label small fw-bold" for="switchTaskMode" id="switchTaskLabel">啟用日常模式</label>
             </div>
           </div>
-          <p class="small text-muted mb-2">每加入一條條件就會自動保存，系統會將<strong>所有符合條件的商品</strong>全部篩選出來給門市盤點。</p>
+          <p class="small text-muted mb-2">輸入關鍵字點擊「尋找符合」，系統會列出庫存中<strong>有庫存的精準項目按鈕</strong>，點擊按鈕即可加入盤點！</p>
           
           <div class="row g-2 mb-2 bg-light p-2 rounded align-items-center">
-            <div class="col-3">
-              <select id="newFilterField" class="form-select form-select-sm" onchange="toggleBrandModeCheckbox(this.value)">
+            <div class="col-md-3 col-4">
+              <select id="newFilterField" class="form-select form-select-sm fw-bold text-primary" onchange="toggleBrandModeCheckbox(this.value)">
+                <option value="brand" selected>品牌/廠牌</option>
+                <option value="name">中文品名</option>
                 <option value="itemCode">貨號</option>
                 <option value="barcode">條碼編號</option>
-                <option value="name">中文品名</option>
-                <option value="brand">品牌/廠牌</option>
                 <option value="model">型號</option>
-                <option value="warehouse">分倉/類別</option>
+                <option value="warehouse">分倉</option>
                 <option value="colorName">顏色</option>
               </select>
             </div>
-            <div class="col-4">
-              <input type="text" id="newFilterKeyword" class="form-control form-control-sm" placeholder="關鍵字 (例: 博士倫 或 酷柏)">
+            <div class="col-md-4 col-8">
+              <input type="text" id="newFilterKeyword" class="form-control form-control-sm" placeholder="關鍵字 (例: SUPER / 博士倫)" onkeydown="if(event.key==='Enter') searchRuleCandidates()">
             </div>
-            <div class="col-3" id="brandTotalModeOption" style="display: none;">
+            <div class="col-md-3 col-6" id="brandTotalModeOption">
               <div class="form-check form-switch mb-0">
                 <input class="form-check-input" type="checkbox" id="checkBrandTotalMode" checked>
                 <label class="form-check-label small fw-bold text-primary" for="checkBrandTotalMode">總數盤點</label>
               </div>
             </div>
-            <div class="col-2">
-              <button class="btn btn-success btn-sm w-100" onclick="addFilterRule()">➕ 新增</button>
+            <div class="col-md-2 col-6">
+              <button class="btn btn-primary btn-sm w-100 fw-bold shadow-sm" type="button" onclick="searchRuleCandidates()">🔍 尋找符合</button>
             </div>
+          </div>
+
+          <!-- 搜尋比對後彈出的候選項目按鈕區 -->
+          <div id="ruleCandidatesBox" class="p-2 mb-2 bg-light border rounded" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="small fw-bold text-secondary" id="ruleCandidatesTitle">🎯 找到符合項目（點擊 ➕ 加入條件）：</span>
+              <button class="btn btn-link text-muted p-0 text-decoration-none small" onclick="document.getElementById('ruleCandidatesBox').style.display='none'">✕ 關閉</button>
+            </div>
+            <div id="ruleCandidatesList" class="d-flex flex-wrap gap-1"></div>
           </div>
 
           <!-- 盤點套用中條件清單 -->
@@ -1293,7 +1302,8 @@
     rulesRef.on("value", snap => {
       filterRules = snap.val() || {};
       renderFilterRules();
-      renderPresetPackages(); // 核心修復：條件異動時立即刷新快選包按鈕狀態與勾勾
+      renderPresetPackages();
+      refreshCandidateButtonsState(); // 條件異動或取消時，即時復歸上方候選按鈕狀態
       recalculateStats();
     });
 
@@ -1813,6 +1823,109 @@
       });
     }
     bootstrap.Modal.getOrCreateInstance(document.getElementById('targetPreviewModal')).show();
+  }
+  // 搜尋候選按鈕暫存資料
+  let currentCandidateGroups = {};
+
+  // 搜尋庫存中符合關鍵字且有庫存的項目，生成候選按鈕
+  function searchRuleCandidates() {
+    const field = document.getElementById("newFilterField").value;
+    const kw = cleanString(document.getElementById("newFilterKeyword").value).toLowerCase();
+    const box = document.getElementById("ruleCandidatesBox");
+    const list = document.getElementById("ruleCandidatesList");
+
+    if (!kw) return alert("請輸入要尋找的關鍵字！");
+
+    currentCandidateGroups = {};
+    const stockItems = Object.values(fullInventory);
+
+    stockItems.forEach(item => {
+      const curStock = (item.countedQty !== undefined && item.countedQty > 0)
+        ? parseFloat(item.countedQty)
+        : (parseFloat(item.systemQty) || 0);
+
+      if (curStock <= 0) return;
+
+      const rawVal = cleanString(item[field]);
+      if (rawVal.toLowerCase().includes(kw)) {
+        let groupName = (field === "name") ? extractSeriesName(item.name) : rawVal;
+        if (!currentCandidateGroups[groupName]) {
+          currentCandidateGroups[groupName] = { field: field, count: 0, totalQty: 0 };
+        }
+        currentCandidateGroups[groupName].count++;
+        currentCandidateGroups[groupName].totalQty += curStock;
+      }
+    });
+
+    const groupKeys = Object.keys(currentCandidateGroups);
+    if (groupKeys.length === 0) {
+      box.style.display = "block";
+      list.innerHTML = `<span class="text-danger small py-1">查無在庫存量大於 0 且包含「${kw}」的項目。</span>`;
+      return;
+    }
+
+    box.style.display = "block";
+    refreshCandidateButtonsState();
+  }
+
+  // 刷新候選按鈕狀態 (無論是加入或從樹狀區取消，均能即時同步反灰/復歸)
+  function refreshCandidateButtonsState() {
+    const box = document.getElementById("ruleCandidatesBox");
+    const list = document.getElementById("ruleCandidatesList");
+    if (!box || box.style.display === "none" || !list) return;
+
+    const groupKeys = Object.keys(currentCandidateGroups);
+    if (groupKeys.length === 0) return;
+
+    list.innerHTML = "";
+
+    // 收集目前樹狀區已套用的條件關鍵字
+    const activeKeywords = new Set();
+    Object.values(filterRules).forEach(r => {
+      if (r.keyword) activeKeywords.add(cleanString(r.keyword).toLowerCase());
+    });
+
+    const isBrandTotal = document.getElementById("checkBrandTotalMode") ? document.getElementById("checkBrandTotalMode").checked : true;
+
+    groupKeys.forEach(name => {
+      const info = currentCandidateGroups[name];
+      const isAlreadyAdded = activeKeywords.has(name.toLowerCase());
+      
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = `candidate_btn_${toSafeDbKey(name)}`;
+      
+      if (isAlreadyAdded) {
+        // 已加入狀態：反灰且無點擊事件
+        btn.className = "btn btn-light text-muted border btn-sm py-1 px-2 text-start shadow-none";
+        btn.style.backgroundColor = "#e9ecef";
+        btn.innerHTML = `<strong>${name}</strong> <span class="badge bg-secondary ms-1">${info.count}款 (${info.totalQty}件)</span>`;
+      } else {
+        // 未加入狀態：復歸為綠色可點選樣式
+        btn.className = "btn btn-outline-success btn-sm py-1 px-2 fw-bold text-start shadow-sm";
+        btn.innerHTML = `<strong>${name}</strong> <span class="badge bg-success ms-1">${info.count}款 (${info.totalQty}件)</span>`;
+        btn.onclick = () => {
+          confirmAddFilterRule(info.field, name, isBrandTotal);
+        };
+      }
+      
+      list.appendChild(btn);
+    });
+  }
+
+  // 點擊候選按鈕後加入條件
+  function confirmAddFilterRule(field, keyword, isBrandTotalMode) {
+    rulesRef.push({
+      field: field,
+      keyword: keyword,
+      isBrandTotalMode: (field === "brand") && isBrandTotalMode,
+      groupPkgName: "手動設定條件",
+      subPkgName: keyword,
+      createdAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+      metaRef.update({ mode: "daily" });
+      showOperatorToast("已加入條件", `【${keyword}】已成功納入盤點條件！`, "success");
+    }).catch(err => alert("加入失敗: " + err.message));
   }
 
   // ================= 5. 補貨專屬樞紐分類、庫存直讀與快選包管理 =================
@@ -3398,16 +3511,25 @@
     }
   }
 
+  // 渲染盤點套用中條件清單 (加入條件時保持使用者已展開的狀態)
   function renderFilterRules() {
     const container = document.getElementById("filterRuleListContainer");
     if (!container) return;
+
+    // 1. 記錄目前所有處於展開狀態 (帶有 show class) 的區塊 ID
+    const expandedIds = new Set();
+    container.querySelectorAll(".accordion-collapse.show, .collapse.show").forEach(el => {
+      if (el.id) expandedIds.add(el.id);
+    });
+
     container.innerHTML = "";
     const ruleKeys = Object.keys(filterRules || {});
     let hasBrandTotalMode = false;
 
     if (ruleKeys.length === 0) {
       container.innerHTML = `<span class="text-muted small">尚無套用條件，請套用下方快選。</span>`;
-      document.getElementById("brandTotalModeBadge").style.display = "none";
+      const bBadge = document.getElementById("brandTotalModeBadge");
+      if (bBadge) bBadge.style.display = "none";
       return;
     }
 
@@ -3425,13 +3547,14 @@
     });
 
     Object.entries(groups).forEach(([gName, subGroups], idx) => {
-      const collapseId = `inv_active_group_${idx}`;
-      const groupDiv = document.createElement("div");
-      groupDiv.className = "accordion-item border rounded mb-1 bg-white shadow-sm";
-      
+      const collapseId = `inv_active_group_${toSafeDbKey(gName)}`;
+      // 若是手動新增的群組，或是使用者先前已展開過，則保持展開狀態
+      const isGroupOpen = expandedIds.has(collapseId) || gName === "手動設定條件";
+
       let subsHtml = Object.entries(subGroups).map(([sName, rules], sIdx) => {
-        const subCollapseId = `inv_sub_${collapseId}_${sIdx}`;
-        
+        const subCollapseId = `inv_sub_${toSafeDbKey(gName)}_${toSafeDbKey(sName)}`;
+        const isSubOpen = expandedIds.has(subCollapseId) || gName === "手動設定條件";
+
         let itemsHtml = rules.map(r => `
           <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light ms-2">
             <div class="text-truncate" style="font-size: 0.8rem; max-width: 80%;">
@@ -3446,14 +3569,14 @@
 
         return `
           <div class="border rounded mb-1 border-secondary">
-            <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
+            <button class="btn w-100 text-start py-1 px-2 fw-bold text-dark bg-light d-flex justify-content-between align-items-center ${isSubOpen ? '' : 'collapsed'}" style="font-size:0.8rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${subCollapseId}">
               <div class="text-truncate" style="max-width: 65%;">🏷️ ${sName}</div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-secondary">${rules.length} 項 ▼</span>
                 <span class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.65rem;" onclick="removeActiveInvSubGroup('${gName}', '${sName}', event)">取消此包</span>
               </div>
             </button>
-            <div id="${subCollapseId}" class="collapse">
+            <div id="${subCollapseId}" class="collapse ${isSubOpen ? 'show' : ''}">
               <div class="p-1 bg-white">${itemsHtml}</div>
             </div>
           </div>
@@ -3463,9 +3586,11 @@
       let totalItemsInGroup = 0;
       Object.values(subGroups).forEach(arr => totalItemsInGroup += arr.length);
 
+      const groupDiv = document.createElement("div");
+      groupDiv.className = "accordion-item border rounded mb-1 bg-white shadow-sm";
       groupDiv.innerHTML = `
         <h2 class="accordion-header" id="heading_${collapseId}">
-          <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+          <button class="btn w-100 text-start py-2 px-3 fw-bold text-dark bg-light d-flex justify-content-between align-items-center ${isGroupOpen ? '' : 'collapsed'}" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
             <div class="text-truncate" style="max-width: 60%;">📁 ${gName}</div>
             <div class="d-flex align-items-center gap-2">
               <span class="badge bg-primary">${totalItemsInGroup} 項總計 ▼</span>
@@ -3473,7 +3598,7 @@
             </div>
           </button>
         </h2>
-        <div id="${collapseId}" class="accordion-collapse collapse" aria-labelledby="heading_${collapseId}">
+        <div id="${collapseId}" class="accordion-collapse collapse ${isGroupOpen ? 'show' : ''}" aria-labelledby="heading_${collapseId}">
           <div class="accordion-body p-2 pt-1 bg-white">
             ${subsHtml}
           </div>
@@ -3595,6 +3720,7 @@
   }
 
   // ================= 9. 核心盤點寫入 =================
+  // ================= 9. 核心盤點寫入 (加入成功音效與非本次條件攔截) =================
   function executeScan(forcedBarcode, forcedQty) {
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(forcedBarcode || (inputEl ? inputEl.value : ""));
@@ -3615,10 +3741,21 @@
     const safeKey = barcodeToKeyMap[barcode] || toSafeDbKey(barcode);
     const existingItem = fullInventory[safeKey] || null;
 
+    // 1. 不在庫存資料庫中
     if (!existingItem) {
       playBeep("warning");
+      triggerPhoneHaptic("warning");
       triggerVisualFlash("warning");
       showOperatorToast("非本庫存商品", `條碼/貨號【${barcode}】不在庫存清單中，未寫入。`, "warning");
+      return;
+    }
+
+    // 2. 檢查是否符合本次盤點條件 (全盤模式或日常模式條件)
+    if (!isItemInCurrentTask(existingItem)) {
+      playBeep("warning");
+      triggerPhoneHaptic("warning");
+      triggerVisualFlash("warning");
+      showOperatorToast("非本次盤點品項", `【${existingItem.name || barcode}】不符合目前的日常盤點條件，未寫入！`, "warning");
       return;
     }
 
@@ -3639,6 +3776,10 @@
         return;
       }
       if (committed && snapshot) {
+        // 成功盤入：發出清脆正確音效與微震動
+        playBeep("success");
+        triggerPhoneHaptic("success");
+
         const val = snapshot.val() || existingItem;
         const brandMsg = brandRule ? ` [品牌總量: ${val.brand || ''}]` : "";
         const formattedTag = formatScanTag(boundUser, val.itemCode || val.barcode, val.name, addQty);
@@ -3831,7 +3972,7 @@
     const inputEl = document.getElementById("inputBarcode");
     const barcode = cleanString(inputEl.value);
 
-    // 1. 前置防呆：未選擇分區時立即攔截並提示
+    // 1. 分區防呆
     const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
     if (!locRadio) {
       playBeep("warning");
@@ -3841,7 +3982,7 @@
       return;
     }
 
-    // 2. 空值防呆
+    // 2. 空值檢查
     if (!barcode) {
       if (inputEl) inputEl.focus();
       return;
@@ -3852,8 +3993,20 @@
 
     if (!existingItem) {
       playBeep("warning");
+      triggerPhoneHaptic("warning");
       triggerVisualFlash("warning");
       showOperatorToast("非本庫存商品", `條碼/貨號【${barcode}】不在清單中`, "warning");
+      inputEl.value = "";
+      inputEl.focus();
+      return;
+    }
+
+    // 3. 檢查是否符合本次盤點條件
+    if (!isItemInCurrentTask(existingItem)) {
+      playBeep("warning");
+      triggerPhoneHaptic("warning");
+      triggerVisualFlash("warning");
+      showOperatorToast("非本次盤點品項", `【${existingItem.name || barcode}】不符合當前盤點條件！`, "warning");
       inputEl.value = "";
       inputEl.focus();
       return;
