@@ -657,9 +657,19 @@
           <div id="reader" class="scan-area"></div>
         </div>
 
-        <div class="input-group input-group-sm mb-2">
-          <input type="text" id="inputBarcode" class="form-control" placeholder="手動輸入條碼/貨號 (按 Enter 盤入)" onkeydown="if(event.key==='Enter') handleManualBarcodeSubmit()">
-          <button class="btn btn-primary px-3 fw-bold" type="button" onclick="handleManualBarcodeSubmit()">🔍 盤入</button>
+        <!-- 分區備註列 (含連續套用切換開關) -->
+        <div class="input-group input-group-sm mb-2 shadow-sm">
+          <span class="input-group-text bg-white text-secondary fw-bold" style="font-size: 0.8rem;">分區備註</span>
+          <input type="text" id="inputScanNote" class="form-control" placeholder="例: 抽屜最下層 / 第2格 (選填)">
+          <button class="btn btn-outline-secondary fw-bold px-2" type="button" id="btnKeepNote" onclick="toggleKeepNote()" title="開啟後盤入不會自動清空備註">
+            連續套用: 關
+          </button>
+        </div>
+
+        <!-- 醒目條碼輸入欄 -->
+        <div class="input-group mb-2 shadow-sm" style="border: 2px solid #0d6efd; border-radius: 8px; overflow: hidden;">
+          <input type="text" id="inputBarcode" class="form-control form-control-lg border-0 fw-bold font-monospace fs-5" style="background-color: #f8fbff;" placeholder="手動輸入條碼/貨號 (按 Enter 盤入)" onkeydown="if(event.key==='Enter') handleManualBarcodeSubmit()">
+          <button class="btn btn-primary px-4 fw-bold fs-6" type="button" onclick="handleManualBarcodeSubmit()">盤入</button>
         </div>
 
         <!-- 控制按鈕列 (支援 2x 遠距對焦與補光) -->
@@ -682,24 +692,23 @@
 
     <div class="card mb-2 border-success shadow-sm">
       <div class="card-header bg-success text-white py-1 px-2 d-flex justify-content-between align-items-center">
-        <span class="small fw-bold">👤 我的即時盤點紀錄 (同品項收合)</span>
-        <span class="badge bg-light text-success small" id="myScanCountBadge">0 品項</span>
+        <span class="small fw-bold">我的即時盤點紀錄 (單筆時間軌跡)</span>
+        <span class="badge bg-light text-success small" id="myScanCountBadge">0 筆</span>
       </div>
-      <div class="card-body p-0 feed-container" id="myFeedContainer" style="max-height: 190px;">
+      <div class="card-body p-0 feed-container" id="myFeedContainer" style="height: 32vh; max-height: 35vh; overflow-y: auto;">
         <div class="text-center text-muted small py-3">您尚未掃描任何商品</div>
       </div>
     </div>
 
     <div class="card mb-4 border-primary shadow-sm">
       <div class="card-header bg-primary text-white py-1 px-2 d-flex justify-content-between align-items-center">
-        <span class="small fw-bold">👥 全員即時盤點動態 (同品項收合)</span>
-        <span class="badge bg-light text-primary small" id="globalScanCountBadge">0 品項</span>
+        <span class="small fw-bold">全員即時盤點動態 (單筆時間軌跡)</span>
+        <span class="badge bg-light text-primary small" id="globalScanCountBadge">0 筆</span>
       </div>
-      <div class="card-body p-0 feed-container" id="globalFeedContainer" style="max-height: 180px;">
+      <div class="card-body p-0 feed-container" id="globalFeedContainer" style="height: 32vh; max-height: 35vh; overflow-y: auto;">
         <div class="text-center text-muted small py-2">尚無全員盤點紀錄</div>
       </div>
     </div>
-  </div>
 
   <!-- ================= 視圖 4: 智慧補貨模式 ================= -->
   <div id="viewReplenish" class="page-view no-print">
@@ -919,7 +928,7 @@
                 <th style="width: 115px;">條碼 / 貨號</th>
                 <th>品牌 / 中文品名</th>
                 <th style="width: 45px;">帳面</th>
-                <th style="width: 45px;">實盤</th>
+                <th style="width: 70px;">實盤</th>
                 <th style="width: 45px;">盤差</th>
                 <th style="width: 90px;">訂金未銷</th>
                 <th style="width: 85px; background-color: #fffde7 !important;">手動複盤數</th>
@@ -1094,9 +1103,15 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-3 bg-light">
-        <div class="d-flex justify-content-between align-items-center mb-2 px-1 text-muted" style="font-size: 0.78rem;">
+        <div class="d-flex justify-content-between align-items-center mb-1 px-1 text-muted" style="font-size: 0.78rem;">
           <span>條碼: <strong id="calcModalBarcode" class="text-dark font-monospace">-</strong></span>
           <span>現有實盤: <strong id="calcModalCurrentCounted" class="text-primary">-</strong></span>
+        </div>
+
+        <!-- 計算機內部備註輸入框 -->
+        <div class="input-group input-group-sm mb-2">
+          <span class="input-group-text bg-white text-secondary py-0" style="font-size: 0.75rem;">備註</span>
+          <input type="text" id="calcModalNote" class="form-control form-control-sm" placeholder="輸入分區位置或備註 (選填)">
         </div>
 
         <div class="bg-white border rounded p-2 text-end shadow-inner mb-3">
@@ -1493,9 +1508,11 @@
       }
     });
 
-    logsRef.limitToLast(50).on("value", snap => {
+    // 移除 50 筆限制，避免多人盤點時紀錄被擠出畫面
+    logsRef.on("value", snap => {
       renderLiveFeeds(snap.val() || {});
     });
+  
   }
 
   // ================= 3. 視圖與頁籤切換引擎 =================
@@ -1607,6 +1624,7 @@
   }
 
   // ================= 4. 即時動態 (依分區收納與標註位置) =================
+  // 即時動態渲染 (加入編輯按鈕與備註顯示)
   function renderLiveFeeds(logsData) {
     const globalContainer = document.getElementById("globalFeedContainer");
     const myContainer = document.getElementById("myFeedContainer");
@@ -1618,180 +1636,69 @@
 
     // 1. 全員即時動態
     if (logsArray.length === 0) {
-      document.getElementById("globalScanCountBadge").innerText = `0 品項`;
-      globalContainer.innerHTML = `<div class="text-center text-muted small py-3">尚無全員盤點紀錄</div>`;
+      document.getElementById("globalScanCountBadge").innerText = "0 筆";
+      globalContainer.innerHTML = '<div class="text-center text-muted small py-3">尚無全員盤點紀錄</div>';
     } else {
-      const globalGroupedMap = {};
-      logsArray.forEach(log => {
-        const groupKey = log.itemKey || log.barcode;
-        if (!globalGroupedMap[groupKey]) {
-          const invItem = fullInventory[groupKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
-          globalGroupedMap[groupKey] = {
-            itemKey: groupKey,
-            barcode: log.barcode,
-            name: invItem.name || log.displayTag || "商品",
-            totalCounted: 0,
-            staffSet: new Set(),
-            scansByLoc: {}
-          };
-        }
-        globalGroupedMap[groupKey].totalCounted += (log.qty || 1);
-        if (log.staff) globalGroupedMap[groupKey].staffSet.add(log.staff);
-        
+      document.getElementById("globalScanCountBadge").innerText = `共 ${logsArray.length} 筆`;
+      globalContainer.innerHTML = logsArray.map(log => {
+        const invItem = fullInventory[log.itemKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
+        const pName = invItem.name || log.displayTag || "-";
+        const tStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "";
         const loc = log.location || "架上";
-        if (!globalGroupedMap[groupKey].scansByLoc[loc]) {
-          globalGroupedMap[groupKey].scansByLoc[loc] = [];
-        }
-        globalGroupedMap[groupKey].scansByLoc[loc].push(log);
-      });
-
-      const globalList = Object.values(globalGroupedMap);
-      document.getElementById("globalScanCountBadge").innerText = `共 ${globalList.length} 種品項`;
-
-      globalContainer.innerHTML = globalList.map((g, idx) => {
-        const collapseId = `globalGroupCollapse_${idx}`;
-        const staffSummary = Array.from(g.staffSet).join("、") || "門市人員";
-
-        // 依分區群組輸出
-        const locSectionsHtml = Object.entries(g.scansByLoc).map(([locName, scans]) => {
-          const locTotal = scans.reduce((sum, s) => sum + (s.qty || 1), 0);
-          const logsHtml = scans.map(s => {
-            const tStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : "";
-            return `
-              <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light" style="font-size: 0.75rem;">
-                <span>👤 <strong>${s.staff || '人員'}</strong> (+${s.qty || 1}件)</span>
-                <span class="text-muted">🕒 ${tStr}</span>
-              </div>
-            `;
-          }).join("");
-
-          return `
-            <div class="mb-2 p-2 bg-white rounded border border-light shadow-sm">
-              <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
-                <span class="badge bg-secondary" style="font-size: 0.72rem;">📍 ${locName}</span>
-                <span class="small fw-bold text-dark">該區小計: ${locTotal} 件</span>
-              </div>
-              ${logsHtml}
-            </div>
-          `;
-        }).join("");
+        const staff = log.staff || "門市人員";
+        const noteStr = log.note ? `<span class="text-secondary ms-1">(${log.note})</span>` : "";
 
         return `
-          <div class="feed-item bg-white px-2 py-2">
-            <div class="d-flex justify-content-between align-items-start">
-              <div class="flex-grow-1 text-truncate me-2">
-                <div class="d-flex align-items-center gap-1 mb-1">
-                  <span class="badge bg-primary py-1 px-2" style="font-size: 0.8rem;">已盤 ${g.totalCounted} 件</span>
-                  <span class="font-monospace fw-bold text-dark" style="font-size: 0.85rem;">${g.barcode}</span>
-                  <span class="badge bg-light text-dark border py-0 px-1" style="font-size: 0.72rem;">${staffSummary}</span>
-                </div>
-                <div class="text-secondary text-truncate" style="font-size: 0.85rem; line-height: 1.25;" title="${g.name}">
-                  ${g.name}
-                </div>
+          <div class="feed-item bg-white px-2 py-1 border-bottom">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="text-truncate me-2" style="font-size: 0.82rem;">
+                <span class="badge bg-secondary py-0 px-1 me-1">${loc}</span>
+                <strong class="text-primary">${staff}</strong>
+                <span class="font-monospace text-dark ms-1">${log.barcode}</span>
+                <span class="fw-bold text-success ms-1">+${log.qty || 1}</span>
+                ${noteStr}
+                <div class="text-muted text-truncate" style="font-size: 0.75rem;">${pName}</div>
               </div>
-              <div class="flex-shrink-0">
-                <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
-                  明細▼
-                </button>
-              </div>
-            </div>
-            <div class="collapse mt-2 pt-2 bg-light p-2 rounded" id="${collapseId}">
-              <div class="small fw-bold text-dark mb-2">📋 全體人員各分區掃描軌跡：</div>
-              ${locSectionsHtml}
+              <div class="text-muted flex-shrink-0" style="font-size: 0.72rem;">${tStr}</div>
             </div>
           </div>
         `;
       }).join("");
     }
 
-    // 2. 我的即時盤點動態
+    // 2. 我的即時盤點動態 (支援編輯與刪除)
     const myLogs = logsArray.filter(log => log.staff === boundUser);
 
     if (myLogs.length === 0) {
-      document.getElementById("myScanCountBadge").innerText = `0 品項`;
-      myContainer.innerHTML = `<div class="text-center text-muted small py-3">您尚未掃描任何商品</div>`;
+      document.getElementById("myScanCountBadge").innerText = "0 筆";
+      myContainer.innerHTML = '<div class="text-center text-muted small py-3">您尚未掃描任何商品</div>';
       return;
     }
 
-    const myGroupedMap = {};
-    myLogs.forEach(log => {
-      const groupKey = log.itemKey || log.barcode;
-      if (!myGroupedMap[groupKey]) {
-        const invItem = fullInventory[groupKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
-        myGroupedMap[groupKey] = {
-          itemKey: groupKey,
-          barcode: log.barcode,
-          name: invItem.name || log.displayTag || "商品",
-          totalCounted: 0,
-          scansByLoc: {},
-          lastTime: log.timestamp
-        };
-      }
-      myGroupedMap[groupKey].totalCounted += (log.qty || 1);
-      
+    document.getElementById("myScanCountBadge").innerText = `共 ${myLogs.length} 筆`;
+    myContainer.innerHTML = myLogs.map(log => {
+      const invItem = fullInventory[log.itemKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
+      const pName = invItem.name || log.displayTag || "-";
+      const tStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "";
       const loc = log.location || "架上";
-      if (!myGroupedMap[groupKey].scansByLoc[loc]) {
-        myGroupedMap[groupKey].scansByLoc[loc] = [];
-      }
-      myGroupedMap[groupKey].scansByLoc[loc].push(log);
-    });
-
-    const myGroupedList = Object.values(myGroupedMap);
-    document.getElementById("myScanCountBadge").innerText = `共 ${myGroupedList.length} 種品項`;
-
-    myContainer.innerHTML = myGroupedList.map((g, idx) => {
-      const collapseId = `myGroupCollapse_${idx}`;
-      const lastTimeStr = g.lastTime ? new Date(g.lastTime).toTimeString().slice(0, 8) : "";
-
-      // 依分區群組收納我的掃描明細
-      const myLocSectionsHtml = Object.entries(g.scansByLoc).map(([locName, scans]) => {
-        const locTotal = scans.reduce((sum, s) => sum + (s.qty || 1), 0);
-        const logsHtml = scans.map(s => {
-          const tStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : "";
-          return `
-            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light" style="font-size: 0.75rem;">
-              <span>🕒 ${tStr} (+${s.qty || 1}件)</span>
-              <button class="btn btn-link text-danger p-0 text-decoration-none" style="font-size: 0.72rem;" onclick="undoSingleLog('${s.logId}', '${s.itemKey || ''}', '${s.barcode || ''}', ${s.qty || 1})">扣回此筆</button>
-            </div>
-          `;
-        }).join("");
-
-        return `
-          <div class="mb-2 p-2 bg-white rounded border border-light shadow-sm">
-            <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
-              <span class="badge bg-success" style="font-size: 0.72rem;">📍 ${locName}</span>
-              <span class="small fw-bold text-dark">本區實盤: ${locTotal} 件</span>
-            </div>
-            ${logsHtml}
-          </div>
-        `;
-      }).join("");
+      const qty = log.qty || 1;
+      const noteStr = log.note ? `<span class="text-secondary ms-1">(${log.note})</span>` : "";
 
       return `
-        <div class="feed-item bg-white px-2 py-2">
-          <div class="d-flex justify-content-between align-items-start">
-            <div class="flex-grow-1 text-truncate me-2">
-              <div class="d-flex align-items-center gap-1 mb-1">
-                <span class="badge bg-success py-1 px-2" style="font-size: 0.8rem;">已盤 ${g.totalCounted} 件</span>
-                <span class="font-monospace fw-bold text-dark" style="font-size: 0.85rem;">${g.barcode}</span>
-                <small class="text-muted" style="font-size: 0.72rem;">(${lastTimeStr})</small>
-              </div>
-              <div class="text-secondary text-truncate" style="font-size: 0.85rem; line-height: 1.25;" title="${g.name}">
-                ${g.name}
-              </div>
+        <div class="feed-item bg-white px-2 py-1 border-bottom">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="text-truncate me-2" style="font-size: 0.82rem;">
+              <span class="badge bg-success py-0 px-1 me-1">${loc}</span>
+              <span class="font-monospace text-dark fw-bold">${log.barcode}</span>
+              <span class="fw-bold text-success ms-1">+${qty}</span>
+              ${noteStr}
+              <div class="text-muted text-truncate" style="font-size: 0.75rem;">${pName}</div>
             </div>
             <div class="d-flex align-items-center gap-1 flex-shrink-0">
-              <button class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.75rem;" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
-                明細▼
-              </button>
-              <button class="btn btn-outline-danger btn-sm py-0 px-1 fw-bold" style="font-size: 0.72rem;" onclick="resetSingleItemCount('${g.itemKey}', '${g.barcode}', '${g.name.replace(/'/g, "\\'")}')" title="將此商品實盤數量全部歸零重盤">
-                全清歸零
-              </button>
+              <span class="text-muted small" style="font-size: 0.72rem;">${tStr}</span>
+              <button class="btn btn-outline-primary btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="triggerEditLog('${log.logId}', '${log.itemKey || ''}', '${log.barcode || ''}', ${qty}, '${loc}', '${(log.note || '').replace(/'/g, "\\'")}')">編輯</button>
+              <button class="btn btn-outline-danger btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="undoSingleLog('${log.logId}', '${log.itemKey || ''}', '${log.barcode || ''}', ${qty}, '${loc}')">刪除</button>
             </div>
-          </div>
-          <div class="collapse mt-2 pt-2 bg-light p-2 rounded" id="${collapseId}">
-            <div class="small fw-bold text-dark mb-2">📋 我的各分區掃描軌跡：</div>
-            ${myLocSectionsHtml}
           </div>
         </div>
       `;
@@ -3958,27 +3865,54 @@
 
   // ================= 9. 核心盤點寫入 =================
   // ================= 9. 核心盤點寫入 (加入成功音效與非本次條件攔截) =================
-  function executeScan(forcedBarcode, forcedQty) {
+  // 記錄目前正在編輯的紀錄 Log ID (若為全新盤入則為 null)
+  let editingLogData = null;
+  // 分區備註連續套用開關狀態
+  let isKeepNoteActive = false;
+
+  function toggleKeepNote() {
+    isKeepNoteActive = !isKeepNoteActive;
+    const btn = document.getElementById("btnKeepNote");
+    if (btn) {
+      if (isKeepNoteActive) {
+        btn.className = "btn btn-primary fw-bold px-2";
+        btn.innerText = "連續套用: 開";
+      } else {
+        btn.className = "btn btn-outline-secondary fw-bold px-2";
+        btn.innerText = "連續套用: 關";
+      }
+    }
+  }
+
+  // 核心盤點寫入 (支援連續套用判斷)
+  function executeScan(forcedBarcode, forcedQty, forcedNote) {
     const inputEl = document.getElementById("inputBarcode");
+    const noteEl = document.getElementById("inputScanNote");
     const barcode = cleanString(forcedBarcode || (inputEl ? inputEl.value : ""));
     const addQty = parseInt(forcedQty, 10) || 1;
+    const noteText = cleanString(forcedNote !== undefined ? forcedNote : (noteEl ? noteEl.value : ""));
+
     if (!barcode) return;
 
     const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
     if (!locRadio) {
       playBeep("warning");
       triggerVisualFlash("warning");
-      showOperatorToast("尚未選擇位置", "⚠️ 請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）！", "warning");
+      showOperatorToast("尚未選擇位置", "請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）！", "warning");
       return;
     }
     const selectedLoc = locRadio.value;
 
     if (inputEl) inputEl.value = "";
+    
+    // 若未開啟「連續套用」，則在盤入後清空備註輸入框
+    if (!isKeepNoteActive && noteEl) {
+      noteEl.value = "";
+    }
 
     const safeKey = barcodeToKeyMap[barcode] || toSafeDbKey(barcode);
     const existingItem = fullInventory[safeKey] || null;
 
-    // 1. 不在庫存資料庫中
     if (!existingItem) {
       playBeep("warning");
       triggerPhoneHaptic("warning");
@@ -3987,7 +3921,6 @@
       return;
     }
 
-    // 2. 檢查是否符合本次盤點條件 (全盤模式或日常模式條件)
     if (!isItemInCurrentTask(existingItem)) {
       playBeep("warning");
       triggerPhoneHaptic("warning");
@@ -4013,7 +3946,6 @@
         return;
       }
       if (committed && snapshot) {
-        // 成功盤入：發出清脆正確音效與微震動
         playBeep("success");
         triggerPhoneHaptic("success");
 
@@ -4031,6 +3963,7 @@
           staff: boundUser || "門市人員",
           location: selectedLoc,
           qty: addQty,
+          note: noteText,
           displayTag: formattedTag,
           timestamp: firebase.database.ServerValue.TIMESTAMP
         });
@@ -4038,31 +3971,50 @@
     });
   }
 
-  function undoSingleLog(logId, itemKey, barcode, qty, itemName) {
+  // 精準單筆扣回 (只扣該分區與該筆數量，不影響其他盤點紀錄)
+  function undoSingleLog(logId, itemKey, barcode, qty, location) {
     const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
     const itemRef = invRef.child(safeKey);
 
-    logsRef.child(logId).once("value", snap => {
-      const logData = snap.val() || {};
-      const targetLoc = logData.location || "架上";
-
-      itemRef.transaction(current => {
-        if (current) {
-          current.countedQty = Math.max(0, (current.countedQty || 0) - qty);
-          if (current.locBreakdown && current.locBreakdown[targetLoc]) {
-            current.locBreakdown[targetLoc] = Math.max(0, current.locBreakdown[targetLoc] - qty);
-          }
+    itemRef.transaction(current => {
+      if (current) {
+        current.countedQty = Math.max(0, (current.countedQty || 0) - qty);
+        if (current.locBreakdown && current.locBreakdown[location]) {
+          current.locBreakdown[location] = Math.max(0, current.locBreakdown[location] - qty);
         }
-        return current;
-      }, (error, committed) => {
-        if (committed) {
-          logsRef.child(logId).remove().then(() => {
-            const displayName = itemName || barcode;
-            showOperatorToast("已撤銷盤點紀錄", `已扣回【${displayName}】[${targetLoc}] -${qty} 件`, "warning");
-          });
-        }
-      });
+      }
+      return current;
+    }, (error, committed) => {
+      if (committed) {
+        logsRef.child(logId).remove().then(() => {
+          showOperatorToast("已扣回此筆紀錄", `[${location}] 條碼【${barcode}】已扣回 -${qty} 件`, "warning");
+        });
+      }
     });
+  }
+  // 觸發紀錄編輯按鈕 (修復點擊沒反應問題)
+  function triggerEditLog(logId, itemKey, barcode, currentQty, location, note) {
+    const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
+    const item = fullInventory[safeKey] || { name: barcode, countedQty: currentQty };
+    const mode = document.querySelector('input[name="camScanMode"]:checked').value;
+    const logObj = { logId, itemKey, barcode, qty: currentQty, location, note };
+
+    if (mode === "auto") {
+      // 連續模式下直接跳出輸入框編輯數量與備註
+      const input = prompt(`編輯 [${location}] 條碼【${barcode}】盤點數量：`, currentQty);
+      if (input !== null) {
+        const val = parseInt(input, 10);
+        if (!isNaN(val) && val > 0) {
+          const newNote = prompt("編輯分區備註 (選填)：", note || "");
+          executeEditLog(logObj, val, cleanString(newNote || ""));
+        } else {
+          alert("數量必須為大於 0 的整數！");
+        }
+      }
+    } else {
+      // 手動量模式下重新彈出計算機鍵盤
+      openCalculatorKeypad(barcode, item, currentQty, logObj);
+    }
   }
   // 單品項全數歸零重盤
   function resetSingleItemCount(itemKey, barcode, itemName) {
@@ -4268,23 +4220,32 @@
   let calcCurrentFormula = "1";
   let isNewCalcInput = true;
 
-  function openCalculatorKeypad(barcode, item) {
+  // 開啟計算機鍵盤 (支援編輯模式與帶入備註)
+  function openCalculatorKeypad(barcode, item, initialQty = 1, editLog = null) {
     const locRadio = document.querySelector('input[name="invLocationOption"]:checked');
-    if (!locRadio) {
+    if (!locRadio && !editLog) {
       playBeep("warning");
       triggerVisualFlash("warning");
-      showOperatorToast("尚未選擇位置", "⚠️ 請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）！", "warning");
+      showOperatorToast("尚未選擇位置", "請先點選上方盤點分區（架上 / 櫃內 / 彌留 / 已取）！", "warning");
       return;
     }
 
+    editingLogData = editLog; // 若為修改紀錄則保存目標 log 物件
     calcTargetBarcode = barcode;
-    calcCurrentFormula = "1";
+    calcCurrentFormula = String(initialQty || 1);
     isNewCalcInput = true;
 
-    document.getElementById("calcModalLocBadge").innerText = locRadio.value;
+    const locName = editLog ? editLog.location : locRadio.value;
+    document.getElementById("calcModalLocBadge").innerText = locName;
     document.getElementById("calcModalTitle").innerText = item.name || "商品";
     document.getElementById("calcModalBarcode").innerText = barcode;
     document.getElementById("calcModalCurrentCounted").innerText = `${item.countedQty || 0} 件`;
+
+    const noteInput = document.getElementById("calcModalNote");
+    if (noteInput) {
+      const topNote = document.getElementById("inputScanNote") ? document.getElementById("inputScanNote").value : "";
+      noteInput.value = editLog ? (editLog.note || "") : topNote;
+    }
     
     updateCalcDisplay();
 
@@ -4343,20 +4304,55 @@
     }
   }
 
+  // 確認計算機盤入 / 完成修改
   function confirmCalculatorScan() {
     const resultEl = document.getElementById("calcResultDisplay");
     let finalQty = parseFloat(resultEl.innerText) || 1;
     finalQty = Math.max(1, Math.round(finalQty));
 
     const targetCode = calcTargetBarcode;
+    const noteText = document.getElementById("calcModalNote") ? cleanString(document.getElementById("calcModalNote").value) : "";
 
     const modalEl = document.getElementById('calcKeypadModal');
     const modal = bootstrap.Modal.getInstance(modalEl);
     if (modal) modal.hide();
 
-    if (targetCode) {
-      executeScan(targetCode, finalQty);
+    if (editingLogData) {
+      // 執行紀錄編輯更新
+      executeEditLog(editingLogData, finalQty, noteText);
+      editingLogData = null;
+    } else {
+      // 全新盤入
+      if (targetCode) {
+        executeScan(targetCode, finalQty, noteText);
+      }
     }
+  }
+  // 執行紀錄編輯 (重新計算差額並更新時間戳記)
+  function executeEditLog(log, newQty, newNote) {
+    const diffQty = newQty - (log.qty || 1);
+    const safeKey = log.itemKey || barcodeToKeyMap[cleanString(log.barcode)] || toSafeDbKey(log.barcode);
+    const itemRef = invRef.child(safeKey);
+    const loc = log.location || "架上";
+
+    itemRef.transaction(current => {
+      if (current) {
+        current.countedQty = Math.max(0, (current.countedQty || 0) + diffQty);
+        if (!current.locBreakdown) current.locBreakdown = {};
+        current.locBreakdown[loc] = Math.max(0, (current.locBreakdown[loc] || 0) + diffQty);
+      }
+      return current;
+    }, (error, committed) => {
+      if (committed) {
+        logsRef.child(log.logId).update({
+          qty: newQty,
+          note: newNote,
+          timestamp: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+          showOperatorToast("已更新紀錄", `條碼【${log.barcode}】數量已更新為 ${newQty} 件`, "success");
+        });
+      }
+    });
   }
 
   // ================= 9. 專業級相機掃描引擎 (通用 2x 數位望遠 + 90秒休眠) =================
@@ -4613,6 +4609,28 @@
       document.getElementById("rptWarehouseName").innerText = items[0].warehouse;
     }
 
+    // 抓取全員詳細分區、人員與備註明細 (支援同區不同時間多筆備註全列出)
+    const itemLocStaffSummary = {};
+    logsRef.once("value", snap => {
+      const logs = snap.val() || {};
+      Object.values(logs).forEach(l => {
+        const k = l.itemKey || barcodeToKeyMap[cleanString(l.barcode)];
+        if (!k) return;
+        if (!itemLocStaffSummary[k]) itemLocStaffSummary[k] = [];
+        const staffLast = (cleanString(l.staff) || "員").slice(-1);
+        const loc = l.location || "架上";
+        const note = cleanString(l.note);
+        
+        itemLocStaffSummary[k].push({
+          loc: loc,
+          staff: staffLast,
+          qty: l.qty || 1,
+          note: note,
+          time: l.timestamp || 0
+        });
+      });
+    });
+
     let displayList = [];
 
     if (isDaily) {
@@ -4637,7 +4655,8 @@
                 staffSet: new Set(),
                 locBreakdown: { "架上": 0, "櫃內": 0, "彌留": 0, "已取": 0 },
                 skuCount: 0,
-                resMap: {}
+                resMap: {},
+                itemKeys: []
               };
             }
             const g = brandSummaryMap[brandGroupKey];
@@ -4645,6 +4664,7 @@
             g.cnt += (item.countedQty || 0);
             g.res += (item.reservedQty || 0);
             g.skuCount++;
+            if (item.key) g.itemKeys.push(item.key);
             if (item.lastStaff) g.staffSet.add(cleanString(item.lastStaff));
 
             if (item.locBreakdown) {
@@ -4712,6 +4732,7 @@
       const tr = document.createElement("tr");
       const isDiff = item.diff !== 0;
       const safeCode = cleanString(item.barcode || item.itemCode);
+      const safeKey = item.key || barcodeToKeyMap[safeCode] || toSafeDbKey(safeCode);
       const svgId = `rpt_bc_${index}`;
 
       let diffHtml = `<span>0</span>`;
@@ -4724,17 +4745,58 @@
 
       const brandHtml = item.brand ? `<div class="fw-bold text-primary mb-1" style="font-size: 0.82rem;">[${item.brand}]</div>` : '';
       const nameHtml = `<div style="line-height: 1.25; ${item.isBrandGroup ? 'font-weight: bold; font-size: 0.92rem;' : ''}">${item.name || '-'}</div>`;
-      const staffName = item.lastStaff ? cleanString(item.lastStaff) : '';
-      const staffHtml = staffName ? `<div style="font-size: 0.72rem; color: #777; line-height: 1.2; margin-top: 2px;">${staffName}</div>` : '';
 
-      let locSummary = `<div style="font-size: 0.68rem; color: #aaa; line-height: 1.1; margin-top: 2px;">-</div>`;
-      if (item.cnt > 0 && item.locBreakdown) {
-        const parts = [];
-        Object.entries(item.locBreakdown).forEach(([locKey, qtyVal]) => {
-          if (qtyVal > 0) parts.push(`${locKey.charAt(0)}${qtyVal}`);
+      // 定義分區固定排序順序
+      const locSortOrder = { "架上": 1, "櫃內": 2, "彌留": 3, "已取": 4 };
+
+      // 依 [分區 > 人員名稱 > 數量] 排序並包含細字備註 (靠左且支援換行)
+      let locStaffRowsHtml = "";
+      let targetEntries = [];
+
+      if (item.isBrandGroup && item.itemKeys) {
+        item.itemKeys.forEach(ik => {
+          const arr = itemLocStaffSummary[ik] || [];
+          targetEntries = targetEntries.concat(arr);
         });
-        if (parts.length > 0) locSummary = `<div style="font-size: 0.68rem; color: #212529; font-weight: bold; line-height: 1.1; margin-top: 2px; white-space: nowrap;">${parts.join(' ')}</div>`;
+      } else {
+        targetEntries = itemLocStaffSummary[safeKey] || [];
+        if (targetEntries.length === 0 && item.cnt > 0 && item.locBreakdown) {
+          const staffLast = (cleanString(item.lastStaff) || "員").slice(-1);
+          targetEntries = Object.entries(item.locBreakdown)
+            .filter(([_, q]) => q > 0)
+            .map(([loc, q]) => ({
+              loc: loc,
+              staff: staffLast,
+              qty: q,
+              note: ""
+            }));
+        }
       }
+
+      if (targetEntries.length > 0) {
+        // 核心排序：1. 分區順序 -> 2. 人員姓名 -> 3. 數量由大到小
+        targetEntries.sort((a, b) => {
+          const orderA = locSortOrder[a.loc] || 99;
+          const orderB = locSortOrder[b.loc] || 99;
+          if (orderA !== orderB) return orderA - orderB;
+          if (a.staff !== b.staff) return (a.staff || "").localeCompare(b.staff || "");
+          return b.qty - a.qty;
+        });
+
+        // 格式化輸出：[架上 伶 5 備註] 強制同一行顯示，不拆成兩行
+        locStaffRowsHtml = targetEntries.map(e => {
+          const noteSpan = e.note ? `<span class="text-secondary" style="font-size: 0.62rem; font-weight: normal; margin-left: 3px;">${e.note}</span>` : "";
+          return `
+            <div class="text-start" style="font-size: 0.68rem; color: #222; line-height: 1.25; white-space: nowrap;">
+              ${e.loc} ${e.staff} ${e.qty}${noteSpan}
+            </div>
+          `;
+        }).join("");
+      }
+
+      // 訂金未銷與「彌留分區」防呆比對
+      const miliuQty = (item.locBreakdown && item.locBreakdown["彌留"]) ? item.locBreakdown["彌留"] : 0;
+      const isMiliuError = (item.res > 0 || miliuQty > 0) && (miliuQty !== item.res);
 
       let resHtml = `<div class="text-center text-muted">0</div>`;
       if (item.res > 0) {
@@ -4779,12 +4841,11 @@
         <td class="align-middle">
           ${brandHtml}
           ${nameHtml}
-          ${staffHtml}
         </td>
         <td class="text-center fw-bold fs-6 align-middle">${item.sys}</td>
-        <td class="text-center fw-bold fs-6 align-middle">
-          <div>${item.cnt}</div>
-          ${locSummary}
+        <td class="text-center align-middle">
+          <div class="fw-bold fs-6">${item.cnt}</div>
+          ${locStaffRowsHtml ? `<div class="mt-1 pt-1 border-top border-light text-start ps-1">${locStaffRowsHtml}</div>` : ''}
         </td>
         <td class="text-center fs-6 align-middle">${diffHtml}</td>
         <td class="align-middle" style="padding: 4px;">${resHtml}</td>
@@ -4793,6 +4854,7 @@
         </td>
         <td class="text-center align-middle">
           <input type="checkbox" ${!isDiff ? 'checked' : ''} style="width: 16px; height: 16px;">
+          ${isMiliuError ? '<div class="text-danger fw-bold" style="font-size: 0.68rem; line-height: 1; margin-top: 2px;">[彌錯]</div>' : ''}
         </td>
       `;
       tbody.appendChild(tr);
@@ -5368,11 +5430,16 @@
   }
 
   function resetAllImportedData() {
-    if (confirm("⚠️ 確定要「清除所有匯入資料」嗎？\n\n・資料庫內的所有 Excel 商品、帳面庫存與盤點紀錄將會徹底清空。\n・盤點基準時間將會重置。\n・人員名單與自訂日常條件仍會永久保留。")) {
+    if (confirm("確定要清除所有匯入資料嗎？\n\n・資料庫內的所有 Excel 庫存、訂金未銷與銷貨紀錄將徹底清空。\n・盤點基準時間與檔案卡片將會重置。\n・人員名單與自訂條件仍會永久保留。")) {
       invRef.remove();
       logsRef.remove();
+      salesSummaryRef.remove();
       metaRef.child("inventoryTime").remove();
-      alert("✅ 已清空所有匯入庫存資料。");
+      metaRef.child("file_records").remove();
+      clearUploadedFile('inv');
+      clearUploadedFile('dep');
+      clearUploadedFile('sales');
+      alert("已清空所有匯入庫存與相關紀錄檔案。");
     }
   }
 
