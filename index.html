@@ -750,6 +750,14 @@
                     <input class="form-check-input" type="checkbox" id="chkRepNameMode" onchange="toggleRepNameMode(this.checked)">
                     <label class="form-check-label small fw-bold text-dark" for="chkRepNameMode">中文品名模式(合併同名)</label>
                   </div>
+                  <div class="d-flex align-items-center gap-1 me-2" id="boxExcludeNoSales" style="display: none !important;">
+                    <div class="form-check form-switch mb-0">
+                      <input class="form-check-input" type="checkbox" id="chkExcludeNoSales" onchange="renderDirectStockItemsTable()">
+                      <label class="form-check-label small fw-bold text-danger" for="chkExcludeNoSales">排除無銷貨</label>
+                    </div>
+                    <input type="number" id="excludeSalesMonthsVal" class="form-control form-control-sm text-center fw-bold text-danger" style="width: 45px;" value="6" min="1" max="12" onchange="renderDirectStockItemsTable()" title="排除近N個月無銷貨紀錄">
+                    <span class="small fw-bold text-secondary">個月</span>
+                  </div>
                   <div class="d-flex align-items-center gap-1">
                     <span class="fw-bold text-dark">批次最高:</span>
                     <input type="number" id="batchMaxVal" class="form-control form-control-sm text-center" style="width: 55px;" value="1" min="0">
@@ -1972,6 +1980,17 @@
     if (thCode) {
       thCode.style.display = isChecked ? "none" : "";
     }
+    
+    // 只有切換到中文品名模式時，才顯示「排除無銷貨」的過濾選項
+    const excludeBox = document.getElementById("boxExcludeNoSales");
+    if (excludeBox) {
+      if (isChecked) {
+        excludeBox.style.setProperty("display", "flex", "important");
+      } else {
+        excludeBox.style.setProperty("display", "none", "important");
+      }
+    }
+
     renderDirectStockItemsTable();
   }
 
@@ -2121,12 +2140,13 @@
     renderDirectStockItemsTable();
   }
 
-  // 渲染直讀商品表格 (品名模式自動合併同名商品數量)
+  // 渲染直讀商品表格 (支援中文品名模式與排除無銷貨過濾)
   function renderDirectStockItemsTable() {
     const tbody = document.getElementById("directStockItemsTableBody");
     tbody.innerHTML = "";
 
     const isNameMode = document.getElementById("chkRepNameMode") ? document.getElementById("chkRepNameMode").checked : false;
+    const isExcludeNoSales = (isNameMode && document.getElementById("chkExcludeNoSales")) ? document.getElementById("chkExcludeNoSales").checked : false;
     let listToRender = [];
 
     if (isNameMode) {
@@ -2148,7 +2168,18 @@
         nameMap[pName].combinedStock += curStock;
         if (item.barcode) nameMap[pName].codes.push(item.barcode);
       });
-      listToRender = Object.values(nameMap);
+
+      let nameList = Object.values(nameMap);
+
+      // 核心過濾：排除無銷貨紀錄之商品
+      if (isExcludeNoSales) {
+        nameList = nameList.filter(item => {
+          const salesData = salesHistorySummary[toSafeDbKey(item.name)] || {};
+          return salesData.totalQty !== undefined && salesData.totalQty > 0;
+        });
+      }
+
+      listToRender = nameList;
     } else {
       listToRender = [...currentSearchedItems];
     }
@@ -2156,7 +2187,7 @@
     document.getElementById("totalDirectItemsCount").innerText = listToRender.length;
 
     if (listToRender.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${isNameMode ? 6 : 7}" class="text-center text-muted py-4">查無符合關鍵字的庫存商品。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${isNameMode ? 6 : 7}" class="text-center text-muted py-4">查無符合關鍵字${isExcludeNoSales ? '或有銷貨紀錄' : ''}的庫存商品。</td></tr>`;
       document.getElementById("selectedDirectItemsCount").innerText = 0;
       return;
     }
@@ -2177,13 +2208,25 @@
       const itemSafety = existingRule.safety !== undefined ? existingRule.safety : defaultSafety;
       const itemMoq = existingRule.moq !== undefined ? existingRule.moq : defaultMoq;
 
+      // 若在品名模式下有銷貨紀錄，在品名下方帶出細字統計
+      let salesHintHtml = "";
+      if (isNameMode) {
+        const salesData = salesHistorySummary[toSafeDbKey(pName)] || {};
+        if (salesData.totalQty !== undefined) {
+          salesHintHtml = `<div class="text-muted fw-normal" style="font-size: 0.72rem; margin-top: 1px;">[${salesData.range} 銷貨 ${salesData.totalQty} 支]</div>`;
+        }
+      }
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="text-center">
           <input type="checkbox" class="direct-item-check" data-index="${idx}" checked onchange="updateDirectItemSelectionCount()">
         </td>
         ${!isNameMode ? `<td><strong>${cleanString(item.barcode || item.itemCode)}</strong></td>` : ''}
-        <td class="text-truncate" style="max-width: 320px;" title="${pName}">${pName}</td>
+        <td class="text-truncate" style="max-width: 320px;" title="${pName}">
+          <div><strong>${pName}</strong></div>
+          ${salesHintHtml}
+        </td>
         <td class="text-center fw-bold ${curStock === 0 ? 'text-danger' : ''}">${curStock}</td>
         <td class="text-center">
           <input type="number" class="form-control form-control-sm text-center direct-item-max fw-bold text-success" data-index="${idx}" value="${itemMax}" min="0">
