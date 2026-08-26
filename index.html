@@ -480,9 +480,9 @@
           <h6 class="fw-bold text-primary mb-1">📁 智慧檔案匯入 (自動辨識庫存/訂金檔案)</h6>
           <p class="small text-muted mb-3">自動依照檔名辨識檔案類型並去除 ERP 控制碼。<strong>人員名單與日常自訂條件將永久保留</strong>。</p>
           
-          <!-- 已載入檔案狀態卡片 -->
+          <!-- 已載入檔案狀態卡片 (3 檔案入口) -->
           <div class="row g-2 mb-3">
-            <div class="col-md-6 col-12">
+            <div class="col-md-4 col-12">
               <div class="p-2 border rounded bg-light d-flex justify-content-between align-items-center" id="boxInvFileStatus">
                 <div class="text-truncate me-2">
                   <div class="small fw-bold text-dark">1. 庫存檔案 (StockQuickSearch)：</div>
@@ -495,15 +495,28 @@
               </div>
             </div>
 
-            <div class="col-md-6 col-12">
+            <div class="col-md-4 col-12">
               <div class="p-2 border rounded bg-light d-flex justify-content-between align-items-center" id="boxDepFileStatus">
                 <div class="text-truncate me-2">
-                  <div class="small fw-bold text-dark">2. 訂金未銷檔案 (RSIRUnGet)：</div>
+                  <div class="small fw-bold text-dark">2. 訂金未銷 (RSIRUnGet)：</div>
                   <div class="small font-monospace text-truncate text-muted" id="txtDepFileName">尚未載入 (非必填)</div>
                 </div>
                 <div class="d-flex align-items-center gap-1 flex-shrink-0">
                   <span class="badge bg-secondary" id="badgeDepStatus">未就緒</span>
                   <button class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold" id="btnClearDepFile" onclick="clearUploadedFile('dep')" style="display: none; font-size: 0.75rem;">清除</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4 col-12">
+              <div class="p-2 border rounded bg-light d-flex justify-content-between align-items-center" id="boxSalesFileStatus">
+                <div class="text-truncate me-2">
+                  <div class="small fw-bold text-dark">3. 銷貨紀錄 (TempRpt__)：</div>
+                  <div class="small font-monospace text-truncate text-muted" id="txtSalesFileName">尚未載入 (非必填)</div>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                  <span class="badge bg-secondary" id="badgeSalesStatus">未就緒</span>
+                  <button class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold" id="btnClearSalesFile" onclick="clearUploadedFile('sales')" style="display: none; font-size: 0.75rem;">清除</button>
                 </div>
               </div>
             </div>
@@ -514,7 +527,7 @@
             <label for="smartFileInput" class="form-label fw-bold text-primary mb-1" style="cursor: pointer;">
               📂 點擊此處或拖曳檔案進行自動辨識上傳 (.xls / .xlsx / .csv)
             </label>
-            <input type="file" id="smartFileInput" class="form-control form-control-sm mx-auto" style="max-width: 420px;" accept=".xlsx, .xls, .csv" onchange="handleSmartFileUpload(this)">
+            <input type="file" id="smartFileInput" class="form-control form-control-sm mx-auto" style="max-width: 420px;" accept=".xlsx, .xls, .csv" multiple onchange="handleSmartFileUpload(this)">
           </div>
 
           <div class="d-flex gap-2">
@@ -935,17 +948,17 @@
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header bg-light">
-        <h6 class="modal-title fw-bold">🖨️ 門市商品補貨採購申請單 (含 0 庫存斷貨補貨 / 支援條碼機掃描)</h6>
+        <h6 class="modal-title fw-bold">門市商品補貨申請統計單</h6>
         <button type="button" class="btn-close no-print" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-3">
         <div class="d-flex justify-content-end mb-2 no-print">
-          <button class="btn btn-primary btn-sm fw-bold px-3" onclick="window.print()">🖨️ 列印 A4 申請單</button>
+          <button class="btn btn-primary btn-sm fw-bold px-3" onclick="window.print()">列印 A4 申請單</button>
         </div>
 
         <div id="printableReplenishArea" class="print-area">
           <div class="text-center mb-2">
-            <h4 class="fw-bold mb-1">門市商品補貨採購申請單</h4>
+            <h4 class="fw-bold mb-1">門市商品補貨申請統計單</h4>
             <div class="small text-muted d-flex justify-content-between px-2 align-items-end">
               <span>申請門市：<strong id="repPrintWhName">南崁中正</strong></span>
               <span>申請人員：<strong id="repPrintStaff">-</strong></span>
@@ -1278,6 +1291,9 @@
   const repPresetsRef = db.ref("preset_replenish_packages");
   const invRef = db.ref("inventory");
   const logsRef = db.ref("logs");
+  const salesSummaryRef = db.ref("sales_history_summary");
+
+  let salesHistorySummary = {};
 
   let presetPackages = {};
   let repPresetPackages = {};
@@ -1341,6 +1357,13 @@
       }
     });
 
+    salesSummaryRef.on("value", snap => {
+      salesHistorySummary = snap.val() || {};
+      if (document.getElementById("viewReplenish").classList.contains("active")) {
+        calculateReplenishment();
+      }
+    });
+
     rulesRef.on("value", snap => {
       filterRules = snap.val() || {};
       renderFilterRules();
@@ -1381,6 +1404,48 @@
       if (switchEl) {
         switchEl.checked = isDaily;
         document.getElementById("switchTaskLabel").innerText = isDaily ? "目前：日常模式 (自訂條件)" : "目前：全盤模式 (全品項)";
+      }
+
+      // F5 重新整理後，自動維持已上傳檔案狀態與各自上傳時間
+      const fileRecs = metaData.file_records || {};
+      
+      // 1. 庫存檔案狀態
+      if (fileRecs.inv) {
+        document.getElementById("txtInvFileName").innerHTML = `<span class="text-primary fw-bold">${fileRecs.inv.name}</span><br><span class="text-muted" style="font-size:0.7rem;">(${fileRecs.inv.time})</span>`;
+        document.getElementById("badgeInvStatus").className = "badge bg-success";
+        document.getElementById("badgeInvStatus").innerText = "已就緒";
+        document.getElementById("btnClearInvFile").style.display = "inline-block";
+      } else {
+        document.getElementById("txtInvFileName").innerText = "尚未載入";
+        document.getElementById("badgeInvStatus").className = "badge bg-secondary";
+        document.getElementById("badgeInvStatus").innerText = "未就緒";
+        document.getElementById("btnClearInvFile").style.display = "none";
+      }
+
+      // 2. 訂金未銷檔案狀態
+      if (fileRecs.dep) {
+        document.getElementById("txtDepFileName").innerHTML = `<span class="text-primary fw-bold">${fileRecs.dep.name}</span><br><span class="text-muted" style="font-size:0.7rem;">(${fileRecs.dep.time})</span>`;
+        document.getElementById("badgeDepStatus").className = "badge bg-success";
+        document.getElementById("badgeDepStatus").innerText = "已就緒";
+        document.getElementById("btnClearDepFile").style.display = "inline-block";
+      } else {
+        document.getElementById("txtDepFileName").innerText = "尚未載入 (非必填)";
+        document.getElementById("badgeDepStatus").className = "badge bg-secondary";
+        document.getElementById("badgeDepStatus").innerText = "未就緒";
+        document.getElementById("btnClearDepFile").style.display = "none";
+      }
+
+      // 3. 銷貨紀錄檔案狀態
+      if (fileRecs.sales) {
+        document.getElementById("txtSalesFileName").innerHTML = `<span class="text-primary fw-bold">${fileRecs.sales.name}</span><br><span class="text-muted" style="font-size:0.7rem;">(${fileRecs.sales.time})</span>`;
+        document.getElementById("badgeSalesStatus").className = "badge bg-success";
+        document.getElementById("badgeSalesStatus").innerText = "已就緒";
+        document.getElementById("btnClearSalesFile").style.display = "inline-block";
+      } else {
+        document.getElementById("txtSalesFileName").innerText = "尚未載入 (非必填)";
+        document.getElementById("badgeSalesStatus").className = "badge bg-secondary";
+        document.getElementById("badgeSalesStatus").innerText = "未就緒";
+        document.getElementById("btnClearSalesFile").style.display = "none";
       }
 
       recalculateStats();
@@ -3136,6 +3201,17 @@
         }
       }
 
+      // 銷貨紀錄比對 (中文品名模式下自動抓取同品名半年內銷貨總計)
+      let salesInfoHtml = "";
+      if (item.isNameMode) {
+        const salesData = salesHistorySummary[toSafeDbKey(item.name)] || {};
+        if (salesData.totalQty !== undefined) {
+          salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[${salesData.range} 銷貨 ${salesData.totalQty} 支]</div>`;
+        } else {
+          salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[半年內無銷貨紀錄]</div>`;
+        }
+      }
+
       tr.innerHTML = `
         <td class="text-center align-middle">
           ${item.isNameMode 
@@ -3145,7 +3221,8 @@
         </td>
         <td class="align-middle text-wrap" style="max-width: 250px;">
           ${!item.isNameMode ? `<div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>` : ''}
-          <div style="font-size: 0.9rem; line-height: 1.2;">${item.name || '-'}</div>
+          <div style="font-size: 0.9rem; line-height: 1.2;"><strong>${item.name || '-'}</strong></div>
+          ${salesInfoHtml}
         </td>
         <td class="fw-bold text-center align-middle ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
         <td class="text-center fw-bold text-success align-middle">${item.maxStock}</td>
@@ -3218,15 +3295,29 @@
         }
       }
 
+      // 銷貨紀錄第 3 列數據 (加入區間背景色與邊線區隔)
+      let salesInfoHtml = "";
+      if (item.isNameMode) {
+        const salesData = salesHistorySummary[toSafeDbKey(item.name)] || {};
+        if (salesData.totalQty !== undefined) {
+          salesInfoHtml = `<div style="font-size: 0.72rem; color: #444; background-color: #f1f5f9; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 2px 4px; margin-top: 4px; display: inline-block;">[${salesData.range} 銷售 ${salesData.totalQty} 支]</div>`;
+        } else {
+          salesInfoHtml = `<div style="font-size: 0.72rem; color: #666; background-color: #f1f5f9; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 2px 4px; margin-top: 4px; display: inline-block;">[半年內無銷貨紀錄]</div>`;
+        }
+      }
+
       tr.innerHTML = `
         <td class="text-center align-middle" style="height: 46px;">${index + 1}</td>
         <td class="text-center align-middle" style="height: 46px;">
-          <svg id="${svgId}" class="barcode-svg" style="height: 24px;"></svg>
-          <div class="small fw-bold font-monospace" style="font-size: 0.75rem; line-height: 1; margin-top: 2px;">${safeCode}</div>
+          ${item.isNameMode 
+            ? `<div class="d-flex align-items-center justify-content-center fw-bold text-secondary font-monospace" style="min-height: 28px; font-size: 0.8rem;">[品名模式]</div>` 
+            : `<svg id="${svgId}" class="barcode-svg" style="height: 24px;"></svg><div class="small fw-bold font-monospace" style="font-size: 0.75rem; line-height: 1; margin-top: 2px;">${safeCode}</div>`
+          }
         </td>
         <td class="align-middle" style="height: 46px;">
-          <div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>
-          <div style="line-height: 1.15; font-size: 0.85rem; font-weight: 500;">${item.name || '-'}</div>
+          ${!item.isNameMode ? `<div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>` : ''}
+          <div style="line-height: 1.2; font-size: 0.98rem; font-weight: bold; color: #000;">${item.name || '-'}</div>
+          ${salesInfoHtml}
         </td>
         <td class="text-center fw-bold align-middle ${item.currentStock === 0 ? 'text-danger' : ''}" style="height: 46px;">${item.currentStock}</td>
         <td class="text-center align-middle" style="height: 46px;">${item.safetyStock}</td>
@@ -3239,13 +3330,15 @@
       `;
       tbody.appendChild(tr);
 
-      setTimeout(() => {
-        try {
-          JsBarcode(`#${svgId}`, safeCode, {
-            format: "CODE128", width: 1.1, height: 24, displayValue: false, margin: 0
-          });
-        } catch (e) {}
-      }, 10);
+      if (!item.isNameMode) {
+        setTimeout(() => {
+          try {
+            JsBarcode(`#${svgId}`, safeCode, {
+              format: "CODE128", width: 1.1, height: 24, displayValue: false, margin: 0
+            });
+          } catch (e) {}
+        }, 10);
+      }
     });
 
     bootstrap.Modal.getOrCreateInstance(document.getElementById('printReplenishModal')).show();
@@ -4835,88 +4928,113 @@
     return "";
   }
 
-  // ================= 14. 單一入口檔案辨識與 Excel 匯入 =================
+  // ================= 14. 單一入口檔案辨識與 Excel 匯入 (含銷貨紀錄) =================
   let loadedInvFile = null;
   let loadedDepFile = null;
+  let loadedSalesFile = null;
 
-  // 智慧判別傳入之檔案
+  // 智慧判別傳入之多個檔案 (支援 Ctrl 多選)
   function handleSmartFileUpload(inputEl) {
-    if (!inputEl.files || !inputEl.files[0]) return;
-    const file = inputEl.files[0];
-    const fileName = file.name;
+    if (!inputEl.files || inputEl.files.length === 0) return;
+    
+    const files = Array.from(inputEl.files);
+    let successCount = 0;
+    let ignoredFiles = [];
 
-    // 1. 庫存檔案判定 (檔名含 StockQuickSearch)
-    if (fileName.includes("StockQuickSearch")) {
-      if (loadedInvFile) {
-        alert(`⚠️ 已存在庫存檔案【${loadedInvFile.name}】！\n若要替換，請先點擊該卡片右側的「清除」按鈕。`);
-        inputEl.value = "";
-        return;
+    files.forEach(file => {
+      const fileName = file.name;
+
+      // 1. 庫存檔案 (StockQuickSearch)
+      if (fileName.includes("StockQuickSearch")) {
+        if (loadedInvFile) {
+          ignoredFiles.push(`${fileName} (庫存檔案已存在)`);
+        } else {
+          loadedInvFile = file;
+          document.getElementById("txtInvFileName").innerText = fileName;
+          document.getElementById("txtInvFileName").className = "small font-monospace text-truncate text-primary fw-bold";
+          document.getElementById("badgeInvStatus").className = "badge bg-success";
+          document.getElementById("badgeInvStatus").innerText = "已就緒";
+          document.getElementById("btnClearInvFile").style.display = "inline-block";
+          successCount++;
+        }
+
+      // 2. 訂金未銷檔案 (RSIRUnGet)
+      } else if (fileName.includes("RSIRUnGet")) {
+        if (loadedDepFile) {
+          ignoredFiles.push(`${fileName} (訂金檔案已存在)`);
+        } else {
+          loadedDepFile = file;
+          document.getElementById("txtDepFileName").innerText = fileName;
+          document.getElementById("txtDepFileName").className = "small font-monospace text-truncate text-primary fw-bold";
+          document.getElementById("badgeDepStatus").className = "badge bg-success";
+          document.getElementById("badgeDepStatus").innerText = "已就緒";
+          document.getElementById("btnClearDepFile").style.display = "inline-block";
+          successCount++;
+        }
+
+      // 3. 銷貨紀錄檔案 (TempRpt__)
+      } else if (fileName.includes("TempRpt__")) {
+        if (loadedSalesFile) {
+          ignoredFiles.push(`${fileName} (銷貨檔案已存在)`);
+        } else {
+          loadedSalesFile = file;
+          document.getElementById("txtSalesFileName").innerText = fileName;
+          document.getElementById("txtSalesFileName").className = "small font-monospace text-truncate text-primary fw-bold";
+          document.getElementById("badgeSalesStatus").className = "badge bg-success";
+          document.getElementById("badgeSalesStatus").innerText = "已就緒";
+          document.getElementById("btnClearSalesFile").style.display = "inline-block";
+          successCount++;
+        }
+
+      // 4. 無法識別
+      } else {
+        ignoredFiles.push(`${fileName} (非辨識檔名)`);
       }
-      loadedInvFile = file;
-      document.getElementById("txtInvFileName").innerText = fileName;
-      document.getElementById("txtInvFileName").className = "small font-monospace text-truncate text-primary fw-bold";
-      document.getElementById("badgeInvStatus").className = "badge bg-success";
-      document.getElementById("badgeInvStatus").innerText = "已就緒";
-      document.getElementById("btnClearInvFile").style.display = "inline-block";
-      showOperatorToast("檔案已就緒", `已識別庫存檔案：${fileName}`, "success");
+    });
 
-    // 2. 訂金未銷檔案判定 (檔名含 RSIRUnGet)
-    } else if (fileName.includes("RSIRUnGet")) {
-      if (loadedDepFile) {
-        alert(`⚠️ 已存在訂金未銷檔案【${loadedDepFile.name}】！\n若要替換，請先點擊該卡片右側的「清除」按鈕。`);
-        inputEl.value = "";
-        return;
-      }
-      loadedDepFile = file;
-      document.getElementById("txtDepFileName").innerText = fileName;
-      document.getElementById("txtDepFileName").className = "small font-monospace text-truncate text-primary fw-bold";
-      document.getElementById("badgeDepStatus").className = "badge bg-success";
-      document.getElementById("badgeDepStatus").innerText = "已就緒";
-      document.getElementById("btnClearDepFile").style.display = "inline-block";
-      showOperatorToast("檔案已就緒", `已識別訂金檔案：${fileName}`, "success");
+    if (successCount > 0) {
+      showOperatorToast("檔案載入成功", `已成功識別並載入 ${successCount} 個檔案`, "success");
+    }
 
-    // 3. 不符合命名規則
-    } else {
-      alert(`❌ 無法識別檔案類型！\n\n檔名規則提示：\n・庫存檔案必須包含：StockQuickSearch\n・訂金檔案必須包含：RSIRUnGet\n\n您上傳的檔名為：${fileName}`);
+    if (ignoredFiles.length > 0) {
+      alert(`以下檔案未載入：\n${ignoredFiles.join("\n")}`);
     }
 
     inputEl.value = "";
   }
 
-  // 清除已上傳檔案狀態
+  // 清除檔案 (同步清除雲端持久化記錄)
   function clearUploadedFile(type) {
     if (type === "inv") {
       loadedInvFile = null;
-      document.getElementById("txtInvFileName").innerText = "尚未載入";
-      document.getElementById("txtInvFileName").className = "small font-monospace text-truncate text-muted";
-      document.getElementById("badgeInvStatus").className = "badge bg-secondary";
-      document.getElementById("badgeInvStatus").innerText = "未就緒";
-      document.getElementById("btnClearInvFile").style.display = "none";
+      metaRef.child("file_records/inv").remove();
+      metaRef.child("inventoryTime").remove();
     } else if (type === "dep") {
       loadedDepFile = null;
-      document.getElementById("txtDepFileName").innerText = "尚未載入 (非必填)";
-      document.getElementById("txtDepFileName").className = "small font-monospace text-truncate text-muted";
-      document.getElementById("badgeDepStatus").className = "badge bg-secondary";
-      document.getElementById("badgeDepStatus").innerText = "未就緒";
-      document.getElementById("btnClearDepFile").style.display = "none";
+      metaRef.child("file_records/dep").remove();
+    } else if (type === "sales") {
+      loadedSalesFile = null;
+      metaRef.child("file_records/sales").remove();
+      salesSummaryRef.remove();
     }
+    showOperatorToast("已清除檔案", "已移除該檔案記錄，可重新選取上傳。", "warning");
   }
 
-  function getRowValue(row, possibleKeys) {
-    const rowKeys = Object.keys(row);
-    for (let pKey of possibleKeys) {
-      const cleanP = cleanString(pKey).toLowerCase();
-      for (let rKey of rowKeys) {
-        const cleanR = cleanString(rKey).toLowerCase();
-        if (cleanR === cleanP || cleanR.includes(cleanP)) {
-          if (row[rKey] !== undefined && row[rKey] !== null) {
-            const val = cleanString(row[rKey]);
-            if (val !== "") return val;
-          }
-        }
-      }
-    }
-    return "";
+  // 日期解析輔助
+  function parseDateValue(raw) {
+    if (!raw) return null;
+    if (raw instanceof Date) return isNaN(raw) ? null : raw;
+    const str = String(raw).trim().replace(/[.\/]/g, '-');
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatDateStr(d) {
+    if (!d) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}/${m}/${day}`;
   }
 
   async function importExcelData() {
@@ -4925,15 +5043,22 @@
     const progressBar = document.getElementById("importProgress");
     const btn = document.getElementById("btnStartImport");
 
-    if (!loadedInvFile) {
-      return alert("⚠️ 尚未載入【庫存檔案 (含 StockQuickSearch)】！請先選取庫存檔案。");
+    const fileRecs = (metaData && metaData.file_records) ? metaData.file_records : {};
+    
+    // 防呆：若既沒有新選取檔案，雲端也沒有先前記錄
+    if (!loadedInvFile && !fileRecs.inv) {
+      return alert("尚未載入【庫存檔案 (含 StockQuickSearch)】！請先選取庫存檔案。");
+    }
+
+    if (!loadedInvFile && fileRecs.inv) {
+      return alert("目前已有庫存檔案記錄，若要覆蓋更新，請先點擊庫存卡片右側的「清除」按鈕，再選取新檔。");
     }
 
     btn.disabled = true;
     progressContainer.classList.remove("d-none");
     progressBar.style.width = "10%";
     progressBar.innerText = "10% 讀取檔案中...";
-    status.innerText = "⏳ 正在解析 Excel 格式並去除隱藏控制碼...";
+    status.innerText = "正在解析 Excel 格式並去除隱藏控制碼...";
 
     await new Promise(r => setTimeout(r, 60));
 
@@ -4943,21 +5068,24 @@
       if (loadedDepFile) {
         depRows = await readExcelRows(loadedDepFile);
       }
+      let salesRows = [];
+      if (loadedSalesFile) {
+        salesRows = await readExcelRows(loadedSalesFile);
+      }
 
       progressBar.style.width = "30%";
-      progressBar.innerText = `30% 讀取完成 (共 ${invRows.length} 行)...`;
+      progressBar.innerText = `30% 讀取完成 (庫存:${invRows.length}行 / 銷貨:${salesRows.length}行)...`;
       await new Promise(r => setTimeout(r, 60));
 
+      // 1. 訂金未銷解析
       const depMap = {};
       const depCustomerMap = {};
       const depOrderMap = {};
       const depDetailsMap = {};
-
       let lastDepItemCode = "";
 
       depRows.forEach(row => {
         let itemCode = getRowValue(row, ["貨號", "商品代號", "條碼編號", "條碼", "國際條碼"]);
-        
         if (itemCode) {
           lastDepItemCode = itemCode;
         } else {
@@ -4970,7 +5098,6 @@
         const qtyVal = parseFloat(getRowValue(row, ["數量", "訂金數量", "未銷量", "未交量"]) || 0);
         if (qtyVal > 0) {
           depMap[itemCode] = (depMap[itemCode] || 0) + qtyVal;
-          
           const rowValues = Object.values(row);
 
           let custName = getRowValue(row, ["客戶姓名", "姓名", "顧客名稱", "顧客姓名", "客戶", "會員姓名"]);
@@ -4998,6 +5125,49 @@
         }
       });
 
+      // 2. 歷史銷貨紀錄解析 (欄位 C:品名, D:數量, P:日期 / 抓取半年內)
+      const salesSummaryPayload = {};
+      if (salesRows.length > 0) {
+        let maxFileDate = null;
+        let minFileDate = null;
+        const validSalesItems = [];
+
+        salesRows.forEach(row => {
+          const rowKeys = Object.keys(row);
+          const pName = cleanString(row["品名"] || row["中文品名"] || row[rowKeys[2]] || "");
+          const qty = parseFloat(cleanString(row["數量"] || row[rowKeys[3]] || 0)) || 0;
+          const rawDate = row["日期"] || row["銷貨日期"] || row[rowKeys[15]];
+          const dateObj = parseDateValue(rawDate);
+
+          if (pName && qty > 0 && dateObj) {
+            validSalesItems.push({ name: pName, qty: qty, date: dateObj });
+            if (!maxFileDate || dateObj > maxFileDate) maxFileDate = dateObj;
+            if (!minFileDate || dateObj < minFileDate) minFileDate = dateObj;
+          }
+        });
+
+        if (validSalesItems.length > 0 && maxFileDate) {
+          const halfYearAgo = new Date(maxFileDate.getTime() - (180 * 24 * 60 * 60 * 1000));
+          const effectiveStartDate = (minFileDate && minFileDate > halfYearAgo) ? minFileDate : halfYearAgo;
+          const rangeStr = `${formatDateStr(effectiveStartDate)} - ${formatDateStr(maxFileDate)}`;
+
+          validSalesItems.forEach(item => {
+            if (item.date >= effectiveStartDate && item.date <= maxFileDate) {
+              const safeKey = toSafeDbKey(item.name);
+              if (!salesSummaryPayload[safeKey]) {
+                salesSummaryPayload[safeKey] = {
+                  name: item.name,
+                  totalQty: 0,
+                  range: rangeStr
+                };
+              }
+              salesSummaryPayload[safeKey].totalQty += item.qty;
+            }
+          });
+        }
+      }
+
+      // 3. 庫存解析
       const allItems = [];
       const usedKeys = {};
       let totalStockSum = 0;
@@ -5023,7 +5193,6 @@
         const reservedQty = depMap[barcode] || depMap[itemCode] || 0;
         const reservedCustomer = depCustomerMap[barcode] || depCustomerMap[itemCode] || "";
         const reservedOrderNo = depOrderMap[barcode] || depOrderMap[itemCode] || "";
-        
         const reservedDetails = depDetailsMap[barcode] ? Object.values(depDetailsMap[barcode]) : (depDetailsMap[itemCode] ? Object.values(depDetailsMap[itemCode]) : []);
         
         totalStockSum += systemQty;
@@ -5057,11 +5226,14 @@
 
       const totalItems = allItems.length;
       progressBar.style.width = "50%";
-      progressBar.innerText = `50% 準備寫入雲端 (共 ${totalItems} 種品項，總計 ${totalStockSum} 件)...`;
+      progressBar.innerText = `50% 準備寫入雲端 (庫存:${totalItems}種品項)...`;
       await new Promise(r => setTimeout(r, 60));
 
       await invRef.remove();
       await logsRef.remove();
+      if (Object.keys(salesSummaryPayload).length > 0) {
+        await salesSummaryRef.set(salesSummaryPayload);
+      }
 
       const chunkSize = 200;
       for (let i = 0; i < totalItems; i += chunkSize) {
@@ -5074,30 +5246,49 @@
         const pct = Math.round(50 + (currentUploaded / totalItems) * 45);
         progressBar.style.width = `${pct}%`;
         progressBar.innerText = `寫入中: ${currentUploaded} / ${totalItems} (${pct}%)...`;
-        status.innerText = `⏳ 正在寫入雲端: ${currentUploaded} / ${totalItems} 種品項...`;
+        status.innerText = `正在寫入雲端: ${currentUploaded} / ${totalItems} 種品項...`;
       }
 
       const now = new Date();
       const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-      await metaRef.update({ inventoryTime: timeStr });
+      
+      // 將 3 個檔案各自的檔名與上傳時間寫入雲端 meta/file_records
+      const updatedFileRecords = { ...(metaData.file_records || {}) };
+      if (loadedInvFile) {
+        updatedFileRecords.inv = { name: loadedInvFile.name, time: timeStr };
+      }
+      if (loadedDepFile) {
+        updatedFileRecords.dep = { name: loadedDepFile.name, time: timeStr };
+      }
+      if (loadedSalesFile) {
+        updatedFileRecords.sales = { name: loadedSalesFile.name, time: timeStr };
+      }
+
+      await metaRef.update({ 
+        inventoryTime: timeStr,
+        file_records: updatedFileRecords
+      });
+
+      loadedInvFile = null;
+      loadedDepFile = null;
+      loadedSalesFile = null;
 
       progressBar.style.width = "100%";
       progressBar.innerText = "100% 匯入完成！";
-      status.innerHTML = `<span class="text-success fw-bold">✅ 成功載入！共 <strong>${totalItems}</strong> 種商品品項，庫存總量共 <strong>${totalStockSum}</strong> 件（盤點時間：${timeStr}）。</span>`;
-      alert(`🎉 庫存解析匯入成功！\n共載入 ${totalItems} 種商品品項，庫存總量共 ${totalStockSum} 件。`);
+      status.innerHTML = `<span class="text-success fw-bold">成功載入！共 <strong>${totalItems}</strong> 種品項，庫存總量 <strong>${totalStockSum}</strong> 件（基準時間：${timeStr}）。</span>`;
+      alert(`庫存解析匯入成功！\n共載入 ${totalItems} 種商品品項，庫存總量共 ${totalStockSum} 件。`);
 
     } catch (e) {
       console.error(e);
       progressBar.classList.add("bg-danger");
       progressBar.innerText = "匯入失敗";
-      status.innerHTML = `<span class="text-danger fw-bold">❌ 解析失敗: ${e.message}</span>`;
+      status.innerHTML = `<span class="text-danger fw-bold">解析失敗: ${e.message}</span>`;
       alert("解析或寫入發生錯誤: " + e.message);
     } finally {
       btn.disabled = false;
       setTimeout(() => { progressContainer.classList.add("d-none"); }, 4000);
     }
   }
-
   function readExcelRows(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
