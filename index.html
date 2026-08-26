@@ -5896,6 +5896,197 @@
     });
     rulesRef.update(updatePayload);
   }
+  // ================= 跨系統快選包互相複製功能 =================
+
+  // 1. 開啟「從補貨複製至盤點」彈窗
+  function openImportToInvModal() {
+    const pkgKeys = Object.keys(repPresetPackages || {});
+    if (pkgKeys.length === 0) {
+      return alert("目前補貨系統中尚無任何快選包可複製！");
+    }
+
+    document.getElementById("importCrossTitle").innerText = "🔄 從【補貨系統】複製快選包至【盤點系統】";
+    document.getElementById("importCrossDesc").innerText = "點擊下方補貨快選包，系統將自動將其品項條件轉換並複製為盤點快選包：";
+    
+    const listContainer = document.getElementById("importCrossList");
+    listContainer.innerHTML = "";
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = repPresetPackages[pkgId];
+      const count = getRulesArrayFromPackage(pkg).length;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-outline-primary btn-sm text-start py-2 px-3 fw-bold d-flex justify-content-between align-items-center shadow-sm bg-white";
+      btn.innerHTML = `
+        <span class="text-truncate" style="max-width: 75%;">📦 ${pkg.name} ${pkg.isGroup ? '<span class="badge bg-warning text-dark ms-1">大群組</span>' : ''}</span>
+        <span class="badge bg-secondary">${count} 款品項 ➔ 複製</span>
+      `;
+      btn.onclick = () => executeCrossImport(pkgId, 'repToInv');
+      listContainer.appendChild(btn);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('importCrossModal')).show();
+  }
+
+  // 2. 開啟「從盤點複製至補貨」彈窗
+  function openImportToRepModal() {
+    const pkgKeys = Object.keys(presetPackages || {});
+    if (pkgKeys.length === 0) {
+      return alert("目前盤點系統中尚無任何快選包可複製！");
+    }
+
+    document.getElementById("importCrossTitle").innerText = "🔄 從【盤點系統】複製快選包至【補貨系統】";
+    document.getElementById("importCrossDesc").innerText = "點擊下方盤點快選包，系統將自動將其條件轉換並複製為補貨快選包：";
+    
+    const listContainer = document.getElementById("importCrossList");
+    listContainer.innerHTML = "";
+
+    pkgKeys.forEach(pkgId => {
+      const pkg = presetPackages[pkgId];
+      const count = getRulesArrayFromInvPackage(pkg).length;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-outline-warning text-dark btn-sm text-start py-2 px-3 fw-bold d-flex justify-content-between align-items-center shadow-sm bg-white";
+      btn.innerHTML = `
+        <span class="text-truncate" style="max-width: 75%;">📦 ${pkg.name} ${pkg.isGroup ? '<span class="badge bg-info text-white ms-1">大群組</span>' : ''}</span>
+        <span class="badge bg-secondary">${count} 條條件 ➔ 複製</span>
+      `;
+      btn.onclick = () => executeCrossImport(pkgId, 'invToRep');
+      listContainer.appendChild(btn);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('importCrossModal')).show();
+  }
+
+  // 3. 執行跨系統轉換並寫入 Firebase
+  function executeCrossImport(sourcePkgId, direction) {
+    if (direction === 'repToInv') {
+      // 補貨 ➔ 盤點
+      const sourcePkg = repPresetPackages[sourcePkgId];
+      if (!sourcePkg) return;
+
+      const ruleList = getRulesArrayFromPackage(sourcePkg);
+      if (ruleList.length === 0) return alert("此快選包內無有效商品！");
+
+      const convertedRules = {};
+      ruleList.forEach((r, idx) => {
+        const uniqueKey = `imported_${idx}_${Date.now()}`;
+        if (r.isNameMode) {
+          convertedRules[uniqueKey] = {
+            field: "name",
+            keyword: r.name || r.keyword,
+            isBrandTotalMode: false,
+            groupPkgName: sourcePkg.name,
+            subPkgName: r.subPkgName || sourcePkg.name
+          };
+        } else {
+          const code = cleanString(r.barcode || r.itemCode || r.keyword);
+          convertedRules[uniqueKey] = {
+            field: "barcode",
+            keyword: code,
+            isBrandTotalMode: false,
+            groupPkgName: sourcePkg.name,
+            subPkgName: r.subPkgName || sourcePkg.name
+          };
+        }
+      });
+
+      const newPkgPayload = {
+        name: `(補貨複製) ${sourcePkg.name}`,
+        rules: convertedRules,
+        isGroup: false,
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      };
+
+      presetsRef.push(newPkgPayload).then(() => {
+        bootstrap.Modal.getInstance(document.getElementById('importCrossModal')).hide();
+        showOperatorToast("複製成功", `已成功將【${sourcePkg.name}】複製至盤點快選包！`, "success");
+      }).catch(err => alert("複製失敗: " + err.message));
+
+    } else if (direction === 'invToRep') {
+      // 盤點 ➔ 補貨
+      const sourcePkg = presetPackages[sourcePkgId];
+      if (!sourcePkg) return;
+
+      const ruleList = getRulesArrayFromInvPackage(sourcePkg);
+      if (ruleList.length === 0) return alert("此快選包內無有效條件！");
+
+      const convertedRules = {};
+      ruleList.forEach((r) => {
+        const kw = cleanString(r.keyword);
+        if (!kw) return;
+
+        if (r.field === "name") {
+          const bindKey = `NAME_${toSafeDbKey(kw)}`;
+          convertedRules[bindKey] = {
+            field: "name",
+            keyword: kw,
+            name: kw,
+            isNameMode: true,
+            brand: sourcePkg.name,
+            maxQty: 1,
+            safety: 1,
+            moq: 1,
+            vendorMoq: 1,
+            isDirectBound: true
+          };
+        } else if (r.field === "barcode" || r.field === "itemCode") {
+          const bindKey = toSafeDbKey(kw);
+          convertedRules[bindKey] = {
+            field: "barcode",
+            keyword: kw,
+            barcode: kw,
+            itemCode: kw,
+            name: kw,
+            isNameMode: false,
+            brand: sourcePkg.name,
+            maxQty: 1,
+            safety: 1,
+            moq: 1,
+            vendorMoq: 1,
+            isDirectBound: true
+          };
+        } else {
+          // 若為品牌等關鍵字，找出該品牌庫存轉入
+          const matched = Object.values(fullInventory).filter(item => cleanString(item[r.field] || "").toLowerCase().includes(kw.toLowerCase()));
+          matched.forEach(item => {
+            const code = cleanString(item.barcode || item.itemCode);
+            if (code) {
+              convertedRules[toSafeDbKey(code)] = {
+                field: "barcode",
+                keyword: code,
+                barcode: code,
+                itemCode: cleanString(item.itemCode) || code,
+                name: cleanString(item.name) || "-",
+                isNameMode: false,
+                brand: sourcePkg.name,
+                maxQty: 1,
+                safety: 1,
+                moq: 1,
+                vendorMoq: 1,
+                isDirectBound: true
+              };
+            }
+          });
+        }
+      });
+
+      const newPkgPayload = {
+        name: `(盤點複製) ${sourcePkg.name}`,
+        rules: convertedRules,
+        vendorMoq: 1,
+        isGroup: false,
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+      };
+
+      repPresetsRef.push(newPkgPayload).then(() => {
+        bootstrap.Modal.getInstance(document.getElementById('importCrossModal')).hide();
+        showOperatorToast("複製成功", `已成功將【${sourcePkg.name}】複製至補貨快選包！`, "success");
+      }).catch(err => alert("複製失敗: " + err.message));
+    }
+  }
 </script>
 </body>
 </html>
