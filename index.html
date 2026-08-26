@@ -728,64 +728,66 @@
           </div>
           <p class="small text-muted mb-2">搜尋品牌或品名關鍵字，系統會列出庫存中所有真實商品。可全選並批次填入水位，亦可各品項獨立修改。</p>
           
-          <!-- 批次設定與關鍵字搜尋 (預設收起，顏色與套用區區隔) -->
-          <div id="repSearchAndBatchBox" class="p-3 rounded mb-3 border small" style="display: none; background-color: #f1f5f9; border-color: #cbd5e1 !important;">
-            <div class="row g-2 mb-2 align-items-end">
-              <div class="col-md-5 col-12">
-                <label class="fw-bold">搜尋品項關鍵字：</label>
+          <!-- 批次設定與關鍵字搜尋 (精簡版面) -->
+          <div id="repSearchAndBatchBox" class="p-2 rounded mb-2 border small" style="display: none; background-color: #f1f5f9; border-color: #cbd5e1 !important;">
+            <div class="row g-2 align-items-center">
+              <div class="col-lg-5 col-12">
                 <div class="input-group input-group-sm">
-                  <select id="directItemSearchField" class="form-select form-select-sm" style="max-width: 110px;">
-                    <option value="all" selected>全部欄位</option>
+                  <select id="directItemSearchField" class="form-select" style="max-width: 95px;">
+                    <option value="all" selected>全部</option>
                     <option value="itemCode">貨號/條碼</option>
-                    <option value="name">中文品名</option>
-                    <option value="brand">品牌/廠商</option>
+                    <option value="name">品名</option>
+                    <option value="brand">品牌</option>
                   </select>
                   <input type="text" id="directItemSearchKw" class="form-control" placeholder="輸入關鍵字..." list="existingPrefixList" onkeydown="if(event.key==='Enter') searchDirectStockItems()">
-                  <button class="btn btn-primary fw-bold" type="button" onclick="searchDirectStockItems()">讀取商品</button>
+                  <button class="btn btn-primary fw-bold px-3" type="button" onclick="searchDirectStockItems()">讀取</button>
                 </div>
               </div>
-              <div class="col-md-7 col-12">
-                <div class="d-flex gap-2 align-items-center justify-content-md-end flex-wrap">
-                  <div class="form-check form-switch mb-0 me-2">
+
+              <div class="col-lg-7 col-12">
+                <div class="d-flex gap-2 align-items-center justify-content-lg-end flex-wrap">
+                  <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="chkRepNameMode" onchange="toggleRepNameMode(this.checked)">
-                    <label class="form-check-label small fw-bold text-dark" for="chkRepNameMode">中文品名模式(合併同名)</label>
+                    <label class="form-check-label small fw-bold text-dark" for="chkRepNameMode">品名模式</label>
                   </div>
-                  <div class="d-flex align-items-center gap-1 me-2" id="boxExcludeNoSales" style="display: none !important;">
+                  <div class="d-flex align-items-center gap-1" id="boxExcludeNoSales" style="display: none !important;">
                     <div class="form-check form-switch mb-0">
                       <input class="form-check-input" type="checkbox" id="chkExcludeNoSales" onchange="renderDirectStockItemsTable()">
-                      <label class="form-check-label small fw-bold text-danger" for="chkExcludeNoSales">排除無銷貨</label>
+                      <label class="form-check-label small fw-bold text-danger" for="chkExcludeNoSales">排無銷</label>
                     </div>
-                    <input type="number" id="excludeSalesMonthsVal" class="form-control form-control-sm text-center fw-bold text-danger" style="width: 45px;" value="6" min="1" max="12" onchange="renderDirectStockItemsTable()" title="排除近N個月無銷貨紀錄">
-                    <span class="small fw-bold text-secondary">個月</span>
+                    <input type="number" id="excludeSalesMonthsVal" class="form-control form-control-sm text-center fw-bold text-danger py-0 px-1" style="width: 38px; height: 24px;" value="6" min="1" max="24" oninput="renderDirectStockItemsTable()" title="自訂篩選近N個月">
+                    <span class="small text-muted" style="font-size: 0.72rem;">月</span>
+                    <span id="txtExcludedCountBadge" class="badge bg-danger text-white py-0 px-1" style="font-size: 0.7rem; display: none;">排0項</span>
                   </div>
                   <div class="d-flex align-items-center gap-1">
-                    <span class="fw-bold text-dark">批次最高:</span>
-                    <input type="number" id="batchMaxVal" class="form-control form-control-sm text-center" style="width: 55px;" value="1" min="0">
+                    <span class="text-muted" style="font-size: 0.75rem;">最高:</span>
+                    <input type="number" id="batchMaxVal" class="form-control form-control-sm text-center py-0 px-1" style="width: 42px; height: 24px;" value="1" min="0">
                   </div>
                   <div class="d-flex align-items-center gap-1">
-                    <span class="fw-bold text-dark">最低水位:</span>
-                    <input type="number" id="batchSafetyVal" class="form-control form-control-sm text-center" style="width: 55px;" value="1" min="0">
+                    <span class="text-muted" style="font-size: 0.75rem;">水位:</span>
+                    <input type="number" id="batchSafetyVal" class="form-control form-control-sm text-center py-0 px-1" style="width: 42px; height: 24px;" value="1" min="0">
                   </div>
                   <div class="d-flex align-items-center gap-1">
-                    <span class="fw-bold text-dark">倍數出貨量:</span>
-                    <input type="number" id="batchMoqVal" class="form-control form-control-sm text-center" style="width: 50px;" value="1" min="1">
-                    <button class="btn btn-outline-primary btn-sm fw-bold" type="button" onclick="applyBatchSafetyStock()">套用</button>
+                    <span class="text-muted" style="font-size: 0.75rem;">倍數:</span>
+                    <input type="number" id="batchMoqVal" class="form-control form-control-sm text-center py-0 px-1" style="width: 40px; height: 24px;" value="1" min="1">
+                    <button class="btn btn-outline-primary btn-sm py-0 px-2 fw-bold" type="button" style="height: 24px;" onclick="applyBatchSafetyStock()">套用</button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div id="pivotSeriesContainer" class="mb-2 p-2 bg-white rounded border" style="display: none;">
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="small fw-bold text-secondary" id="pivotSummaryLabel">樞紐系列分類：</span>
-                <button class="btn btn-outline-secondary btn-sm py-0 px-2 fw-bold" type="button" onclick="togglePivotCollapse()" id="btnTogglePivotCollapse" style="font-size: 0.75rem;">
+            <!-- 樞紐系列分類 (限制高度並支援使用者自行向下拉伸) -->
+            <div id="pivotSeriesContainer" class="mt-2 p-2 bg-white rounded border" style="display: none;">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small fw-bold text-secondary" id="pivotSummaryLabel" style="font-size: 0.78rem;">樞紐系列分類：</span>
+                <button class="btn btn-outline-secondary btn-sm py-0 px-2 fw-bold" type="button" onclick="togglePivotCollapse(event)" id="btnTogglePivotCollapse" style="font-size: 0.72rem;">
                   收起
                 </button>
               </div>
-              <div id="pivotSeriesBadges" class="flex-wrap gap-1 mt-2" style="display: flex;"></div>
+              <div id="pivotSeriesBadges" class="flex-wrap gap-1 p-1 border rounded bg-light" style="display: flex; max-height: 110px; min-height: 40px; overflow-y: auto; resize: vertical;"></div>
             </div>
 
-            <div class="border rounded bg-white mb-2 shadow-inner" style="height: 48vh; min-height: 200px; max-height: 85vh; overflow-y: auto; resize: vertical;">
+            <div class="border rounded bg-white my-2 shadow-inner" style="height: 48vh; min-height: 200px; max-height: 85vh; overflow-y: auto; resize: vertical;">
               <table class="table table-sm table-hover mb-0 align-middle small text-nowrap">
                 <thead class="table-light sticky-top shadow-sm">
                   <tr>
@@ -1959,8 +1961,9 @@
   let currentSelectedPivotSeries = "all";
   let isPivotCollapsed = false;
 
-  // 補貨搜尋與批次區塊收合切換
-  function toggleRepSearchBox() {
+  // 補貨搜尋與批次區塊收合切換 (平滑展開不跳動)
+  function toggleRepSearchBox(event) {
+    if (event) event.preventDefault();
     const box = document.getElementById("repSearchAndBatchBox");
     const btn = document.getElementById("btnToggleRepSearchBox");
     if (!box || !btn) return;
@@ -1981,7 +1984,6 @@
       thCode.style.display = isChecked ? "none" : "";
     }
     
-    // 只有切換到中文品名模式時，才顯示「排除無銷貨」的過濾選項
     const excludeBox = document.getElementById("boxExcludeNoSales");
     if (excludeBox) {
       if (isChecked) {
@@ -2052,7 +2054,8 @@
     return name || fullName;
   }
 
-  function togglePivotCollapse() {
+  function togglePivotCollapse(event) {
+    if (event) event.preventDefault();
     const badgesBox = document.getElementById("pivotSeriesBadges");
     const toggleBtn = document.getElementById("btnTogglePivotCollapse");
     const label = document.getElementById("pivotSummaryLabel");
@@ -2071,6 +2074,42 @@
       toggleBtn.className = "btn btn-outline-secondary btn-sm py-0 px-2 fw-bold";
       if (label) label.innerText = "樞紐系列分類：";
     }
+  }
+
+  // 依設定月份動態計算該品項的銷貨區間與支數
+  function getDynamicSalesSummary(productName, customMonths) {
+    const months = parseInt(customMonths, 10) || 6;
+    const safeKey = toSafeDbKey(productName);
+    const itemSales = salesHistorySummary[safeKey];
+    if (!itemSales) return null;
+
+    // 若有完整紀錄陣列則依日期計算
+    if (itemSales.records && itemSales.records.length > 0) {
+      const maxDate = new Date(itemSales.maxDate);
+      const cutoffDate = new Date(maxDate.getTime() - (months * 30 * 24 * 60 * 60 * 1000));
+      
+      let validQty = 0;
+      let minDateInRange = null;
+
+      itemSales.records.forEach(r => {
+        const d = new Date(r.d);
+        if (d >= cutoffDate && d <= maxDate) {
+          validQty += (parseFloat(r.q) || 0);
+          if (!minDateInRange || d < minDateInRange) minDateInRange = d;
+        }
+      });
+
+      return {
+        totalQty: validQty,
+        range: `${formatDateStr(minDateInRange || cutoffDate)} - ${formatDateStr(maxDate)}`
+      };
+    }
+
+    // 相容先前存檔結構
+    if (itemSales.totalQty !== undefined) {
+      return itemSales;
+    }
+    return null;
   }
 
   function buildPivotSeriesBadges() {
@@ -2140,17 +2179,18 @@
     renderDirectStockItemsTable();
   }
 
-  // 渲染直讀商品表格 (支援中文品名模式與排除無銷貨過濾)
+  // 渲染直讀商品表格 (支援自訂月份即時過濾與排除數量統計)
   function renderDirectStockItemsTable() {
     const tbody = document.getElementById("directStockItemsTableBody");
     tbody.innerHTML = "";
 
     const isNameMode = document.getElementById("chkRepNameMode") ? document.getElementById("chkRepNameMode").checked : false;
     const isExcludeNoSales = (isNameMode && document.getElementById("chkExcludeNoSales")) ? document.getElementById("chkExcludeNoSales").checked : false;
+    const filterMonths = document.getElementById("excludeSalesMonthsVal") ? (parseInt(document.getElementById("excludeSalesMonthsVal").value, 10) || 6) : 6;
+    
     let listToRender = [];
 
     if (isNameMode) {
-      // 中文品名模式：合併同名商品
       const nameMap = {};
       currentSearchedItems.forEach(item => {
         const pName = cleanString(item.name) || "未命名商品";
@@ -2170,28 +2210,39 @@
       });
 
       let nameList = Object.values(nameMap);
+      const totalBeforeFilter = nameList.length;
 
-      // 核心過濾：排除「無銷貨紀錄 且 目前庫存為 0」之商品 (若庫存 > 0 依然保留顯示)
+      // 核心過濾：排除「近 N 個月無銷貨 且 目前庫存為 0」之品項
       if (isExcludeNoSales) {
         nameList = nameList.filter(item => {
-          const salesData = salesHistorySummary[toSafeDbKey(item.name)] || {};
-          const hasSales = (salesData.totalQty !== undefined && salesData.totalQty > 0);
+          const salesData = getDynamicSalesSummary(item.name, filterMonths);
+          const hasSales = (salesData && salesData.totalQty > 0);
           const hasStock = (item.combinedStock > 0);
-          
-          // 只要「有銷貨」或「有現存庫存」就保留顯示；只有在「無銷貨 且 庫存為 0」時才排除
           return hasSales || hasStock;
         });
+
+        const excludedCount = totalBeforeFilter - nameList.length;
+        const badgeEl = document.getElementById("txtExcludedCountBadge");
+        if (badgeEl) {
+          badgeEl.style.display = "inline-block";
+          badgeEl.innerText = `已排 ${excludedCount} 項`;
+        }
+      } else {
+        const badgeEl = document.getElementById("txtExcludedCountBadge");
+        if (badgeEl) badgeEl.style.display = "none";
       }
 
       listToRender = nameList;
     } else {
       listToRender = [...currentSearchedItems];
+      const badgeEl = document.getElementById("txtExcludedCountBadge");
+      if (badgeEl) badgeEl.style.display = "none";
     }
 
     document.getElementById("totalDirectItemsCount").innerText = listToRender.length;
 
     if (listToRender.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${isNameMode ? 6 : 7}" class="text-center text-muted py-4">查無符合關鍵字${isExcludeNoSales ? '或有銷貨紀錄' : ''}的庫存商品。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${isNameMode ? 6 : 7}" class="text-center text-muted py-4">查無符合關鍵字${isExcludeNoSales ? '或有銷貨紀錄' : ''}的商品。</td></tr>`;
       document.getElementById("selectedDirectItemsCount").innerText = 0;
       return;
     }
@@ -2212,12 +2263,14 @@
       const itemSafety = existingRule.safety !== undefined ? existingRule.safety : defaultSafety;
       const itemMoq = existingRule.moq !== undefined ? existingRule.moq : defaultMoq;
 
-      // 若在品名模式下有銷貨紀錄，在品名下方帶出細字統計
+      // 銷貨紀錄即時響應設定時間
       let salesHintHtml = "";
       if (isNameMode) {
-        const salesData = salesHistorySummary[toSafeDbKey(pName)] || {};
-        if (salesData.totalQty !== undefined) {
+        const salesData = getDynamicSalesSummary(pName, filterMonths);
+        if (salesData && salesData.totalQty > 0) {
           salesHintHtml = `<div class="text-muted fw-normal" style="font-size: 0.72rem; margin-top: 1px;">[${salesData.range} 銷貨 ${salesData.totalQty} 支]</div>`;
+        } else {
+          salesHintHtml = `<div class="text-muted fw-normal" style="font-size: 0.72rem; margin-top: 1px;">[${filterMonths}個月內無銷貨紀錄]</div>`;
         }
       }
 
@@ -5230,13 +5283,50 @@
     showOperatorToast("已清除檔案", "已移除該檔案記錄，可重新選取上傳。", "warning");
   }
 
-  // 日期解析輔助
+  // 全能日期解析器 (支援：民國年、西元、Excel序號、各式符號)
   function parseDateValue(raw) {
-    if (!raw) return null;
-    if (raw instanceof Date) return isNaN(raw) ? null : raw;
-    const str = String(raw).trim().replace(/[.\/]/g, '-');
-    const d = new Date(str);
-    return isNaN(d.getTime()) ? null : d;
+    if (raw === undefined || raw === null || raw === "") return null;
+    if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+
+    if (typeof raw === "number" || (!isNaN(raw) && !String(raw).includes("/") && !String(raw).includes("-") && String(raw).length <= 5)) {
+      const num = parseFloat(raw);
+      if (num > 20000 && num < 60000) {
+        const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+        return isNaN(d.getTime()) ? null : d;
+      }
+    }
+
+    let str = String(raw).trim().replace(/[\x00-\x1F\x7F-\x9F\u200B\u00A0]/g, '');
+
+    if (/^\d{8}$/.test(str)) {
+      const y = parseInt(str.substring(0, 4), 10);
+      const m = parseInt(str.substring(4, 6), 10) - 1;
+      const day = parseInt(str.substring(6, 8), 10);
+      return new Date(y, m, day);
+    }
+    if (/^\d{7}$/.test(str)) {
+      const y = parseInt(str.substring(0, 3), 10) + 1911;
+      const m = parseInt(str.substring(3, 5), 10) - 1;
+      const day = parseInt(str.substring(5, 7), 10);
+      return new Date(y, m, day);
+    }
+
+    str = str.replace(/[.\/]/g, '-').replace(/\s+/g, ' ');
+    const parts = str.split(' ')[0].split('-');
+
+    if (parts.length >= 3) {
+      let y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+
+      if (y < 1900 && y > 50) y += 1911;
+
+      const d = new Date(y, m, day);
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    const fallback = new Date(str);
+    return isNaN(fallback.getTime()) ? null : fallback;
   }
 
   function formatDateStr(d) {
@@ -5335,44 +5425,54 @@
         }
       });
 
-      // 2. 歷史銷貨紀錄解析 (欄位 C:品名, D:數量, P:日期 / 抓取半年內)
+      // 2. 歷史銷貨紀錄解析 (欄位 C:品名, D:數量, P:日期 / 支援動態月份切換)
       const salesSummaryPayload = {};
       if (salesRows.length > 0) {
         let maxFileDate = null;
         let minFileDate = null;
-        const validSalesItems = [];
 
         salesRows.forEach(row => {
-          const rowKeys = Object.keys(row);
-          const pName = cleanString(row["品名"] || row["中文品名"] || row[rowKeys[2]] || "");
-          const qty = parseFloat(cleanString(row["數量"] || row[rowKeys[3]] || 0)) || 0;
-          const rawDate = row["日期"] || row["銷貨日期"] || row[rowKeys[15]];
+          const rowVals = Object.values(row);
+          const pName = cleanString(row["品名"] || row["中文品名"] || row["商品名稱"] || rowVals[2] || "");
+          const rawQty = row["數量"] || row["銷貨數量"] || rowVals[3] || 0;
+          const qty = parseFloat(cleanString(rawQty)) || 0;
+          
+          const rawDate = row["日期"] || row["銷貨日期"] || row["單據日期"] || row["交易日期"] || rowVals[15] || rowVals[14] || "";
           const dateObj = parseDateValue(rawDate);
 
-          if (pName && qty > 0 && dateObj) {
-            validSalesItems.push({ name: pName, qty: qty, date: dateObj });
+          if (pName && qty > 0 && dateObj && !pName.includes("本次案件") && !pName.includes("製表") && !pName.includes("小計")) {
+            const safeKey = toSafeDbKey(pName);
+            if (!salesSummaryPayload[safeKey]) {
+              salesSummaryPayload[safeKey] = {
+                name: pName,
+                records: [],
+                maxDate: dateObj.toISOString()
+              };
+            }
+            salesSummaryPayload[safeKey].records.push({
+              d: dateObj.toISOString(),
+              q: qty
+            });
+
             if (!maxFileDate || dateObj > maxFileDate) maxFileDate = dateObj;
             if (!minFileDate || dateObj < minFileDate) minFileDate = dateObj;
           }
         });
 
-        if (validSalesItems.length > 0 && maxFileDate) {
+        if (maxFileDate) {
           const halfYearAgo = new Date(maxFileDate.getTime() - (180 * 24 * 60 * 60 * 1000));
           const effectiveStartDate = (minFileDate && minFileDate > halfYearAgo) ? minFileDate : halfYearAgo;
-          const rangeStr = `${formatDateStr(effectiveStartDate)} - ${formatDateStr(maxFileDate)}`;
+          const defaultRangeStr = `${formatDateStr(effectiveStartDate)} - ${formatDateStr(maxFileDate)}`;
 
-          validSalesItems.forEach(item => {
-            if (item.date >= effectiveStartDate && item.date <= maxFileDate) {
-              const safeKey = toSafeDbKey(item.name);
-              if (!salesSummaryPayload[safeKey]) {
-                salesSummaryPayload[safeKey] = {
-                  name: item.name,
-                  totalQty: 0,
-                  range: rangeStr
-                };
-              }
-              salesSummaryPayload[safeKey].totalQty += item.qty;
-            }
+          Object.values(salesSummaryPayload).forEach(item => {
+            item.maxDate = maxFileDate.toISOString();
+            item.range = defaultRangeStr;
+            let sum6M = 0;
+            item.records.forEach(r => {
+              const rd = new Date(r.d);
+              if (rd >= effectiveStartDate && rd <= maxFileDate) sum6M += r.q;
+            });
+            item.totalQty = sum6M;
           });
         }
       }
