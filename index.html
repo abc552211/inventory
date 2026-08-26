@@ -2171,11 +2171,15 @@
 
       let nameList = Object.values(nameMap);
 
-      // 核心過濾：排除無銷貨紀錄之商品
+      // 核心過濾：排除「無銷貨紀錄 且 目前庫存為 0」之商品 (若庫存 > 0 依然保留顯示)
       if (isExcludeNoSales) {
         nameList = nameList.filter(item => {
           const salesData = salesHistorySummary[toSafeDbKey(item.name)] || {};
-          return salesData.totalQty !== undefined && salesData.totalQty > 0;
+          const hasSales = (salesData.totalQty !== undefined && salesData.totalQty > 0);
+          const hasStock = (item.combinedStock > 0);
+          
+          // 只要「有銷貨」或「有現存庫存」就保留顯示；只有在「無銷貨 且 庫存為 0」時才排除
+          return hasSales || hasStock;
         });
       }
 
