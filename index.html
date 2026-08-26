@@ -2179,6 +2179,9 @@
     renderDirectStockItemsTable();
   }
 
+  // 保存目前直讀表格中實際渲染出來的品項 (徹底解決勾選與存入錯位問題)
+  let currentRenderedDirectList = [];
+
   // 渲染直讀商品表格 (支援自訂月份即時過濾與排除數量統計)
   function renderDirectStockItemsTable() {
     const tbody = document.getElementById("directStockItemsTableBody");
@@ -2239,6 +2242,8 @@
       if (badgeEl) badgeEl.style.display = "none";
     }
 
+    // 將當前過濾後的清單保存，供「移至套用區」精準取用
+    currentRenderedDirectList = listToRender;
     document.getElementById("totalDirectItemsCount").innerText = listToRender.length;
 
     if (listToRender.length === 0) {
@@ -2331,7 +2336,7 @@
     showOperatorToast("批次套用成功", `已更新勾選品項水位 (最高:${maxVal} / 最低:${safetyVal} / 倍數:${moqVal})`, "success");
   }
 
-  // 移至補貨套用區 (支援中文品名模式)
+  // 移至補貨套用區 (修復：嚴格讀取當前渲染清單 currentRenderedDirectList，100% 不錯位)
   function saveDirectSelectedItemsAsRules() {
     const checkboxes = document.querySelectorAll(".direct-item-check:checked");
     if (checkboxes.length === 0) return alert("請至少勾選一項商品！");
@@ -2343,15 +2348,19 @@
     const updatePayload = {};
 
     checkboxes.forEach(cb => {
-      const idx = cb.getAttribute("data-index");
+      const idx = parseInt(cb.getAttribute("data-index"), 10);
+      const item = currentRenderedDirectList[idx]; // 從目前正確渲染的清單抓取
+      if (!item) return;
+
       const maxInput = document.querySelector(`.direct-item-max[data-index="${idx}"]`);
       const safetyInput = document.querySelector(`.direct-item-safety[data-index="${idx}"]`);
       const moqInput = document.querySelector(`.direct-item-moq[data-index="${idx}"]`);
 
+      const finalMax = parseFloat(maxInput ? maxInput.value : 1) || 1;
+      const finalSafety = parseFloat(safetyInput ? safetyInput.value : 1) || 1;
+      const finalMoq = parseFloat(moqInput ? moqInput.value : 1) || 1;
+
       if (isNameMode) {
-        // 中文品名模式儲存
-        const item = currentSearchedItems[idx];
-        if (!item) return;
         const pName = cleanString(item.name);
         const bindKey = `NAME_${toSafeDbKey(pName)}`;
 
@@ -2362,17 +2371,14 @@
           isNameMode: true,
           brand: searchKw,
           warehouse: cleanString(item.warehouse) || "",
-          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
-          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
-          moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+          maxQty: finalMax,
+          safety: finalSafety,
+          moq: finalMoq,
           vendorMoq: vendorMoq,
           isDirectBound: true,
           updatedAt: firebase.database.ServerValue.TIMESTAMP
         };
       } else {
-        // 條碼/貨號模式儲存
-        const item = currentSearchedItems[idx];
-        if (!item) return;
         const code = cleanString(item.barcode || item.itemCode);
 
         updatePayload[toSafeDbKey(code)] = {
@@ -2384,9 +2390,9 @@
           isNameMode: false,
           brand: searchKw,
           warehouse: cleanString(item.warehouse) || "",
-          maxQty: parseFloat(maxInput ? maxInput.value : 1) || 1,
-          safety: parseFloat(safetyInput ? safetyInput.value : 1) || 1,
-          moq: parseFloat(moqInput ? moqInput.value : 1) || 1,
+          maxQty: finalMax,
+          safety: finalSafety,
+          moq: finalMoq,
           vendorMoq: vendorMoq,
           isDirectBound: true,
           updatedAt: firebase.database.ServerValue.TIMESTAMP
@@ -2395,7 +2401,7 @@
     });
 
     repRulesRef.update(updatePayload).then(() => {
-      alert(`成功儲存 ${checkboxes.length} 筆商品條件！`);
+      alert(`成功儲存 ${checkboxes.length} 筆商品條件至套用區！`);
     }).catch(err => alert("儲存失敗: " + err.message));
   }
 
@@ -3071,7 +3077,7 @@
     });
   }
 
-  // 補貨規則計算 (支援中文品名模式合併庫存計算)
+  // 補貨規則計算 (嚴格遵守：目前庫存 < 最低水位 才觸發，以倍數補到 <= 最高置庫，絕不超過)
   function calculateReplenishment() {
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
     const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
@@ -3098,7 +3104,6 @@
       let itemWarehouse = rule.warehouse || "";
 
       if (rule.isNameMode) {
-        // 中文品名模式：加總庫存內所有同品名商品的數量
         displayCode = "[品名模式]";
         displayName = cleanString(rule.name || rule.keyword);
         Object.values(fullInventory).forEach(invItem => {
@@ -3109,7 +3114,6 @@
           }
         });
       } else {
-        // 單品貨號模式
         const targetCode = cleanString(rule.barcode || rule.keyword);
         const safeKey = barcodeToKeyMap[targetCode];
         const matchedItem = safeKey ? fullInventory[safeKey] : null;
@@ -3125,25 +3129,21 @@
 
       let needQty = 0;
 
-      // 觸發條件：現有庫存 <= 最低水位，且「現有庫存尚未達到最高置庫量」
-      if (currentStock <= safety && currentStock < maxQty) {
+      // 嚴格觸發條件：只有在「目前庫存 < 最低水位」且「目前庫存 < 最高置庫」時才計算補貨
+      if (currentStock < safety && currentStock < maxQty) {
         let targetQty = 0;
 
-        // 以出貨倍數 (moq) 累加，加到 <= 最高置庫量 (maxQty) 的最大數量
+        // 以出貨倍數 (moq) 累加，最高不得超過最高置庫 (currentStock + targetQty + moq <= maxQty)
         while (currentStock + targetQty + moq <= maxQty) {
           targetQty += moq;
         }
 
-        // 若庫存歸零 (斷貨) 但起訂倍數 (moq) 大於 maxQty，以最基本 1 個 moq 補入
-        if (currentStock === 0 && targetQty === 0) {
-          targetQty = moq;
-        }
+        needQty = targetQty;
+      }
 
-        if (targetQty > 0) {
-          needQty = targetQty;
-          totalNeedCount++;
-          totalQtySum += needQty;
-        }
+      if (needQty > 0) {
+        totalNeedCount++;
+        totalQtySum += needQty;
       }
 
       calculatedReplenishList.push({
@@ -3189,7 +3189,7 @@
     }
 
     if (displayList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">目前所有商品均在安全水位以上，無須補貨。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">目前所有商品均在安全水位以上或無需補貨。</td></tr>`;
       return;
     }
 
@@ -3211,14 +3211,14 @@
         }
       }
 
-      // 銷貨紀錄比對 (中文品名模式下自動抓取同品名半年內銷貨總計)
       let salesInfoHtml = "";
       if (item.isNameMode) {
-        const salesData = salesHistorySummary[toSafeDbKey(item.name)] || {};
-        if (salesData.totalQty !== undefined) {
+        const filterMonths = document.getElementById("excludeSalesMonthsVal") ? (parseInt(document.getElementById("excludeSalesMonthsVal").value, 10) || 6) : 6;
+        const salesData = getDynamicSalesSummary(item.name, filterMonths);
+        if (salesData && salesData.totalQty > 0) {
           salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[${salesData.range} 銷貨 ${salesData.totalQty} 支]</div>`;
         } else {
-          salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[半年內無銷貨紀錄]</div>`;
+          salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[${filterMonths}個月內無銷貨紀錄]</div>`;
         }
       }
 
