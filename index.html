@@ -858,13 +858,12 @@
           </div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div>
-            <span class="fw-bold text-danger">需補貨品項 (含 0 庫存斷貨)：<span id="repNeedCount">0</span> 種</span> | 
-            <span class="fw-bold text-primary">建議補貨總件數：<span id="repTotalQtySum">0</span> 件</span>
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+          <div class="fw-bold fs-6">
+            顯示品項 <span id="repDisplaySKUCount" class="text-dark">0</span> 種，需補貨品項: <span id="repNeedCount" class="text-danger">0</span> 種，共 <span id="repTotalQtySum" class="text-primary">0</span> 件
           </div>
-          <div class="d-flex gap-2 align-items-center">
-            <select id="repFilterDisplayMode" class="form-select form-select-sm w-auto" onchange="calculateReplenishment()">
+          <div class="d-flex gap-2 align-items-center ms-auto">
+            <select id="repFilterDisplayMode" class="form-select form-select-sm w-auto fw-bold" onchange="calculateReplenishment()">
               <option value="onlyNeed">只顯示【需補貨/斷貨商品】</option>
               <option value="all">顯示【全部條件商品】</option>
             </select>
@@ -3077,16 +3076,17 @@
     });
   }
 
-  // 補貨規則計算 (嚴格遵守：目前庫存 < 最低水位 才觸發，以倍數補到 <= 最高置庫，絕不超過)
+  // 補貨規則計算 (即時渲染、更新統計列「顯示品項 xxx 種，需補貨品項: yyy 種，共 zzz 件」)
   function calculateReplenishment() {
+    const tbody = document.getElementById("replenishTableBody");
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
     const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
-    calculatedReplenishList = [];
 
+    calculatedReplenishList = [];
     let totalNeedCount = 0;
     let totalQtySum = 0;
 
-    const ruleKeys = Object.keys(customReplenishRules);
+    const ruleKeys = Object.keys(customReplenishRules || {});
 
     ruleKeys.forEach(rk => {
       const rule = customReplenishRules[rk];
@@ -3129,15 +3129,12 @@
 
       let needQty = 0;
 
-      // 嚴格觸發條件：只有在「目前庫存 < 最低水位」且「目前庫存 < 最高置庫」時才計算補貨
+      // 嚴格觸發條件：目前庫存 < 最低水位 且 目前庫存 < 最高置庫
       if (currentStock < safety && currentStock < maxQty) {
         let targetQty = 0;
-
-        // 以出貨倍數 (moq) 累加，最高不得超過最高置庫 (currentStock + targetQty + moq <= maxQty)
         while (currentStock + targetQty + moq <= maxQty) {
           targetQty += moq;
         }
-
         needQty = targetQty;
       }
 
@@ -3163,10 +3160,28 @@
       });
     });
 
+    // 核心過濾清單
+    let displayList = calculatedReplenishList;
+    if (filterDisplayMode === "onlyNeed") {
+      displayList = calculatedReplenishList.filter(item => item.needQty > 0);
+    }
+
+    // 更新頂部「顯示品項 xxx 種，需補貨品項: yyy 種，共 zzz 件」
+    const displayCountEl = document.getElementById("repDisplaySKUCount");
     const needCountEl = document.getElementById("repNeedCount");
     const totalQtyEl = document.getElementById("repTotalQtySum");
+
+    if (displayCountEl) displayCountEl.innerText = displayList.length;
     if (needCountEl) needCountEl.innerText = totalNeedCount;
     if (totalQtyEl) totalQtyEl.innerText = totalQtySum;
+
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (displayList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3 fw-bold">${filterDisplayMode === 'onlyNeed' ? '目前所有條件商品均在安全水位以上，無須補貨。' : '尚未設定或套用任何補貨條件商品。'}</td></tr>`;
+      return;
+    }
 
     const vendorSummaryMap = {};
     calculatedReplenishList.forEach(item => {
@@ -3179,22 +3194,9 @@
       }
     });
 
-    const tbody = document.getElementById("replenishTableBody");
-    if (!tbody) return;
-    tbody.innerHTML = "";
+    const filterMonths = document.getElementById("excludeSalesMonthsVal") ? (parseInt(document.getElementById("excludeSalesMonthsVal").value, 10) || 6) : 6;
 
-    let displayList = calculatedReplenishList;
-    if (filterDisplayMode === "onlyNeed") {
-      displayList = displayList.filter(item => item.needQty > 0);
-    }
-
-    if (displayList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-success py-3">目前所有商品均在安全水位以上或無需補貨。</td></tr>`;
-      return;
-    }
-
-    displayList.forEach((item, index) => {
-      const tr = document.createElement("tr");
+    const htmlRows = displayList.map((item, index) => {
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `web_rep_bc_${index}`;
 
@@ -3213,7 +3215,6 @@
 
       let salesInfoHtml = "";
       if (item.isNameMode) {
-        const filterMonths = document.getElementById("excludeSalesMonthsVal") ? (parseInt(document.getElementById("excludeSalesMonthsVal").value, 10) || 6) : 6;
         const salesData = getDynamicSalesSummary(item.name, filterMonths);
         if (salesData && salesData.totalQty > 0) {
           salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[${salesData.range} 銷貨 ${salesData.totalQty} 支]</div>`;
@@ -3222,48 +3223,64 @@
         }
       }
 
-      tr.innerHTML = `
-        <td class="text-center align-middle">
-          ${item.isNameMode 
-            ? '<span class="badge bg-secondary">中文品名模式</span>' 
-            : `<svg id="${svgId}" class="barcode-svg" style="height: 32px;"></svg><div class="fw-bold mt-1" style="font-size: 0.85rem;">${item.barcode}</div>`
-          }
-        </td>
-        <td class="align-middle text-wrap" style="max-width: 250px;">
-          ${!item.isNameMode ? `<div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>` : ''}
-          <div style="font-size: 0.9rem; line-height: 1.2;"><strong>${item.name || '-'}</strong></div>
-          ${salesInfoHtml}
-        </td>
-        <td class="fw-bold text-center align-middle ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
-        <td class="text-center fw-bold text-success align-middle">${item.maxStock}</td>
-        <td class="text-center fw-bold text-primary align-middle">${item.safetyStock}</td>
-        <td class="text-center align-middle"><span class="badge bg-light text-dark border">×${item.moq}</span></td>
-        <td class="fw-bold text-center fs-5 align-middle ${item.needQty > 0 ? 'text-danger' : 'text-muted'}">${item.needQty}</td>
-        <td class="text-center align-middle" style="line-height: 1.2;">
-          ${vendorStatusHtml}
-        </td>
+      return `
+        <tr>
+          <td class="text-center align-middle">
+            ${item.isNameMode 
+              ? '<span class="badge bg-secondary">中文品名模式</span>' 
+              : `<svg id="${svgId}" class="barcode-svg" style="height: 32px;"></svg><div class="fw-bold mt-1" style="font-size: 0.85rem;">${item.barcode}</div>`
+            }
+          </td>
+          <td class="align-middle text-wrap" style="max-width: 250px;">
+            ${!item.isNameMode ? `<div class="text-secondary fw-bold mb-1" style="font-size: 0.75rem;">${item.itemCode || '-'}</div>` : ''}
+            <div style="font-size: 0.9rem; line-height: 1.2;"><strong>${item.name || '-'}</strong></div>
+            ${salesInfoHtml}
+          </td>
+          <td class="fw-bold text-center align-middle ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
+          <td class="text-center fw-bold text-success align-middle">${item.maxStock}</td>
+          <td class="text-center fw-bold text-primary align-middle">${item.safetyStock}</td>
+          <td class="text-center align-middle"><span class="badge bg-light text-dark border">×${item.moq}</span></td>
+          <td class="fw-bold text-center fs-5 align-middle ${item.needQty > 0 ? 'text-danger' : 'text-muted'}">${item.needQty}</td>
+          <td class="text-center align-middle" style="line-height: 1.2;">
+            ${vendorStatusHtml}
+          </td>
+        </tr>
       `;
-      tbody.appendChild(tr);
+    }).join("");
 
-      if (!item.isNameMode) {
-        setTimeout(() => {
+    tbody.innerHTML = htmlRows;
+
+    // 條碼延遲分批繪製
+    setTimeout(() => {
+      displayList.forEach((item, index) => {
+        if (!item.isNameMode) {
           try {
-            JsBarcode(`#${svgId}`, safeCode, {
+            const safeCode = cleanString(item.barcode || item.itemCode);
+            JsBarcode(`#web_rep_bc_${index}`, safeCode, {
               format: "CODE128", width: 1.2, height: 26, displayValue: false, margin: 0
             });
           } catch (e) {}
-        }, 10);
-      }
-    });
+        }
+      });
+    }, 20);
   }
 
+  // 列印補貨申請單 (修復：即時跟隨選單狀態，支援列印全部442款或僅需補貨品項)
   function printReplenishSheet() {
     const tbody = document.getElementById("printReplenishTableBody");
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    const needList = calculatedReplenishList.filter(item => item.needQty > 0);
-    if (needList.length === 0) return alert("目前沒有需要補貨的商品！");
+    const filterDisplayEl = document.getElementById("repFilterDisplayMode");
+    const filterDisplayMode = filterDisplayEl ? filterDisplayEl.value : "onlyNeed";
+
+    // 依切換選單決定列印清單 (若選「全部條件商品」則全部列印出)
+    let printList = calculatedReplenishList;
+    if (filterDisplayMode === "onlyNeed") {
+      printList = calculatedReplenishList.filter(item => item.needQty > 0);
+    }
+
+    if (printList.length === 0) return alert("目前沒有符合條件的商品可列印！");
 
     document.getElementById("repPrintStaff").innerText = boundUser || "門市人員";
     document.getElementById("repPrintDate").innerText = new Date().toLocaleDateString();
@@ -3274,20 +3291,24 @@
       } catch(e){}
     }, 10);
 
-    if (needList[0] && needList[0].warehouse) {
-      document.getElementById("repPrintWhName").innerText = needList[0].warehouse;
+    if (printList[0] && printList[0].warehouse) {
+      document.getElementById("repPrintWhName").innerText = printList[0].warehouse;
     }
 
     const vendorSummaryMap = {};
-    needList.forEach(item => {
+    printList.forEach(item => {
       const vKey = item.groupKey || item.brand || "常用廠商"; 
       if (!vendorSummaryMap[vKey]) {
         vendorSummaryMap[vKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
       }
-      vendorSummaryMap[vKey].totalQty += item.needQty;
+      if (item.needQty > 0) {
+        vendorSummaryMap[vKey].totalQty += item.needQty;
+      }
     });
 
-    needList.forEach((item, index) => {
+    const filterMonths = document.getElementById("excludeSalesMonthsVal") ? (parseInt(document.getElementById("excludeSalesMonthsVal").value, 10) || 6) : 6;
+
+    printList.forEach((item, index) => {
       const tr = document.createElement("tr");
       const safeCode = cleanString(item.barcode || item.itemCode);
       const svgId = `rep_bc_${index}`;
@@ -3305,14 +3326,13 @@
         }
       }
 
-      // 銷貨紀錄第 3 列數據 (加入區間背景色與邊線區隔)
       let salesInfoHtml = "";
       if (item.isNameMode) {
-        const salesData = salesHistorySummary[toSafeDbKey(item.name)] || {};
-        if (salesData.totalQty !== undefined) {
+        const salesData = getDynamicSalesSummary(item.name, filterMonths);
+        if (salesData && salesData.totalQty > 0) {
           salesInfoHtml = `<div style="font-size: 0.72rem; color: #444; background-color: #f1f5f9; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 2px 4px; margin-top: 4px; display: inline-block;">[${salesData.range} 銷售 ${salesData.totalQty} 支]</div>`;
         } else {
-          salesInfoHtml = `<div style="font-size: 0.72rem; color: #666; background-color: #f1f5f9; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 2px 4px; margin-top: 4px; display: inline-block;">[半年內無銷貨紀錄]</div>`;
+          salesInfoHtml = `<div style="font-size: 0.72rem; color: #666; background-color: #f1f5f9; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 2px 4px; margin-top: 4px; display: inline-block;">[${filterMonths}個月內無銷貨紀錄]</div>`;
         }
       }
 
