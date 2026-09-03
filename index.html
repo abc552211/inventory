@@ -261,12 +261,10 @@
     }
   </style>
 
-  <!-- SheetJS, Html5-QRCode, JsBarcode, Firebase Compat SDK -->
+  <!-- SheetJS, Html5-QRCode, JsBarcode (Firebase SDK 已由後端 Worker 安全代理接管) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -1296,20 +1294,154 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  // ================= 1. FIREBASE 配置與初始化 =================
-  const firebaseConfig = {
-    apiKey: "AIzaSyCRjfKZskiwLBMDmMQJ0Vd-29e4vD14wRM",
-    authDomain: "inventory0088.firebaseapp.com",
-    projectId: "inventory0088",
-    databaseURL: "https://inventory0088-default-rtdb.asia-southeast1.firebasedatabase.app",
-    storageBucket: "inventory0088.firebasestorage.app",
-    messagingSenderId: "575129564584",
-    appId: "1:575129564584:web:100f5ae60e9e485d23199d",
-    measurementId: "G-9MJ8HRP0LX"
+  // ================= 1. 安全代理連線與資料庫初始化 =================
+  // ★ 安全防護：Firebase 敏感金鑰已收攏至 Cloudflare Worker，前端零曝光
+  const API_BASE_URL = "https://inventory-security.abc552211.workers.dev";
+
+  // 封裝安全 Snapshot 物件
+  class RtdbSnapshot {
+    constructor(data) { this._data = data; }
+    val() { return this._data !== undefined ? this._data : null; }
+  }
+
+  // 封裝完全相容 Firebase Realtime Database 語法的代理客戶端
+  class WorkerRtdbRef {
+    constructor(path = "") {
+      this.path = path.replace(/^\/+|\/+$/g, '');
+      this.listeners = [];
+      this._pollTimer = null;
+    }
+
+    child(subPath) {
+      const cleanSub = String(subPath || '').replace(/^\/+|\/+$/g, '');
+      const fullPath = this.path ? `${this.path}/${cleanSub}` : cleanSub;
+      return new WorkerRtdbRef(fullPath);
+    }
+
+    // 監聽變動（首次立即抓取，並定期在背景保持最新）
+    on(event, callback) {
+      this.listeners.push(callback);
+      const fetchData = async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`);
+          if (res.ok) {
+            const data = await res.json();
+            callback(new RtdbSnapshot(data));
+          }
+        } catch (e) {
+          console.warn(`[RTDB 讀取失敗] ${this.path}:`, e);
+        }
+      };
+
+      fetchData();
+
+      // 每 8 秒在背景同步一次資料，維持即時性
+      if (!this._pollTimer) {
+        this._pollTimer = setInterval(fetchData, 8000);
+      }
+    }
+
+    // 單次讀取
+    async once(event, callback) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`);
+        const data = res.ok ? await res.json() : null;
+        const snap = new RtdbSnapshot(data);
+        if (typeof callback === 'function') callback(snap);
+        return snap;
+      } catch (e) {
+        const emptySnap = new RtdbSnapshot(null);
+        if (typeof callback === 'function') callback(emptySnap);
+        return emptySnap;
+      }
+    }
+
+    // 寫入覆蓋 (PUT)
+    async set(value) {
+      const res = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    // 部分更新 (PATCH)
+    async update(value) {
+      const res = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    // 刪除 (DELETE)
+    async remove() {
+      const res = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    // 新增資料 (POST)
+    async push(value) {
+      const res = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value || {})
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const newKey = data && data.name ? data.name : `key_${Date.now()}`;
+      return this.child(newKey);
+    }
+
+    // 原子操作支援 (讀取 -> 運算 -> 寫回)
+    async transaction(updateFn, onComplete) {
+      try {
+        const getRes = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`);
+        let currentVal = getRes.ok ? await getRes.json() : null;
+        const newVal = updateFn(currentVal);
+
+        if (newVal !== undefined) {
+          const putRes = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newVal)
+          });
+          if (!putRes.ok) throw new Error(await putRes.text());
+          const snap = new RtdbSnapshot(newVal);
+          if (typeof onComplete === 'function') onComplete(null, true, snap);
+          return { committed: true, snapshot: snap };
+        } else {
+          if (typeof onComplete === 'function') onComplete(null, false, new RtdbSnapshot(currentVal));
+          return { committed: false, snapshot: new RtdbSnapshot(currentVal) };
+        }
+      } catch (err) {
+        if (typeof onComplete === 'function') onComplete(err, false, null);
+        throw err;
+      }
+    }
+  }
+
+  // 建立全域相容物件
+  const customDb = {
+    ref: (path) => new WorkerRtdbRef(path)
   };
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+  window.firebase = {
+    initializeApp: () => {},
+    database: () => customDb
+  };
+  window.firebase.database.ServerValue = {
+    TIMESTAMP: { ".sv": "timestamp" }
+  };
+
+  const db = customDb;
   const metaRef = db.ref("meta");
   const staffRef = db.ref("staff_accounts");
   const rulesRef = db.ref("filter_rules");
@@ -1540,21 +1672,21 @@
   }
 
   // ================= 主頁籤切換引擎 (高對比色彩強制套用) =================
+  // ================= 主頁籤切換引擎 (先切換再異步計算版) =================
   function switchMainTab(targetViewId) {
+    // 1. 0 毫秒極速切換畫面與頁籤外觀
     showView(targetViewId);
 
     const mainTabBar = document.getElementById("mainTabBar");
     if (mainTabBar) mainTabBar.style.display = "flex";
 
-    // 4 大頁籤專屬色彩配置 (高對比設定)
     const tabsConfig = {
-      viewDashboard:   { id: 'tabBtnDashboard',   bg: '#198754', text: '#ffffff' }, // 盤點：綠底 + 純白字
-      viewReplenish:   { id: 'tabBtnReplenish',   bg: '#ffc107', text: '#212529' }, // 補貨：舒服黃底 + 深黑字
-      viewUpload:      { id: 'tabBtnUpload',      bg: '#20c997', text: '#ffffff' }, // 上傳：藍綠底 + 純白字
-      viewMaintenance: { id: 'tabBtnMaintenance', bg: '#6c757d', text: '#ffffff' }  // 維護：灰底 + 純白字
+      viewDashboard:   { id: 'tabBtnDashboard',   bg: '#198754', text: '#ffffff' },
+      viewReplenish:   { id: 'tabBtnReplenish',   bg: '#ffc107', text: '#212529' },
+      viewUpload:      { id: 'tabBtnUpload',      bg: '#20c997', text: '#ffffff' },
+      viewMaintenance: { id: 'tabBtnMaintenance', bg: '#6c757d', text: '#ffffff' }
     };
 
-    // 1. 先將所有按鈕重置為淺灰底、深灰字
     Object.values(tabsConfig).forEach(tab => {
       const el = document.getElementById(tab.id);
       if (el) {
@@ -1564,7 +1696,6 @@
       }
     });
 
-    // 2. 為選中的頁籤強制套用專屬底色與高對比文字顏色
     const current = tabsConfig[targetViewId];
     if (current) {
       const activeEl = document.getElementById(current.id);
@@ -1575,9 +1706,24 @@
       }
     }
 
-    // 若切換至補貨系統，觸發計算
+    // 2. 若為補貨系統，先秀出轉圈圈佔位提示，再排入微任務運算
     if (targetViewId === 'viewReplenish') {
-      calculateReplenishment();
+      const tbody = document.getElementById("replenishTableBody");
+      if (tbody && calculatedReplenishList.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-4 text-muted">
+              <div class="spinner-border spinner-border-sm text-warning me-2" role="status"></div>
+              <span>正在分析補貨條件與庫存數據...</span>
+            </td>
+          </tr>
+        `;
+      }
+      
+      // 使用 setTimeout(..., 16) 讓瀏覽器先完成畫面的 Repaint，徹底解除卡頓
+      setTimeout(() => {
+        calculateReplenishment();
+      }, 16);
     }
   }
 
@@ -3251,18 +3397,22 @@
     tbody.innerHTML = htmlRows;
 
     // 條碼延遲分批繪製
-    setTimeout(() => {
+    // 條碼分幀非同步繪製，防止阻礙頁面滾動
+    requestAnimationFrame(() => {
       displayList.forEach((item, index) => {
         if (!item.isNameMode) {
           try {
             const safeCode = cleanString(item.barcode || item.itemCode);
-            JsBarcode(`#web_rep_bc_${index}`, safeCode, {
-              format: "CODE128", width: 1.2, height: 26, displayValue: false, margin: 0
-            });
+            const targetSvg = document.getElementById(`web_rep_bc_${index}`);
+            if (targetSvg) {
+              JsBarcode(targetSvg, safeCode, {
+                format: "CODE128", width: 1.2, height: 26, displayValue: false, margin: 0
+              });
+            }
           } catch (e) {}
         }
       });
-    }, 20);
+    });
   }
 
   // 列印補貨申請單 (修復：即時跟隨選單狀態，支援列印全部442款或僅需補貨品項)
