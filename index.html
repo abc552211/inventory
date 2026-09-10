@@ -286,6 +286,15 @@
   <p class="small text-muted mb-0">正在連線雲端資料庫，請稍候</p>
 </div>
 
+<!-- 專屬操作等待輕量遮罩 -->
+<div id="actionSpinnerOverlay" class="no-print" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(2px); z-index: 10500; justify-content: center; align-items: center; flex-direction: column;">
+  <div class="bg-white p-3 rounded-3 shadow-lg text-center" style="max-width: 240px; width: 80%;">
+    <div class="spinner-border text-primary mb-2" role="status" style="width: 2.2rem; height: 2.2rem;"></div>
+    <div class="fw-bold text-dark small" id="actionSpinnerText">條件同步處理中...</div>
+    <div class="text-muted mt-1" style="font-size: 0.72rem;">正在更新並重新計算</div>
+  </div>
+</div>
+
 <!-- 頂部導航列 -->
 <nav class="navbar navbar-dark bg-dark sticky-top shadow-sm px-2 py-1 no-print">
   <span class="navbar-brand mb-0 fw-bold" id="navTitle" style="font-size: 1rem;">門市盤點與補貨系統</span>
@@ -404,9 +413,7 @@
                 <option value="name">中文品名</option>
                 <option value="itemCode">貨號</option>
                 <option value="barcode">條碼編號</option>
-                <option value="model">型號</option>
                 <option value="warehouse">分倉</option>
-                <option value="colorName">顏色</option>
               </select>
             </div>
             <div class="col-md-4 col-8">
@@ -1295,8 +1302,19 @@
 
 <script>
   // ================= 1. 安全代理連線與資料庫初始化 =================
-  // ★ 安全防護：Firebase 敏感金鑰已收攏至 Cloudflare Worker，前端零曝光
   const API_BASE_URL = "https://inventory-security.abc552211.workers.dev";
+
+  function showActionSpinner(msg = "條件同步處理中...") {
+    const el = document.getElementById("actionSpinnerOverlay");
+    const txt = document.getElementById("actionSpinnerText");
+    if (txt) txt.innerText = msg;
+    if (el) el.style.display = "flex";
+  }
+
+  function hideActionSpinner() {
+    const el = document.getElementById("actionSpinnerOverlay");
+    if (el) el.style.display = "none";
+  }
 
   // 封裝安全 Snapshot 物件
   class RtdbSnapshot {
@@ -1318,15 +1336,20 @@
       return new WorkerRtdbRef(fullPath);
     }
 
-    // 監聽變動（首次立即抓取，並定期在背景保持最新）
+    // 監聽變動（動態分流輪詢，大幅降低 CPU 與網路佔用）
     on(event, callback) {
       this.listeners.push(callback);
+      let lastJsonStr = null;
       const fetchData = async () => {
         try {
           const res = await fetch(`${API_BASE_URL}/api/rtdb/${this.path}`);
           if (res.ok) {
-            const data = await res.json();
-            callback(new RtdbSnapshot(data));
+            const text = await res.text();
+            if (text !== lastJsonStr) { // 資料確實有更新才觸發渲染，避免空轉
+              lastJsonStr = text;
+              const data = text ? JSON.parse(text) : null;
+              callback(new RtdbSnapshot(data));
+            }
           }
         } catch (e) {
           console.warn(`[RTDB 讀取失敗] ${this.path}:`, e);
@@ -1335,9 +1358,15 @@
 
       fetchData();
 
-      // 每 8 秒在背景同步一次資料，維持即時性
+      // 銷貨紀錄與固定條件不重複定時輪詢；僅動態即時區排程
       if (!this._pollTimer) {
-        this._pollTimer = setInterval(fetchData, 8000);
+        if (this.path === "sales_history_summary" || this.path === "preset_replenish_packages" || this.path === "preset_filter_packages") {
+          // 靜態資料載入一次即可，不消耗背景頻寬
+        } else if (this.path === "logs") {
+          this._pollTimer = setInterval(fetchData, 6000); // 刷入動態維持及時
+        } else {
+          this._pollTimer = setInterval(fetchData, 15000); // 庫存與其他設定降頻至 15 秒
+        }
       }
     }
 
@@ -1473,11 +1502,8 @@
     barcode: "條碼",
     name: "中文品名",
     brand: "品牌",
-    model: "型號",
-    warehouse: "分倉",
-    colorName: "顏色"
+    warehouse: "分倉"
   };
-
   function cleanString(str) {
     if (str === undefined || str === null) return "";
     return String(str).replace(/[\x00-\x1F\x7F-\x9F\u200B\u00A0]/g, '').trim();
@@ -1782,15 +1808,18 @@
   }
 
   // ================= 4. 即時動態 (依分區收納與標註位置) =================
-  // 即時動態渲染 (加入編輯按鈕與備註顯示)
+  // 即時動態渲染 (限制渲染最新 50 筆防卡頓，加入編輯按鈕與備註顯示)
   function renderLiveFeeds(logsData) {
     const globalContainer = document.getElementById("globalFeedContainer");
     const myContainer = document.getElementById("myFeedContainer");
 
-    const logsArray = Object.entries(logsData).map(([logId, log]) => ({
+    const allLogs = Object.entries(logsData).map(([logId, log]) => ({
       logId,
       ...log
     })).reverse();
+
+    const totalLogCount = allLogs.length;
+    const logsArray = allLogs.slice(0, 50); // 最多只建立 50 筆 DOM 節點
 
     // 1. 全員即時動態
     if (logsArray.length === 0) {
@@ -2927,74 +2956,90 @@
     return matchCount > 0 && (matchCount >= Math.ceil(ruleList.length * 0.5));
   }
 
+  // 補貨快選包切換 (0毫秒同步推進套用區，徹底消除5秒延遲)
   function toggleApplyRepPresetPackage(pkgId) {
     const pkg = repPresetPackages[pkgId];
     if (!pkg) return;
 
     const currentlyActive = isPackageActive(pkg);
     if (currentlyActive) {
-      if (confirm(`確定要停用【${pkg.name}】嗎？`)) {
-        const updatePayload = {};
+      if (!confirm(`確定要停用【${pkg.name}】嗎？`)) return;
+      showActionSpinner(`正在收回【${pkg.name}】...`);
+
+      const updatePayload = {};
+      const ruleList = getRulesArrayFromPackage(pkg);
+      ruleList.forEach(r => {
+        const code = cleanString(r.barcode || r.keyword || r.itemCode);
+        const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
+        if (targetKey) {
+          updatePayload[targetKey] = null;
+          delete customReplenishRules[targetKey];
+        }
+      });
+
+      // 立即刷新：1. 按鈕顏色 2. 樹狀套用區
+      renderRepPresetPackages();
+      renderReplenishRulesList();
+
+      repRulesRef.update(updatePayload).then(() => {
+        calculateReplenishment();
+        hideActionSpinner();
+        showOperatorToast("已停用", `已收回【${pkg.name}】`, "warning");
+      }).catch(err => {
+        hideActionSpinner();
+        alert("操作失敗: " + err.message);
+      });
+    } else {
+      if (!confirm(`確定要啟用【${pkg.name}】嗎？`)) return;
+      showActionSpinner(`正在套用【${pkg.name}】...`);
+
+      const updatePayload = {};
+      const vMoq = parseFloat(pkg.vendorMoq) || 1;
+
+      if (pkg.isGroup && pkg.subPackages) {
+        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+        subs.forEach(subId => {
+          const subPkg = repPresetPackages[subId];
+          if (subPkg && subPkg.rules) {
+            const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+            rArray.forEach(r => {
+              const code = cleanString(r.barcode || r.keyword || r.itemCode);
+              const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
+              if (targetKey) {
+                const ruleData = { ...r, barcode: code || "", groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: Date.now() };
+                updatePayload[targetKey] = ruleData;
+                customReplenishRules[targetKey] = ruleData;
+              }
+            });
+          }
+        });
+      } else {
         const ruleList = getRulesArrayFromPackage(pkg);
         ruleList.forEach(r => {
           const code = cleanString(r.barcode || r.keyword || r.itemCode);
-          if (r.isNameMode && r.name) {
-            updatePayload[`NAME_${toSafeDbKey(r.name)}`] = null;
-          } else if (code) {
-            updatePayload[toSafeDbKey(code)] = null;
+          const gName = pkg.isGroup ? pkg.name : (cleanString(r.brand) || "未分類品牌");
+          const sName = pkg.isGroup ? "全部商品" : pkg.name;
+          const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
+          if (targetKey) {
+            const ruleData = { ...r, barcode: code || "", groupPkgName: gName, subPkgName: sName, vendorMoq: vMoq, isDirectBound: true, updatedAt: Date.now() };
+            updatePayload[targetKey] = ruleData;
+            customReplenishRules[targetKey] = ruleData;
           }
         });
-        repRulesRef.update(updatePayload).then(() => {
-          showOperatorToast("已停用", `已收回【${pkg.name}】`, "warning");
-        }).catch(err => alert("操作失敗: " + err.message));
       }
-    } else {
-      if (confirm(`確定要啟用【${pkg.name}】嗎？`)) {
-        const updatePayload = {};
-        const vMoq = parseFloat(pkg.vendorMoq) || 1;
 
-        if (pkg.isGroup && pkg.subPackages) {
-          const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
-          subs.forEach(subId => {
-            const subPkg = repPresetPackages[subId];
-            if (subPkg && subPkg.rules) {
-              const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
-              rArray.forEach(r => {
-                const code = cleanString(r.barcode || r.keyword || r.itemCode);
-                if (r.isNameMode && r.name) {
-                  updatePayload[`NAME_${toSafeDbKey(r.name)}`] = { 
-                    ...r, groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
-                  };
-                } else if (code) {
-                  updatePayload[toSafeDbKey(code)] = { 
-                    ...r, barcode: code, groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
-                  };
-                }
-              });
-            }
-          });
-        } else {
-          const ruleList = getRulesArrayFromPackage(pkg);
-          ruleList.forEach(r => {
-            const code = cleanString(r.barcode || r.keyword || r.itemCode);
-            const gName = pkg.isGroup ? pkg.name : (cleanString(r.brand) || "未分類品牌");
-            const sName = pkg.isGroup ? "全部商品" : pkg.name;
-            if (r.isNameMode && r.name) {
-              updatePayload[`NAME_${toSafeDbKey(r.name)}`] = { 
-                ...r, groupPkgName: gName, subPkgName: sName, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
-              };
-            } else if (code) {
-              updatePayload[toSafeDbKey(code)] = { 
-                ...r, barcode: code, groupPkgName: gName, subPkgName: sName, vendorMoq: vMoq, isDirectBound: true, updatedAt: firebase.database.ServerValue.TIMESTAMP 
-              };
-            }
-          });
-        }
+      // 立即刷新：1. 按鈕顏色 2. 樹狀套用區
+      renderRepPresetPackages();
+      renderReplenishRulesList();
 
-        repRulesRef.update(updatePayload).then(() => {
-          showOperatorToast("已啟用", `【${pkg.name}】已生效`, "success");
-        }).catch(err => alert("操作失敗: " + err.message));
-      }
+      repRulesRef.update(updatePayload).then(() => {
+        calculateReplenishment();
+        hideActionSpinner();
+        showOperatorToast("已啟用", `【${pkg.name}】已生效`, "success");
+      }).catch(err => {
+        hideActionSpinner();
+        alert("操作失敗: " + err.message);
+      });
     }
   }
 
@@ -3222,7 +3267,7 @@
     });
   }
 
-  // 補貨規則計算 (即時渲染、更新統計列「顯示品項 xxx 種，需補貨品項: yyy 種，共 zzz 件」)
+  // 補貨規則計算 (以索引字典速查加速運算，更新統計列)
   function calculateReplenishment() {
     const tbody = document.getElementById("replenishTableBody");
     const filterDisplayEl = document.getElementById("repFilterDisplayMode");
@@ -3233,6 +3278,17 @@
     let totalQtySum = 0;
 
     const ruleKeys = Object.keys(customReplenishRules || {});
+
+    // 建立品名庫存速查字典，避免內部重覆迴圈
+    const nameStockDict = {};
+    const nameWhDict = {};
+    Object.values(fullInventory).forEach(invItem => {
+      const cName = cleanString(invItem.name);
+      if (!cName) return;
+      const stk = (invItem.countedQty !== undefined && invItem.countedQty > 0) ? invItem.countedQty : (invItem.systemQty || 0);
+      nameStockDict[cName] = (nameStockDict[cName] || 0) + stk;
+      if (invItem.warehouse && !nameWhDict[cName]) nameWhDict[cName] = invItem.warehouse;
+    });
 
     ruleKeys.forEach(rk => {
       const rule = customReplenishRules[rk];
@@ -3252,13 +3308,8 @@
       if (rule.isNameMode) {
         displayCode = "[品名模式]";
         displayName = cleanString(rule.name || rule.keyword);
-        Object.values(fullInventory).forEach(invItem => {
-          if (cleanString(invItem.name) === displayName) {
-            const stk = (invItem.countedQty !== undefined && invItem.countedQty > 0) ? invItem.countedQty : (invItem.systemQty || 0);
-            currentStock += stk;
-            if (invItem.warehouse && !itemWarehouse) itemWarehouse = invItem.warehouse;
-          }
-        });
+        currentStock = nameStockDict[displayName] || 0; // O(1) 極速讀取
+        if (!itemWarehouse) itemWarehouse = nameWhDict[displayName] || "";
       } else {
         const targetCode = cleanString(rule.barcode || rule.keyword);
         const safeKey = barcodeToKeyMap[targetCode];
@@ -3397,13 +3448,17 @@
     tbody.innerHTML = htmlRows;
 
     // 條碼延遲分批繪製
-    // 條碼分幀非同步繪製，防止阻礙頁面滾動
-    requestAnimationFrame(() => {
-      displayList.forEach((item, index) => {
+    // 分批非同步繪製條碼（每批 20 筆），避免瞬間凍結瀏覽器主執行緒
+    let renderBarcodeIdx = 0;
+    function renderNextBarcodeChunk() {
+      const chunkSize = 20;
+      const end = Math.min(renderBarcodeIdx + chunkSize, displayList.length);
+      for (let i = renderBarcodeIdx; i < end; i++) {
+        const item = displayList[i];
         if (!item.isNameMode) {
           try {
             const safeCode = cleanString(item.barcode || item.itemCode);
-            const targetSvg = document.getElementById(`web_rep_bc_${index}`);
+            const targetSvg = document.getElementById(`web_rep_bc_${i}`);
             if (targetSvg) {
               JsBarcode(targetSvg, safeCode, {
                 format: "CODE128", width: 1.2, height: 26, displayValue: false, margin: 0
@@ -3411,8 +3466,13 @@
             }
           } catch (e) {}
         }
-      });
-    });
+      }
+      renderBarcodeIdx = end;
+      if (renderBarcodeIdx < displayList.length) {
+        setTimeout(renderNextBarcodeChunk, 16); // 釋放主執行緒，維持 60 FPS 流暢度
+      }
+    }
+    setTimeout(renderNextBarcodeChunk, 20);
   }
 
   // 列印補貨申請單 (修復：即時跟隨選單狀態，支援列印全部442款或僅需補貨品項)
@@ -3681,7 +3741,7 @@
     return matchCount > 0 && (matchCount >= Math.ceil(ruleList.length * 0.5));
   }
 
-  // 套用 / 停用 盤點快選包 (點擊切換 Toggle 模式)
+  // 套用 / 停用 盤點快選包 (0毫秒同步推進套用區，徹底消除5秒延遲)
   function applyPresetPackage(pkgId) {
     const pkg = presetPackages[pkgId];
     if (!pkg) return;
@@ -3689,52 +3749,77 @@
     const currentlyActive = isInvPackageActive(pkg);
 
     if (currentlyActive) {
-      // 若已啟用 -> 點擊執行「停用收回」
-      if (confirm(`確定要停用快選包【${pkg.name}】嗎？`)) {
-        const updatePayload = {};
-        const ruleList = getRulesArrayFromInvPackage(pkg);
-        const targetKeywords = new Set(ruleList.map(r => cleanString(r.keyword).toLowerCase()));
+      if (!confirm(`確定要停用快選包【${pkg.name}】嗎？`)) return;
+      showActionSpinner(`正在收回【${pkg.name}】條件...`);
 
-        Object.entries(filterRules).forEach(([key, r]) => {
-          if (targetKeywords.has(cleanString(r.keyword).toLowerCase())) {
-            updatePayload[key] = null;
+      const updatePayload = {};
+      const ruleList = getRulesArrayFromInvPackage(pkg);
+      const targetKeywords = new Set(ruleList.map(r => cleanString(r.keyword).toLowerCase()));
+
+      Object.entries(filterRules).forEach(([key, r]) => {
+        if (targetKeywords.has(cleanString(r.keyword).toLowerCase())) {
+          updatePayload[key] = null;
+          delete filterRules[key];
+        }
+      });
+
+      // 立即刷新：1. 快選按鈕顏色 2. 樹狀套用區 3. 候選狀態與目標數量
+      renderPresetPackages();
+      renderFilterRules();
+      refreshCandidateButtonsState();
+      recalculateStats();
+
+      rulesRef.update(updatePayload).then(() => {
+        hideActionSpinner();
+        showOperatorToast("已停用", `已收回【${pkg.name}】`, "warning");
+      }).catch(err => {
+        hideActionSpinner();
+        alert("操作失敗: " + err.message);
+      });
+    } else {
+      if (!confirm(`確定要啟用快選包【${pkg.name}】嗎？`)) return;
+      showActionSpinner(`正在套用【${pkg.name}】條件...`);
+
+      const updatePayload = {};
+
+      if (pkg.isGroup && pkg.subPackages) {
+        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+        subs.forEach(subId => {
+          const subPkg = presetPackages[subId];
+          if (subPkg && subPkg.rules) {
+            const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+            rArray.forEach((r, i) => {
+              const uniqueKey = `group_${subId}_${i}_${Date.now()}`;
+              const rData = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name, createdAt: Date.now() };
+              updatePayload[uniqueKey] = rData;
+              filterRules[uniqueKey] = rData;
+            });
           }
         });
-
-        rulesRef.update(updatePayload).then(() => {
-          showOperatorToast("已停用", `已收回【${pkg.name}】`, "warning");
-        }).catch(err => alert("操作失敗: " + err.message));
+      } else {
+        const rArray = Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
+        rArray.forEach((r, i) => {
+          const uniqueKey = `single_${pkgId}_${i}_${Date.now()}`;
+          const rData = { ...r, groupPkgName: "單一快選包", subPkgName: pkg.name, createdAt: Date.now() };
+          updatePayload[uniqueKey] = rData;
+          filterRules[uniqueKey] = rData;
+        });
       }
-    } else {
-      // 若未啟用 -> 點擊執行「啟用套用」
-      if (confirm(`確定要啟用快選包【${pkg.name}】嗎？`)) {
-        const updatePayload = {};
 
-        if (pkg.isGroup && pkg.subPackages) {
-          const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
-          subs.forEach(subId => {
-            const subPkg = presetPackages[subId];
-            if (subPkg && subPkg.rules) {
-              const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
-              rArray.forEach((r, i) => {
-                const uniqueKey = `group_${subId}_${i}_${Date.now()}`;
-                updatePayload[uniqueKey] = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name, createdAt: firebase.database.ServerValue.TIMESTAMP };
-              });
-            }
-          });
-        } else {
-          const rArray = Array.isArray(pkg.rules) ? pkg.rules.filter(Boolean) : Object.values(pkg.rules).filter(Boolean);
-          rArray.forEach((r, i) => {
-            const uniqueKey = `single_${pkgId}_${i}_${Date.now()}`;
-            updatePayload[uniqueKey] = { ...r, groupPkgName: "單一快選包", subPkgName: pkg.name, createdAt: firebase.database.ServerValue.TIMESTAMP };
-          });
-        }
+      // 立即刷新：1. 快選按鈕顏色 2. 樹狀套用區 3. 候選狀態與目標數量
+      renderPresetPackages();
+      renderFilterRules();
+      refreshCandidateButtonsState();
+      recalculateStats();
 
-        rulesRef.update(updatePayload).then(() => {
-          metaRef.update({ mode: "daily" });
-          showOperatorToast("已啟用", `【${pkg.name}】條件已全面生效`, "success");
-        }).catch(err => alert("操作失敗: " + err.message));
-      }
+      rulesRef.update(updatePayload).then(() => {
+        metaRef.update({ mode: "daily" });
+        hideActionSpinner();
+        showOperatorToast("已啟用", `【${pkg.name}】條件已全面生效`, "success");
+      }).catch(err => {
+        hideActionSpinner();
+        alert("操作失敗: " + err.message);
+      });
     }
   }
 
@@ -4157,7 +4242,7 @@
     }
   }
 
-  // 核心盤點寫入 (支援連續套用判斷)
+  // 核心盤點寫入 (0 毫秒極速反饋，解除連續快刷延遲)
   function executeScan(forcedBarcode, forcedQty, forcedNote) {
     const inputEl = document.getElementById("inputBarcode");
     const noteEl = document.getElementById("inputScanNote");
@@ -4178,7 +4263,7 @@
 
     if (inputEl) inputEl.value = "";
     
-    // 若未開啟「連續套用」，則在盤入後清空備註輸入框
+    // 若未開啟「連續套用」，清空備註欄位
     if (!isKeepNoteActive && noteEl) {
       noteEl.value = "";
     }
@@ -4202,9 +4287,29 @@
       return;
     }
 
-    const brandRule = getBrandTotalRule(existingItem);
-    const itemRef = invRef.child(safeKey);
+    // ========== 1. 關鍵優化：0 毫秒極速本地響應 (逼聲 + 震動 + 綠框 + 數字更新) ==========
+    playBeep("success");
+    triggerPhoneHaptic("success");
+    triggerVisualFlash("success");
 
+    // 本地記憶體立即累加，數字秒變
+    existingItem.countedQty = (parseInt(existingItem.countedQty, 10) || 0) + addQty;
+    existingItem.lastStaff = boundUser || "門市人員";
+    if (!existingItem.locBreakdown) existingItem.locBreakdown = {};
+    existingItem.locBreakdown[selectedLoc] = (parseInt(existingItem.locBreakdown[selectedLoc], 10) || 0) + addQty;
+
+    // 重新計算頂部統計看板
+    recalculateStats();
+
+    const brandRule = getBrandTotalRule(existingItem);
+    const brandMsg = brandRule ? ` [品牌總量: ${existingItem.brand || ''}]` : "";
+    const formattedTag = formatScanTag(boundUser, existingItem.itemCode || existingItem.barcode, existingItem.name, addQty);
+    
+    // 立即跳出提示，操作者能無縫刷下一個
+    showOperatorToast(`已盤入 [${selectedLoc}]：${existingItem.name || barcode} (+${addQty})`, `條碼: ${barcode}${brandMsg} | 累計實盤: ${existingItem.countedQty}`, "success");
+
+    // ========== 2. 雲端同步 (丟入背景執行，不卡死前端) ==========
+    const itemRef = invRef.child(safeKey);
     itemRef.transaction(current => {
       if (!current) current = existingItem;
       current.countedQty = (parseInt(current.countedQty, 10) || 0) + addQty;
@@ -4213,25 +4318,15 @@
       if (!current.locBreakdown) current.locBreakdown = {};
       current.locBreakdown[selectedLoc] = (parseInt(current.locBreakdown[selectedLoc], 10) || 0) + addQty;
       return current;
-    }, (error, committed, snapshot) => {
+    }, (error, committed) => {
       if (error) {
-        alert("寫入失敗: " + error.message);
-        return;
+        console.error("背景同步失敗:", error);
       }
-      if (committed && snapshot) {
-        playBeep("success");
-        triggerPhoneHaptic("success");
-
-        const val = snapshot.val() || existingItem;
-        const brandMsg = brandRule ? ` [品牌總量: ${val.brand || ''}]` : "";
-        const formattedTag = formatScanTag(boundUser, val.itemCode || val.barcode, val.name, addQty);
-        
-        showOperatorToast(`已盤入 [${selectedLoc}]：${val.name || barcode} (+${addQty})`, `條碼: ${barcode}${brandMsg} | 累計實盤: ${val.countedQty}`, "success");
-        
+      if (committed) {
         logsRef.push({
           itemKey: safeKey,
           barcode: barcode,
-          brand: val.brand || "",
+          brand: existingItem.brand || "",
           isBrandTotal: !!brandRule,
           staff: boundUser || "門市人員",
           location: selectedLoc,
@@ -4577,7 +4672,7 @@
     }
   }
 
-  // 確認計算機盤入 / 完成修改
+  // 確認計算機盤入 / 完成修改 (盤入後自動重新聚焦條碼輸入框)
   function confirmCalculatorScan() {
     const resultEl = document.getElementById("calcResultDisplay");
     let finalQty = parseFloat(resultEl.innerText) || 1;
@@ -4600,6 +4695,15 @@
         executeScan(targetCode, finalQty, noteText);
       }
     }
+
+    // 等待彈窗退場動畫結束後，自動將游標鎖回條碼框，無需手動再點
+    setTimeout(() => {
+      const barcodeInput = document.getElementById("inputBarcode");
+      if (barcodeInput) {
+        barcodeInput.focus();
+        barcodeInput.select();
+      }
+    }, 80);
   }
   // 執行紀錄編輯 (重新計算差額並更新時間戳記)
   function executeEditLog(log, newQty, newNote) {
@@ -5664,8 +5768,6 @@
         if (!name || name.trim() === "") return;
 
         const brand = getRowValue(row, ["品牌", "廠牌"]);
-        const model = getRowValue(row, ["顏色型號", "型號"]);
-        const colorName = getRowValue(row, ["顏色名稱", "顏色代碼", "顏色"]);
         const warehouse = getRowValue(row, ["分倉", "倉庫"]);
         const systemQty = parseFloat(getRowValue(row, ["庫存量", "現有庫存", "數量"]) || 0);
         const safetyStock = parseFloat(getRowValue(row, ["安全存量", "安全水位"]) || 0);
@@ -5689,8 +5791,6 @@
             itemCode: itemCode,
             name: name,
             brand: brand || "",
-            model: model || "",
-            colorName: colorName || "",
             warehouse: warehouse || "",
             systemQty: systemQty,
             safetyStock: safetyStock,
@@ -5803,9 +5903,6 @@
         "貨號": item.itemCode,
         "中文品名": item.name,
         "品牌": item.brand,
-        "型號": item.model,
-        "顏色": item.colorName,
-        "尺寸": item.size,
         "分倉": item.warehouse,
         "帳面庫存量": sys,
         "實盤數量": cnt,
@@ -5959,8 +6056,8 @@
       const svgId = `frame_bc_${index}`;
 
       const brandStr = item.brand ? `[${item.brand}] ` : '';
-      const nameStr = item.name || item.model || '-';
-      const colorStr = item.colorName ? ` (${item.colorName})` : '';
+      const nameStr = item.name || '-';
+      const colorStr = '';
 
       let orderSubHtml = "";
       if (item.reservedDetails && item.reservedDetails.length > 0) {
