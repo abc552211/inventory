@@ -632,7 +632,6 @@
 
     <div class="d-flex gap-2 mb-2 align-items-center">
       <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.8rem;" onclick="goToDashboard()">⬅️ 返回</button>
-      <span id="brandTotalModeBadge" class="badge bg-warning text-dark px-2 py-1" style="display: none; font-size: 0.78rem;">品牌總量盤點模式已啟用</span>
       <button class="btn btn-outline-info btn-sm py-0 px-2 ms-auto fw-bold" style="font-size: 0.8rem;" onclick="showUncountedModal()">未完成清單</button>
     </div>
 
@@ -1122,20 +1121,45 @@
   </div>
 </div>
 
-<!-- 彈出視窗 5: 刪除確認專屬彈出視窗 -->
+<!-- 彈出視窗 5: 刪除確認專屬彈出視窗 (全條碼與全品名清晰分層排版) -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered mx-auto p-3" style="max-width: 320px; width: 90%;">
-    <div class="modal-content shadow-lg border-0" style="border-radius: 12px; overflow: hidden;">
+  <div class="modal-dialog modal-dialog-centered mx-auto p-3" style="max-width: 440px; width: 95%;">
+    <div class="modal-content shadow-lg border-0" style="border-radius: 14px; overflow: hidden;">
       <div class="modal-header bg-danger text-white py-2 px-3">
-        <h6 class="modal-title fw-bold mb-0" style="font-size: 0.95rem;">⚠️ 撤銷盤點紀錄確認</h6>
+        <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-1" style="font-size: 0.95rem;">
+          <span>⚠️</span> 撤銷盤點紀錄確認
+        </h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-3 text-center bg-white">
-        <p class="mb-1 text-secondary small">您確定要刪除這筆刷入紀錄嗎？</p>
-        <div class="fw-bold text-dark my-2" id="deleteModalItemName" style="font-size: 0.92rem; word-break: break-all;">-</div>
-        <div class="text-danger small fw-bold">系統將自動扣回該商品數量 (-1件)</div>
+      <div class="modal-body p-3 bg-light">
+        <div class="text-center text-muted small mb-2">請核對以下商品條碼與品名，確認是否刪除並扣回？</div>
+
+        <!-- 條碼卡片區 (全條碼展示) -->
+        <div class="bg-white border rounded p-2 mb-2 text-center shadow-sm">
+          <div class="text-secondary small fw-bold mb-1" style="font-size: 0.75rem;">條碼編號 (Barcode)</div>
+          <div class="font-monospace fw-bold text-primary fs-5 text-break user-select-all" id="deleteModalBarcode" style="letter-spacing: 0.5px; line-height: 1.2;">-</div>
+        </div>
+
+        <!-- 品名卡片區 (全品名完整展示) -->
+        <div class="bg-white border rounded p-2 mb-2 shadow-sm text-start">
+          <div class="text-secondary small fw-bold mb-1" style="font-size: 0.75rem;">完整商品名稱</div>
+          <div class="fw-bold text-dark text-break" id="deleteModalItemName" style="font-size: 0.92rem; line-height: 1.4;">-</div>
+        </div>
+
+        <!-- 扣回分區與數量提示 (含刷入時間與備註顯示) -->
+        <div class="alert alert-danger py-2 px-3 mb-0 rounded-3 border-danger border-opacity-25">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="small fw-bold text-danger">⚠️ 扣除實盤數量：</span>
+            <span class="fw-bold text-danger fs-6" id="deleteModalQtyInfo">-</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-1 pt-1 border-top border-danger border-opacity-25">
+            <span class="small text-danger fw-bold">刷入時間：</span>
+            <span class="small font-monospace fw-bold text-danger" id="deleteModalTimeInfo">-</span>
+          </div>
+          <div id="deleteModalNoteInfo" class="small text-danger fw-bold mt-1 pt-1 border-top border-danger border-opacity-25 text-end" style="display: none; font-size: 0.8rem;"></div>
+        </div>
       </div>
-      <div class="modal-footer justify-content-center py-2 bg-light border-0 gap-2">
+      <div class="modal-footer justify-content-end py-2 bg-white border-top gap-2">
         <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">取消</button>
         <button type="button" class="btn btn-danger btn-sm px-3 fw-bold shadow-sm" id="btnConfirmDeleteAction">確定刪除扣回</button>
       </div>
@@ -1710,6 +1734,7 @@
       }
 
       recalculateStats();
+      renderLiveFeeds(); // 關鍵：庫存資料庫到位後，立刻強制重刷動態列表補上品名！
       if (document.getElementById("viewReplenish").classList.contains("active")) {
         calculateReplenishment();
       }
@@ -1891,8 +1916,10 @@
 
       if (globalContainer) {
         globalContainer.innerHTML = pagedGlobalLogs.map(log => {
-          const invItem = fullInventory[log.itemKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
-          const pName = invItem.name || log.displayTag || "-";
+          const safeKey = log.itemKey || barcodeToKeyMap[cleanString(log.barcode)] || toSafeDbKey(log.barcode);
+          const matchedItem = fullInventory[safeKey] || {};
+          const realFullName = matchedItem.name || "";
+          const pName = realFullName || "(讀取中...)";
           const tStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "";
           const loc = log.location || "架上";
           const staff = log.staff || "門市人員";
@@ -1901,15 +1928,17 @@
           return `
             <div class="feed-item bg-white px-2 py-1 border-bottom">
               <div class="d-flex justify-content-between align-items-center">
-                <div class="text-truncate me-2" style="font-size: 0.82rem;">
-                  <span class="badge bg-secondary py-0 px-1 me-1">${loc}</span>
-                  <strong class="text-primary">${staff}</strong>
-                  <span class="font-monospace text-dark ms-1">${log.barcode}</span>
-                  <span class="fw-bold text-success ms-1">+${log.qty || 1}</span>
-                  ${noteStr}
-                  <div class="text-muted text-truncate" style="font-size: 0.75rem;">${pName}</div>
+                <div class="me-2" style="font-size: 0.82rem; min-width: 0; flex: 1 1 auto;">
+                  <div>
+                    <span class="badge bg-secondary py-0 px-1 me-1">${loc}</span>
+                    <strong class="text-primary">${staff}</strong>
+                    <span class="font-monospace text-dark ms-1">${log.barcode}</span>
+                    <span class="fw-bold text-success ms-1">+${log.qty || 1}</span>
+                    ${noteStr}
+                  </div>
+                  <div class="text-muted" style="font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${pName}</div>
                 </div>
-                <div class="text-muted flex-shrink-0" style="font-size: 0.72rem;">${tStr}</div>
+                <div class="text-muted flex-shrink-0 ms-2" style="font-size: 0.72rem;">${tStr}</div>
               </div>
             </div>
           `;
@@ -1948,28 +1977,32 @@
 
     if (myContainer) {
       myContainer.innerHTML = pagedMyLogs.map(log => {
-        const invItem = fullInventory[log.itemKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
-        const pName = invItem.name || log.displayTag || "-";
+        const safeKey = log.itemKey || barcodeToKeyMap[cleanString(log.barcode)] || toSafeDbKey(log.barcode);
+        const matchedItem = fullInventory[safeKey] || {};
+        const realFullName = matchedItem.name || "";
+        const pName = realFullName || "(讀取中...)";
         const tStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "";
         const loc = log.location || "架上";
         const qty = log.qty || 1;
         const noteStr = log.note ? `<span class="text-secondary ms-1">(${log.note})</span>` : "";
-        const cleanNameSafe = (pName || "").replace(/'/g, "\\'");
+        const cleanNameSafe = (realFullName || "").replace(/'/g, "\\'");
 
         return `
           <div class="feed-item bg-white px-2 py-1 border-bottom">
             <div class="d-flex justify-content-between align-items-center">
-              <div class="text-truncate me-2" style="font-size: 0.82rem;">
-                <span class="badge bg-success py-0 px-1 me-1">${loc}</span>
-                <span class="font-monospace text-dark fw-bold">${log.barcode}</span>
-                <span class="fw-bold text-success ms-1">+${qty}</span>
-                ${noteStr}
-                <div class="text-muted text-truncate" style="font-size: 0.75rem;">${pName}</div>
+              <div class="me-2" style="font-size: 0.82rem; min-width: 0; flex: 1 1 auto;">
+                <div>
+                  <span class="badge bg-success py-0 px-1 me-1">${loc}</span>
+                  <span class="font-monospace text-dark fw-bold">${log.barcode}</span>
+                  <span class="fw-bold text-success ms-1">+${qty}</span>
+                  ${noteStr}
+                </div>
+                <div class="text-muted" style="font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${pName}</div>
               </div>
-              <div class="d-flex align-items-center gap-1 flex-shrink-0">
+              <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">
                 <span class="text-muted small" style="font-size: 0.72rem;">${tStr}</span>
                 <button class="btn btn-outline-primary btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="triggerEditLog('${log.logId}', '${log.itemKey || ''}', '${log.barcode || ''}', ${qty}, '${loc}', '${(log.note || '').replace(/'/g, "\\'")}')">編輯</button>
-                <button class="btn btn-outline-danger btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="openConfirmDeleteModal('${log.itemKey || ''}', '${log.barcode || ''}', '${log.logId}', ${qty}, '${cleanNameSafe}')">刪除</button>
+                <button class="btn btn-outline-danger btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="openConfirmDeleteModal('${log.itemKey || ''}', '${log.barcode || ''}', '${log.logId}', ${qty}, '${cleanNameSafe}', '${loc}', '${(log.note || '').replace(/'/g, "\\'")}', '${tStr}')">刪除</button>
               </div>
             </div>
           </div>
@@ -2002,9 +2035,37 @@
 
   let pendingDeleteData = null;
 
-  function openConfirmDeleteModal(itemKey, barcode, logId, qty, itemName) {
-    pendingDeleteData = { itemKey, barcode, logId, qty, itemName };
-    document.getElementById("deleteModalItemName").innerText = `${itemName} (${barcode})`;
+  function openConfirmDeleteModal(itemKey, barcode, logId, qty, itemName, location = "架上", note = "", timeStr = "-") {
+    // 嚴格回查完整庫存資料庫，排除 formatScanTag 簡寫標籤，保證顯示真實完整品名
+    const safeKey = itemKey || barcodeToKeyMap[cleanString(barcode)] || toSafeDbKey(barcode);
+    const matchedItem = fullInventory[safeKey] || {};
+    const realFullName = matchedItem.name || itemName || "-";
+
+    pendingDeleteData = { itemKey: safeKey, barcode, logId, qty, itemName: realFullName, location };
+
+    // 完整條碼與完整品名獨立節點賦值
+    const bcEl = document.getElementById("deleteModalBarcode");
+    const nameEl = document.getElementById("deleteModalItemName");
+    const qtyEl = document.getElementById("deleteModalQtyInfo");
+    const timeEl = document.getElementById("deleteModalTimeInfo");
+    const noteEl = document.getElementById("deleteModalNoteInfo");
+
+    if (bcEl) bcEl.innerText = barcode || "-";
+    if (nameEl) nameEl.innerText = realFullName;
+    if (qtyEl) qtyEl.innerText = `[${location}] -${qty} 件`;
+    if (timeEl) timeEl.innerText = timeStr || "-";
+
+    // 若有分區備註，清楚顯示於分區數量下方
+    if (noteEl) {
+      const cleanNote = cleanString(note);
+      if (cleanNote) {
+        noteEl.style.display = "block";
+        noteEl.innerText = `備註：${cleanNote}`;
+      } else {
+        noteEl.style.display = "none";
+        noteEl.innerText = "";
+      }
+    }
     
     const modalEl = document.getElementById('confirmDeleteModal');
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -2022,6 +2083,8 @@
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
 
+        // 啟動遮罩防護避免重複連點
+        showActionSpinner("正在扣回庫存並刪除紀錄...");
         undoSingleLog(logId, itemKey, barcode, qty, itemName);
         pendingDeleteData = null;
       });
@@ -3863,14 +3926,8 @@
   // ================= 8. 盤點條件與快選包管理 =================
   function formatScanTag(staff, code, name, qty) {
     const staffLast = (staff && staff.length > 0) ? staff.slice(-1) : "員";
-    const cleanCode = cleanString(code);
-    let codePart = cleanCode;
-    if (cleanCode.length > 6) {
-      codePart = cleanCode.substring(0, 3) + "..." + cleanCode.substring(cleanCode.length - 3);
-    }
-    const cleanName = cleanString(name);
-    const namePart = cleanName.length > 3 ? cleanName.substring(0, 3) + "..." : cleanName;
-    return `${staffLast}-${codePart}-${namePart}-${qty}件`;
+    const namePart = cleanString(name);
+    return `${staffLast}--${namePart}`;
   }
 
   function showOperatorToast(title, detail, type = "success") {
@@ -4430,8 +4487,7 @@
       container.appendChild(groupDiv);
     });
 
-    const badgeEl = document.getElementById("brandTotalModeBadge");
-    if (badgeEl) badgeEl.style.display = (hasBrandTotalMode && (metaData.mode === "daily")) ? "inline-block" : "none";
+    // 品牌總量提示標籤已停用顯示
   }
 
   function openCreateInvGroupModal() {
@@ -4642,7 +4698,9 @@
     // 立即跳出提示，操作者能無縫刷下一個
     showOperatorToast(`已盤入 [${selectedLoc}]：${existingItem.name || barcode} (+${addQty})`, `條碼: ${barcode}${brandMsg} | 累計實盤: ${existingItem.countedQty}`, "success");
 
-    // ========== 2. 雲端同步 (丟入背景執行，不卡死前端) ==========
+    // ========== 2. 雲端同步 (支援連刷排隊佇列顯示，不漏單且安心) ==========
+    updateSyncQueueStatus(1); // 佇列排隊 +1
+
     const itemRef = invRef.child(safeKey);
     itemRef.transaction(current => {
       if (!current) current = existingItem;
@@ -4655,6 +4713,7 @@
     }, (error, committed) => {
       if (error) {
         console.error("背景同步失敗:", error);
+        updateSyncQueueStatus(-1);
       }
       if (committed) {
         logsRef.push({
@@ -4668,9 +4727,29 @@
           note: noteText,
           displayTag: formattedTag,
           timestamp: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+          updateSyncQueueStatus(-1); // 該筆寫入成功，佇列 -1
+        }).catch(() => {
+          updateSyncQueueStatus(-1);
         });
       }
     });
+  }
+
+  // 背景佇列計數器與介面更新邏輯
+  let pendingSyncCount = 0;
+  function updateSyncQueueStatus(delta) {
+    pendingSyncCount = Math.max(0, pendingSyncCount + delta);
+    const mBadge = document.getElementById("myScanCountBadge");
+    if (!mBadge) return;
+
+    if (pendingSyncCount > 0) {
+      mBadge.className = "badge bg-warning text-dark small fw-bold";
+      mBadge.innerHTML = `⏳ 寫入佇列中 (${pendingSyncCount} 筆)...`;
+    } else {
+      mBadge.className = "badge bg-light text-success small";
+      renderLiveFeeds(); // 佇列清空時立即重整筆數與最新動態
+    }
   }
 
   // 精準單筆扣回 (只扣該分區與該筆數量，不影響其他盤點紀錄)
@@ -4689,8 +4768,15 @@
     }, (error, committed) => {
       if (committed) {
         logsRef.child(logId).remove().then(() => {
+          hideActionSpinner();
           showOperatorToast("已扣回此筆紀錄", `[${location}] 條碼【${barcode}】已扣回 -${qty} 件`, "warning");
+        }).catch(err => {
+          hideActionSpinner();
+          alert("刪除失敗: " + err.message);
         });
+      } else {
+        hideActionSpinner();
+        if (error) alert("扣回庫存失敗: " + error.message);
       }
     });
   }
@@ -5280,7 +5366,7 @@
   }
 
   // ================= 12. 列印報表與鏡框年份清單 =================
-  function openPrintReportModal() {
+  async function openPrintReportModal() {
     const isDaily = (metaData.mode || "full") === "daily";
     document.getElementById("rptModeBadge").innerText = isDaily ? "日常模式" : "全盤模式";
     document.getElementById("rptTimeDisplay").innerText = metaData.inventoryTime || "未記錄";
@@ -5298,11 +5384,13 @@
 
     document.getElementById("rptStaffDisplay").innerText = staffListStr;
     document.getElementById("rptPrintDate").innerText = new Date().toLocaleString();
-    renderPrintReportTable();
+
+    // 先非同步抓取完整盤點動態，再進行表格繪製，確保備註（如：獨立）100% 顯示
+    await renderPrintReportTable();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('printReportModal')).show();
   }
 
-  function renderPrintReportTable() {
+  async function renderPrintReportTable() {
     const tbody = document.getElementById("printReportTableBody");
     tbody.innerHTML = "";
 
@@ -5320,37 +5408,42 @@
       document.getElementById("rptWarehouseName").innerText = items[0].warehouse;
     }
 
-    // 抓取全員詳細分區、人員與備註明細 (支援同區不同時間多筆備註全列出，並建立雙向索引)
+    // 抓取全員詳細分區、人員與備註明細 (使用 cachedRawLogsData 或非同步讀取，保證資料就緒)
     const itemLocStaffSummary = {};
     const brandLocStaffSummary = {};
 
-    logsRef.once("value", snap => {
-      const logs = snap.val() || {};
-      Object.values(logs).forEach(l => {
-        const k = l.itemKey || barcodeToKeyMap[cleanString(l.barcode)];
-        const staffLast = (cleanString(l.staff) || "員").slice(-1);
-        const loc = l.location || "架上";
-        const note = cleanString(l.note);
-        const entry = {
-          loc: loc,
-          staff: staffLast,
-          qty: l.qty || 1,
-          note: note,
-          time: l.timestamp || 0
-        };
+    let logs = cachedRawLogsData;
+    if (!logs || Object.keys(logs).length === 0) {
+      const snap = await logsRef.once("value");
+      logs = snap.val() || {};
+    }
 
-        if (k) {
-          if (!itemLocStaffSummary[k]) itemLocStaffSummary[k] = [];
-          itemLocStaffSummary[k].push(entry);
-        }
+    Object.values(logs).forEach(l => {
+      const bCode = cleanString(l.barcode);
+      const k = l.itemKey || barcodeToKeyMap[bCode] || toSafeDbKey(bCode);
+      const staffLast = (cleanString(l.staff) || "員").slice(-1);
+      const loc = l.location || "架上";
+      const note = cleanString(l.note);
+      const entry = {
+        loc: loc,
+        staff: staffLast,
+        qty: l.qty || 1,
+        note: note,
+        time: l.timestamp || 0
+      };
 
-        // 建立品牌總數專屬分區備註池
-        const brandKey = cleanString(l.brand || (fullInventory[k] ? fullInventory[k].brand : ""));
-        if (brandKey) {
-          if (!brandLocStaffSummary[brandKey]) brandLocStaffSummary[brandKey] = [];
-          brandLocStaffSummary[brandKey].push(entry);
-        }
-      });
+      if (k) {
+        if (!itemLocStaffSummary[k]) itemLocStaffSummary[k] = [];
+        itemLocStaffSummary[k].push(entry);
+      }
+
+      // 建立品牌總數專屬分區備註池 (加強品牌大小寫與字串容錯)
+      const rawBrand = l.brand || (fullInventory[k] ? fullInventory[k].brand : "");
+      const brandKey = cleanString(rawBrand).toLowerCase();
+      if (brandKey) {
+        if (!brandLocStaffSummary[brandKey]) brandLocStaffSummary[brandKey] = [];
+        brandLocStaffSummary[brandKey].push(entry);
+      }
     });
 
     let displayList = [];
@@ -5477,14 +5570,17 @@
       let targetEntries = [];
 
       if (item.isBrandGroup) {
-        // 品牌總數盤點：彙整該品牌所有項目的刷入分區與備註
-        if (item.brandName && brandLocStaffSummary[item.brandName]) {
-          targetEntries = targetEntries.concat(brandLocStaffSummary[item.brandName]);
+        // 品牌總數盤點：精確比對品牌關鍵字並彙整分區與備註
+        const bNameLower = cleanString(item.brandName).toLowerCase();
+        if (bNameLower && brandLocStaffSummary[bNameLower]) {
+          targetEntries = targetEntries.concat(brandLocStaffSummary[bNameLower]);
         }
-        if (targetEntries.length === 0 && item.itemKeys) {
+        if (item.itemKeys && item.itemKeys.length > 0) {
           item.itemKeys.forEach(ik => {
             const arr = itemLocStaffSummary[ik] || [];
-            targetEntries = targetEntries.concat(arr);
+            arr.forEach(e => {
+              if (!targetEntries.includes(e)) targetEntries.push(e);
+            });
           });
         }
       } else {
@@ -5672,11 +5768,12 @@
         }
       });
 
-      // 檢查品牌總數是否有差額 (只要實盤 != 帳面就列出)
+      // 檢查品牌總數是否有差額 (補上 isBrandGroup: true 與條碼標記)
       Object.values(brandGroupMap).forEach(g => {
         if (g.countedQty !== g.systemQty) {
           const diff = g.countedQty - g.systemQty;
           incompleteList.push({
+            isBrandGroup: true, // 關鍵：補回品牌總數標記，排序才能百分之百識別
             barcode: g.barcode,
             itemCode: g.itemCode,
             name: g.name,
@@ -5710,8 +5807,16 @@
     if (incompleteList.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" class="text-center text-success py-4 fw-bold fs-6">目前所有盤點目標皆已帳實相符，全數完成！</td></tr>`;
     } else {
-      // 依未盤/盤少優先排序
-      incompleteList.sort((a, b) => a.diff - b.diff);
+      // 排序規則：總數模式 (isBrandGroup 或 isBrandTotalMode) 強制置頂最上方，其餘單品依差額排序
+      // 排序規則：所有總數模式（isBrandGroup 或條碼為 BRAND- 開頭）一律強制置頂最上方
+      incompleteList.sort((a, b) => {
+        const aIsBrand = (a.isBrandGroup || String(a.barcode).startsWith("BRAND-")) ? 1 : 0;
+        const bIsBrand = (b.isBrandGroup || String(b.barcode).startsWith("BRAND-")) ? 1 : 0;
+        if (aIsBrand !== bIsBrand) {
+          return bIsBrand - aIsBrand; // 1 排在 0 前面，所有 BRAND 總數保證全部集中在最頂部
+        }
+        return a.diff - b.diff; // 同類別時依盤差排序
+      });
 
       incompleteList.forEach(item => {
         const tr = document.createElement("tr");
