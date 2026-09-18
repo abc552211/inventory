@@ -5255,28 +5255,41 @@
       return;
     }
 
-    document.getElementById("scannerContainer").style.display = "block";
-    document.getElementById("btnToggleCam").innerText = "⏹️ 關閉相機";
-    document.getElementById("btnToggleCam").className = "btn btn-outline-danger btn-sm py-1 px-2 fw-bold";
+    const btnCam = document.getElementById("btnToggleCam");
+    if (btnCam) {
+      btnCam.innerText = "⏳ 啟動中...";
+      btnCam.disabled = true;
+    }
 
-    html5QrCode = new Html5Qrcode("reader", {
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ],
-      experimentalFeatures: {
-        useBarCodeDetectorIfSupported: true
-      }
-    });
+    // 每次啟動前若有殘留實例，徹底清理乾淨避免 iOS 死鎖
+    if (html5QrCode) {
+      try { html5QrCode.clear(); } catch (e) {}
+      html5QrCode = null;
+    }
+
+    try {
+      html5QrCode = new Html5Qrcode("reader", {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ],
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
+      });
+    } catch (err) {
+      console.error("相機實例建立失敗:", err);
+      resetScannerUI();
+      return;
+    }
 
     // 高畫質動態取樣視窗
     const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
-      const minDim = Math.min(viewfinderWidth, viewfinderHeight);
       const boxWidth = Math.min(viewfinderWidth * 0.9, 320);
       const boxHeight = Math.min(viewfinderHeight * 0.8, 140);
       return { width: Math.floor(boxWidth), height: Math.floor(boxHeight) };
@@ -5329,6 +5342,15 @@
       },
       () => {}
     ).then(() => {
+      // 成功獲得授權並啟動後，才切換狀態與 UI
+      isScanning = true;
+      document.getElementById("scannerContainer").style.display = "block";
+      if (btnCam) {
+        btnCam.innerText = "⏹️ 關閉相機";
+        btnCam.className = "btn btn-outline-danger btn-sm py-1 px-2 fw-bold";
+        btnCam.disabled = false;
+      }
+
       resetCamIdleTimer();
 
       const zoomBtn = document.getElementById("btnToggleZoom");
@@ -5350,10 +5372,35 @@
         document.getElementById("btnToggleTorch").style.display = "inline-block";
       }
     }).catch(err => {
-      alert("相機啟動失敗: " + err);
-      stopScanner();
+      // 點擊「不允許」或鏡頭被佔用時的完整防呆復原
+      console.warn("相機授權拒絕或啟動失敗:", err);
+      resetScannerUI();
+
+      const errStr = String(err);
+      if (errStr.includes("NotAllowedError") || errStr.includes("Permission") || errStr.includes("denied")) {
+        showOperatorToast("未取得相機權限", "您已點選不允許使用相機。若需使用，請至 iPhone「設定 > Safari > 相機」開啟權限後重新整理。", "warning");
+      } else {
+        showOperatorToast("相機無法啟動", "相機開啟失敗，請確認鏡頭是否被其他 App 佔用。", "warning");
+      }
     });
-    isScanning = true;
+  }
+
+  // 專門用於異常或拒絕時復原 UI 的輔助函式
+  function resetScannerUI() {
+    isScanning = false;
+    if (html5QrCode) {
+      try { html5QrCode.clear(); } catch (e) {}
+      html5QrCode = null;
+    }
+    const container = document.getElementById("scannerContainer");
+    if (container) container.style.display = "none";
+
+    const btnCam = document.getElementById("btnToggleCam");
+    if (btnCam) {
+      btnCam.innerText = "📷 開啟相機";
+      btnCam.className = "btn btn-success btn-sm py-1 px-2 fw-bold";
+      btnCam.disabled = false;
+    }
   }
 
   function stopScanner() {
