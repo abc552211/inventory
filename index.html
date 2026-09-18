@@ -1880,6 +1880,11 @@
       cachedRawLogsData = logsData || {};
     }
 
+    // 關鍵：動態資料抵達畫面時才核銷佇列，保證「沒看到動態就一直顯示佇列提醒」
+    if (typeof checkSyncQueueResolved === 'function') {
+      checkSyncQueueResolved(cachedRawLogsData);
+    }
+
     const globalContainer = document.getElementById("globalFeedContainer");
     const myContainer = document.getElementById("myFeedContainer");
 
@@ -4698,8 +4703,9 @@
     // 立即跳出提示，操作者能無縫刷下一個
     showOperatorToast(`已盤入 [${selectedLoc}]：${existingItem.name || barcode} (+${addQty})`, `條碼: ${barcode}${brandMsg} | 累計實盤: ${existingItem.countedQty}`, "success");
 
-    // ========== 2. 雲端同步 (支援連刷排隊佇列顯示，不漏單且安心) ==========
-    updateSyncQueueStatus(1); // 佇列排隊 +1
+    // ========== 2. 雲端同步 (改用實時 ID 追蹤，動態真正畫出來前絕不關閉) ==========
+    const syncTrackingId = `sync_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    addSyncQueue(syncTrackingId);
 
     const itemRef = invRef.child(safeKey);
     itemRef.transaction(current => {
@@ -4713,10 +4719,12 @@
     }, (error, committed) => {
       if (error) {
         console.error("背景同步失敗:", error);
-        updateSyncQueueStatus(-1);
+        pendingSyncSet.delete(syncTrackingId);
+        refreshQueueBadge();
       }
       if (committed) {
         logsRef.push({
+          clientSyncId: syncTrackingId, // 綁定佇列追蹤 ID
           itemKey: safeKey,
           barcode: barcode,
           brand: existingItem.brand || "",
@@ -4727,28 +4735,42 @@
           note: noteText,
           displayTag: formattedTag,
           timestamp: firebase.database.ServerValue.TIMESTAMP
-        }).then(() => {
-          updateSyncQueueStatus(-1); // 該筆寫入成功，佇列 -1
         }).catch(() => {
-          updateSyncQueueStatus(-1);
+          pendingSyncSet.delete(syncTrackingId);
+          refreshQueueBadge();
         });
       }
     });
   }
 
-  // 背景佇列計數器與介面更新邏輯
-  let pendingSyncCount = 0;
-  function updateSyncQueueStatus(delta) {
-    pendingSyncCount = Math.max(0, pendingSyncCount + delta);
+  // 背景佇列計數器：追蹤尚未在動態畫面上出現的條碼標籤
+  const pendingSyncSet = new Set();
+
+  function addSyncQueue(tagId) {
+    pendingSyncSet.add(tagId);
+    refreshQueueBadge();
+  }
+
+  function checkSyncQueueResolved(existingLogs) {
+    if (pendingSyncSet.size === 0) return;
+    // 檢查已在動態資料中的項目，只要出現在畫面上就移出佇列
+    const presentKeys = new Set(Object.values(existingLogs).map(l => l.clientSyncId || `${l.barcode}_${l.timestamp}`));
+    pendingSyncSet.forEach(tagId => {
+      if (presentKeys.has(tagId)) {
+        pendingSyncSet.delete(tagId);
+      }
+    });
+    refreshQueueBadge();
+  }
+
+  function refreshQueueBadge() {
     const mBadge = document.getElementById("myScanCountBadge");
     if (!mBadge) return;
-
-    if (pendingSyncCount > 0) {
+    if (pendingSyncSet.size > 0) {
       mBadge.className = "badge bg-warning text-dark small fw-bold";
-      mBadge.innerHTML = `⏳ 寫入佇列中 (${pendingSyncCount} 筆)...`;
+      mBadge.innerHTML = `⏳ 寫入佇列中 (${pendingSyncSet.size} 筆)...`;
     } else {
       mBadge.className = "badge bg-light text-success small";
-      renderLiveFeeds(); // 佇列清空時立即重整筆數與最新動態
     }
   }
 
