@@ -662,13 +662,16 @@
           <div id="reader" class="scan-area"></div>
         </div>
 
-        <!-- 分區備註列 (含連續套用切換開關) -->
+        <!-- 分區備註列 (含連續套用滑動開關) -->
         <div class="input-group input-group-sm mb-2 shadow-sm">
           <span class="input-group-text bg-white text-secondary fw-bold" style="font-size: 0.8rem;">分區備註</span>
           <input type="text" id="inputScanNote" class="form-control" placeholder="例: 抽屜最下層 / 第2格 (選填)">
-          <button class="btn btn-outline-secondary fw-bold px-2" type="button" id="btnKeepNote" onclick="toggleKeepNote()" title="開啟後盤入不會自動清空備註">
-            連續套用: 關
-          </button>
+          <span class="input-group-text bg-white border-start-0 py-0 px-2 d-flex align-items-center">
+            <div class="form-check form-switch mb-0 d-flex align-items-center" style="min-height: auto; padding-left: 2.2em;">
+              <input class="form-check-input mt-0" type="checkbox" role="switch" id="switchKeepNote" onchange="toggleKeepNote(this.checked)" style="cursor: pointer;">
+              <label class="form-check-label small fw-bold text-secondary ms-1 text-nowrap" for="switchKeepNote" id="lblKeepNote" style="font-size: 0.78rem; cursor: pointer;">連續套用</label>
+            </div>
+          </span>
         </div>
 
         <!-- 醒目條碼輸入欄 -->
@@ -700,8 +703,15 @@
         <span class="small fw-bold">我的即時盤點紀錄 (單筆時間軌跡)</span>
         <span class="badge bg-light text-success small" id="myScanCountBadge">0 筆</span>
       </div>
-      <div class="card-body p-0 feed-container" id="myFeedContainer" style="height: 32vh; max-height: 35vh; overflow-y: auto;">
+      <div class="card-body p-0 feed-container" id="myFeedContainer" style="height: 30vh; max-height: 35vh; overflow-y: auto;">
         <div class="text-center text-muted small py-3">您尚未掃描任何商品</div>
+      </div>
+      <div class="card-footer bg-light py-1 px-2 d-flex justify-content-between align-items-center" id="myFeedPaginationBar" style="font-size: 0.78rem;">
+        <span class="text-muted" id="myFeedPageInfo">第 1 / 1 頁</span>
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-success py-0 px-2 fw-bold" id="btnMyPrevPage" onclick="changeMyFeedPage(-1)" disabled>◀ 上一頁</button>
+          <button type="button" class="btn btn-outline-success py-0 px-2 fw-bold" id="btnMyNextPage" onclick="changeMyFeedPage(1)" disabled>下一頁 ▶</button>
+        </div>
       </div>
     </div>
 
@@ -710,8 +720,15 @@
         <span class="small fw-bold">全員即時盤點動態 (單筆時間軌跡)</span>
         <span class="badge bg-light text-primary small" id="globalScanCountBadge">0 筆</span>
       </div>
-      <div class="card-body p-0 feed-container" id="globalFeedContainer" style="height: 32vh; max-height: 35vh; overflow-y: auto;">
+      <div class="card-body p-0 feed-container" id="globalFeedContainer" style="height: 30vh; max-height: 35vh; overflow-y: auto;">
         <div class="text-center text-muted small py-2">尚無全員盤點紀錄</div>
+      </div>
+      <div class="card-footer bg-light py-1 px-2 d-flex justify-content-between align-items-center" id="globalFeedPaginationBar" style="font-size: 0.78rem;">
+        <span class="text-muted" id="globalFeedPageInfo">第 1 / 1 頁</span>
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-primary py-0 px-2 fw-bold" id="btnGlobalPrevPage" onclick="changeGlobalFeedPage(-1)" disabled>◀ 上一頁</button>
+          <button type="button" class="btn btn-outline-primary py-0 px-2 fw-bold" id="btnGlobalNextPage" onclick="changeGlobalFeedPage(1)" disabled>下一頁 ▶</button>
+        </div>
       </div>
     </div>
     </div>
@@ -1827,92 +1844,152 @@
     }
   }
 
-  // ================= 4. 即時動態 (依分區收納與標註位置) =================
-  // 即時動態渲染 (顯示真實總筆數，僅渲染最新 50 筆防卡頓)
+  // ================= 4. 即時動態 (支援獨立 50 筆分頁與刪除提示) =================
+  let cachedRawLogsData = {};
+  let myFeedCurrentPage = 1;
+  let globalFeedCurrentPage = 1;
+  const FEED_PAGE_SIZE = 50;
+
   function renderLiveFeeds(logsData) {
+    if (logsData !== undefined) {
+      cachedRawLogsData = logsData || {};
+    }
+
     const globalContainer = document.getElementById("globalFeedContainer");
     const myContainer = document.getElementById("myFeedContainer");
 
-    const allLogs = Object.entries(logsData).map(([logId, log]) => ({
+    const allLogs = Object.entries(cachedRawLogsData).map(([logId, log]) => ({
       logId,
       ...log
     })).reverse();
 
-    const totalLogCount = allLogs.length;
-    const logsArray = allLogs.slice(0, 50); // 僅渲染最新 50 筆 DOM
+    // 1. 全員即時動態 (獨立單頁 50 筆支援翻頁)
+    const totalGlobalCount = allLogs.length;
+    const totalGlobalPages = Math.max(1, Math.ceil(totalGlobalCount / FEED_PAGE_SIZE));
+    if (globalFeedCurrentPage > totalGlobalPages) globalFeedCurrentPage = totalGlobalPages;
+    if (globalFeedCurrentPage < 1) globalFeedCurrentPage = 1;
 
-    // 1. 全員即時動態
-    if (totalLogCount === 0) {
-      document.getElementById("globalScanCountBadge").innerText = "0 筆";
-      globalContainer.innerHTML = '<div class="text-center text-muted small py-3">尚無全員盤點紀錄</div>';
+    const globalStartIdx = (globalFeedCurrentPage - 1) * FEED_PAGE_SIZE;
+    const pagedGlobalLogs = allLogs.slice(globalStartIdx, globalStartIdx + FEED_PAGE_SIZE);
+
+    const gBadge = document.getElementById("globalScanCountBadge");
+    const gInfo = document.getElementById("globalFeedPageInfo");
+    const btnGPrev = document.getElementById("btnGlobalPrevPage");
+    const btnGNext = document.getElementById("btnGlobalNextPage");
+
+    if (totalGlobalCount === 0) {
+      if (gBadge) gBadge.innerText = "0 筆";
+      if (gInfo) gInfo.innerText = "第 1 / 1 頁";
+      if (btnGPrev) btnGPrev.disabled = true;
+      if (btnGNext) btnGNext.disabled = true;
+      if (globalContainer) globalContainer.innerHTML = '<div class="text-center text-muted small py-3">尚無全員盤點紀錄</div>';
     } else {
-      document.getElementById("globalScanCountBadge").innerText = totalLogCount > 50 
-        ? `共 ${totalLogCount} 筆 (顯示最新 50 筆)` 
-        : `共 ${totalLogCount} 筆`;
+      if (gBadge) gBadge.innerText = `共 ${totalGlobalCount} 筆`;
+      if (gInfo) gInfo.innerText = `第 ${globalFeedCurrentPage} / ${totalGlobalPages} 頁 (本頁 ${pagedGlobalLogs.length} 筆)`;
+      if (btnGPrev) btnGPrev.disabled = (globalFeedCurrentPage <= 1);
+      if (btnGNext) btnGNext.disabled = (globalFeedCurrentPage >= totalGlobalPages);
 
-      globalContainer.innerHTML = logsArray.map(log => {
+      if (globalContainer) {
+        globalContainer.innerHTML = pagedGlobalLogs.map(log => {
+          const invItem = fullInventory[log.itemKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
+          const pName = invItem.name || log.displayTag || "-";
+          const tStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "";
+          const loc = log.location || "架上";
+          const staff = log.staff || "門市人員";
+          const noteStr = log.note ? `<span class="text-secondary ms-1">(${log.note})</span>` : "";
+
+          return `
+            <div class="feed-item bg-white px-2 py-1 border-bottom">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="text-truncate me-2" style="font-size: 0.82rem;">
+                  <span class="badge bg-secondary py-0 px-1 me-1">${loc}</span>
+                  <strong class="text-primary">${staff}</strong>
+                  <span class="font-monospace text-dark ms-1">${log.barcode}</span>
+                  <span class="fw-bold text-success ms-1">+${log.qty || 1}</span>
+                  ${noteStr}
+                  <div class="text-muted text-truncate" style="font-size: 0.75rem;">${pName}</div>
+                </div>
+                <div class="text-muted flex-shrink-0" style="font-size: 0.72rem;">${tStr}</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    // 2. 我的即時盤點動態 (直接從完整資料庫中過濾出個人，絕不遺失，獨立單頁 50 筆)
+    const myAllLogs = allLogs.filter(log => log.staff === boundUser);
+    const totalMyCount = myAllLogs.length;
+    const totalMyPages = Math.max(1, Math.ceil(totalMyCount / FEED_PAGE_SIZE));
+    if (myFeedCurrentPage > totalMyPages) myFeedCurrentPage = totalMyPages;
+    if (myFeedCurrentPage < 1) myFeedCurrentPage = 1;
+
+    const myStartIdx = (myFeedCurrentPage - 1) * FEED_PAGE_SIZE;
+    const pagedMyLogs = myAllLogs.slice(myStartIdx, myStartIdx + FEED_PAGE_SIZE);
+
+    const mBadge = document.getElementById("myScanCountBadge");
+    const mInfo = document.getElementById("myFeedPageInfo");
+    const btnMPrev = document.getElementById("btnMyPrevPage");
+    const btnMNext = document.getElementById("btnMyNextPage");
+
+    if (totalMyCount === 0) {
+      if (mBadge) mBadge.innerText = "0 筆";
+      if (mInfo) mInfo.innerText = "第 1 / 1 頁";
+      if (btnMPrev) btnMPrev.disabled = true;
+      if (btnMNext) btnMNext.disabled = true;
+      if (myContainer) myContainer.innerHTML = '<div class="text-center text-muted small py-3">您尚未掃描任何商品</div>';
+      return;
+    }
+
+    if (mBadge) mBadge.innerText = `共 ${totalMyCount} 筆`;
+    if (mInfo) mInfo.innerText = `第 ${myFeedCurrentPage} / ${totalMyPages} 頁 (本頁 ${pagedMyLogs.length} 筆)`;
+    if (btnMPrev) btnMPrev.disabled = (myFeedCurrentPage <= 1);
+    if (btnMNext) btnMNext.disabled = (myFeedCurrentPage >= totalMyPages);
+
+    if (myContainer) {
+      myContainer.innerHTML = pagedMyLogs.map(log => {
         const invItem = fullInventory[log.itemKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
         const pName = invItem.name || log.displayTag || "-";
         const tStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "";
         const loc = log.location || "架上";
-        const staff = log.staff || "門市人員";
+        const qty = log.qty || 1;
         const noteStr = log.note ? `<span class="text-secondary ms-1">(${log.note})</span>` : "";
+        const cleanNameSafe = (pName || "").replace(/'/g, "\\'");
 
         return `
           <div class="feed-item bg-white px-2 py-1 border-bottom">
             <div class="d-flex justify-content-between align-items-center">
               <div class="text-truncate me-2" style="font-size: 0.82rem;">
-                <span class="badge bg-secondary py-0 px-1 me-1">${loc}</span>
-                <strong class="text-primary">${staff}</strong>
-                <span class="font-monospace text-dark ms-1">${log.barcode}</span>
-                <span class="fw-bold text-success ms-1">+${log.qty || 1}</span>
+                <span class="badge bg-success py-0 px-1 me-1">${loc}</span>
+                <span class="font-monospace text-dark fw-bold">${log.barcode}</span>
+                <span class="fw-bold text-success ms-1">+${qty}</span>
                 ${noteStr}
                 <div class="text-muted text-truncate" style="font-size: 0.75rem;">${pName}</div>
               </div>
-              <div class="text-muted flex-shrink-0" style="font-size: 0.72rem;">${tStr}</div>
+              <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                <span class="text-muted small" style="font-size: 0.72rem;">${tStr}</span>
+                <button class="btn btn-outline-primary btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="triggerEditLog('${log.logId}', '${log.itemKey || ''}', '${log.barcode || ''}', ${qty}, '${loc}', '${(log.note || '').replace(/'/g, "\\'")}')">編輯</button>
+                <button class="btn btn-outline-danger btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="openConfirmDeleteModal('${log.itemKey || ''}', '${log.barcode || ''}', '${log.logId}', ${qty}, '${cleanNameSafe}')">刪除</button>
+              </div>
             </div>
           </div>
         `;
       }).join("");
     }
+  }
 
-    // 2. 我的即時盤點動態 (支援編輯與刪除)
-    const myLogs = logsArray.filter(log => log.staff === boundUser);
+  function changeMyFeedPage(delta) {
+    myFeedCurrentPage += delta;
+    renderLiveFeeds();
+    const container = document.getElementById("myFeedContainer");
+    if (container) container.scrollTop = 0;
+  }
 
-    if (myLogs.length === 0) {
-      document.getElementById("myScanCountBadge").innerText = "0 筆";
-      myContainer.innerHTML = '<div class="text-center text-muted small py-3">您尚未掃描任何商品</div>';
-      return;
-    }
-
-    document.getElementById("myScanCountBadge").innerText = `共 ${myLogs.length} 筆`;
-    myContainer.innerHTML = myLogs.map(log => {
-      const invItem = fullInventory[log.itemKey] || fullInventory[barcodeToKeyMap[cleanString(log.barcode)]] || {};
-      const pName = invItem.name || log.displayTag || "-";
-      const tStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : "";
-      const loc = log.location || "架上";
-      const qty = log.qty || 1;
-      const noteStr = log.note ? `<span class="text-secondary ms-1">(${log.note})</span>` : "";
-
-      return `
-        <div class="feed-item bg-white px-2 py-1 border-bottom">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="text-truncate me-2" style="font-size: 0.82rem;">
-              <span class="badge bg-success py-0 px-1 me-1">${loc}</span>
-              <span class="font-monospace text-dark fw-bold">${log.barcode}</span>
-              <span class="fw-bold text-success ms-1">+${qty}</span>
-              ${noteStr}
-              <div class="text-muted text-truncate" style="font-size: 0.75rem;">${pName}</div>
-            </div>
-            <div class="d-flex align-items-center gap-1 flex-shrink-0">
-              <span class="text-muted small" style="font-size: 0.72rem;">${tStr}</span>
-              <button class="btn btn-outline-primary btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="triggerEditLog('${log.logId}', '${log.itemKey || ''}', '${log.barcode || ''}', ${qty}, '${loc}', '${(log.note || '').replace(/'/g, "\\'")}')">編輯</button>
-              <button class="btn btn-outline-danger btn-sm py-0 px-1 fw-bold" style="font-size: 0.7rem;" onclick="undoSingleLog('${log.logId}', '${log.itemKey || ''}', '${log.barcode || ''}', ${qty}, '${loc}')">刪除</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("");
+  function changeGlobalFeedPage(delta) {
+    globalFeedCurrentPage += delta;
+    renderLiveFeeds();
+    const container = document.getElementById("globalFeedContainer");
+    if (container) container.scrollTop = 0;
   }
 
   function updateSelectedLocLabel(locName) {
@@ -4481,16 +4558,20 @@
   // 分區備註連續套用開關狀態
   let isKeepNoteActive = false;
 
-  function toggleKeepNote() {
-    isKeepNoteActive = !isKeepNoteActive;
-    const btn = document.getElementById("btnKeepNote");
-    if (btn) {
+  function toggleKeepNote(isChecked) {
+    if (isChecked !== undefined) {
+      isKeepNoteActive = isChecked;
+    } else {
+      isKeepNoteActive = !isKeepNoteActive;
+      const sw = document.getElementById("switchKeepNote");
+      if (sw) sw.checked = isKeepNoteActive;
+    }
+    const lbl = document.getElementById("lblKeepNote");
+    if (lbl) {
       if (isKeepNoteActive) {
-        btn.className = "btn btn-primary fw-bold px-2";
-        btn.innerText = "連續套用: 開";
+        lbl.className = "form-check-label small fw-bold text-primary ms-1 text-nowrap";
       } else {
-        btn.className = "btn btn-outline-secondary fw-bold px-2";
-        btn.innerText = "連續套用: 關";
+        lbl.className = "form-check-label small fw-bold text-secondary ms-1 text-nowrap";
       }
     }
   }
@@ -5239,25 +5320,36 @@
       document.getElementById("rptWarehouseName").innerText = items[0].warehouse;
     }
 
-    // 抓取全員詳細分區、人員與備註明細 (支援同區不同時間多筆備註全列出)
+    // 抓取全員詳細分區、人員與備註明細 (支援同區不同時間多筆備註全列出，並建立雙向索引)
     const itemLocStaffSummary = {};
+    const brandLocStaffSummary = {};
+
     logsRef.once("value", snap => {
       const logs = snap.val() || {};
       Object.values(logs).forEach(l => {
         const k = l.itemKey || barcodeToKeyMap[cleanString(l.barcode)];
-        if (!k) return;
-        if (!itemLocStaffSummary[k]) itemLocStaffSummary[k] = [];
         const staffLast = (cleanString(l.staff) || "員").slice(-1);
         const loc = l.location || "架上";
         const note = cleanString(l.note);
-        
-        itemLocStaffSummary[k].push({
+        const entry = {
           loc: loc,
           staff: staffLast,
           qty: l.qty || 1,
           note: note,
           time: l.timestamp || 0
-        });
+        };
+
+        if (k) {
+          if (!itemLocStaffSummary[k]) itemLocStaffSummary[k] = [];
+          itemLocStaffSummary[k].push(entry);
+        }
+
+        // 建立品牌總數專屬分區備註池
+        const brandKey = cleanString(l.brand || (fullInventory[k] ? fullInventory[k].brand : ""));
+        if (brandKey) {
+          if (!brandLocStaffSummary[brandKey]) brandLocStaffSummary[brandKey] = [];
+          brandLocStaffSummary[brandKey].push(entry);
+        }
       });
     });
 
@@ -5294,7 +5386,8 @@
             g.cnt += (item.countedQty || 0);
             g.res += (item.reservedQty || 0);
             g.skuCount++;
-            if (item.key) g.itemKeys.push(item.key);
+            const itemKey = item.key || barcodeToKeyMap[cleanString(item.barcode)] || toSafeDbKey(item.barcode);
+            if (itemKey) g.itemKeys.push(itemKey);
             if (item.lastStaff) g.staffSet.add(cleanString(item.lastStaff));
 
             if (item.locBreakdown) {
@@ -5379,15 +5472,21 @@
       // 定義分區固定排序順序
       const locSortOrder = { "架上": 1, "櫃內": 2, "彌留": 3, "已取": 4 };
 
-      // 依 [分區 > 人員名稱 > 數量] 排序並包含細字備註 (靠左且支援換行)
+      // 依 [分區 > 人員名稱 > 數量] 排序並完整包含總數盤點與一般盤點的備註
       let locStaffRowsHtml = "";
       let targetEntries = [];
 
-      if (item.isBrandGroup && item.itemKeys) {
-        item.itemKeys.forEach(ik => {
-          const arr = itemLocStaffSummary[ik] || [];
-          targetEntries = targetEntries.concat(arr);
-        });
+      if (item.isBrandGroup) {
+        // 品牌總數盤點：彙整該品牌所有項目的刷入分區與備註
+        if (item.brandName && brandLocStaffSummary[item.brandName]) {
+          targetEntries = targetEntries.concat(brandLocStaffSummary[item.brandName]);
+        }
+        if (targetEntries.length === 0 && item.itemKeys) {
+          item.itemKeys.forEach(ik => {
+            const arr = itemLocStaffSummary[ik] || [];
+            targetEntries = targetEntries.concat(arr);
+          });
+        }
       } else {
         targetEntries = itemLocStaffSummary[safeKey] || [];
         if (targetEntries.length === 0 && item.cnt > 0 && item.locBreakdown) {
@@ -5404,8 +5503,25 @@
       }
 
       if (targetEntries.length > 0) {
+        // 同一班盤點整合同一分區、人員與備註
+        const mergedMap = {};
+        targetEntries.forEach(e => {
+          const mergeKey = `${e.loc}_${e.staff}_${e.note || ''}`;
+          if (!mergedMap[mergeKey]) {
+            mergedMap[mergeKey] = {
+              loc: e.loc,
+              staff: e.staff,
+              qty: 0,
+              note: e.note || ''
+            };
+          }
+          mergedMap[mergeKey].qty += e.qty;
+        });
+
+        const consolidatedList = Object.values(mergedMap);
+
         // 核心排序：1. 分區順序 -> 2. 人員姓名 -> 3. 數量由大到小
-        targetEntries.sort((a, b) => {
+        consolidatedList.sort((a, b) => {
           const orderA = locSortOrder[a.loc] || 99;
           const orderB = locSortOrder[b.loc] || 99;
           if (orderA !== orderB) return orderA - orderB;
@@ -5413,9 +5529,9 @@
           return b.qty - a.qty;
         });
 
-        // 格式化輸出：[架上 伶 5 備註] 強制同一行顯示，不拆成兩行
-        locStaffRowsHtml = targetEntries.map(e => {
-          const noteSpan = e.note ? `<span class="text-secondary" style="font-size: 0.62rem; font-weight: normal; margin-left: 3px;">${e.note}</span>` : "";
+        // 格式化輸出：同一班盤點顯示為 [分區 人員 數量 (備註)]
+        locStaffRowsHtml = consolidatedList.map(e => {
+          const noteSpan = e.note ? `<span class="text-secondary" style="font-size: 0.62rem; font-weight: normal; margin-left: 3px;">(${e.note})</span>` : "";
           return `
             <div class="text-start" style="font-size: 0.68rem; color: #222; line-height: 1.25; white-space: nowrap;">
               ${e.loc} ${e.staff} ${e.qty}${noteSpan}
