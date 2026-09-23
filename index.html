@@ -4790,6 +4790,22 @@
     }, (error, committed) => {
       if (committed) {
         logsRef.child(logId).remove().then(() => {
+          // 關鍵修改：雲端刪除成功後，強制優先清理本地端暫存資料
+          if (cachedRawLogsData && cachedRawLogsData[logId]) {
+            delete cachedRawLogsData[logId];
+          }
+          if (fullInventory && fullInventory[safeKey]) {
+            fullInventory[safeKey].countedQty = Math.max(0, (fullInventory[safeKey].countedQty || 0) - qty);
+            if (fullInventory[safeKey].locBreakdown && fullInventory[safeKey].locBreakdown[location]) {
+              fullInventory[safeKey].locBreakdown[location] = Math.max(0, fullInventory[safeKey].locBreakdown[location] - qty);
+            }
+          }
+          
+          // 立刻重繪動態清單與統計數字，確保商品已從畫面消失
+          renderLiveFeeds();
+          recalculateStats();
+
+          // 確定畫面已刷新後，才解除遮罩並提示
           hideActionSpinner();
           showOperatorToast("已扣回此筆紀錄", `[${location}] 條碼【${barcode}】已扣回 -${qty} 件`, "warning");
         }).catch(err => {
