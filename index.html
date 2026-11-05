@@ -453,7 +453,7 @@
               <input type="hidden" id="editingInvPackageId" value="">
               <button class="btn btn-primary btn-sm fw-bold shadow-sm" id="btnSaveInvPackage" onclick="saveCurrentRulesAsPackage()">📦 打包目前條件為快選</button>
               <button class="btn btn-secondary btn-sm fw-bold" id="btnCancelEditInvPackage" onclick="cancelEditInvPackage()" style="display: none;">取消編輯</button>
-              <button class="btn btn-outline-danger btn-sm" onclick="clearAllFilterRules()">取消套用條件</button>
+              <button class="btn btn-sm fw-bold" onclick="clearAllFilterRules()" style="color: #c2410c; border: 1px solid #c2410c; background-color: #fff;" onmouseover="this.style.backgroundColor='#c2410c';this.style.color='#fff'" onmouseout="this.style.backgroundColor='#fff';this.style.color='#c2410c'">解除條件</button>
             </div>
           </div>
 
@@ -530,13 +530,13 @@
           <!-- 單一檔案上傳入口 -->
           <div class="mb-3 p-3 border border-2 border-primary border-opacity-50 rounded bg-light text-center">
             <label for="smartFileInput" class="form-label fw-bold text-primary mb-1" style="cursor: pointer;">
-              📂 點擊此處或拖曳檔案進行自動辨識上傳 (.xls / .xlsx / .csv)
+              📂 點擊此處或拖曳檔案上傳 (.xls / .xlsx / .csv)
             </label>
             <input type="file" id="smartFileInput" class="form-control form-control-sm mx-auto" style="max-width: 420px;" accept=".xlsx, .xls, .csv" multiple onchange="handleSmartFileUpload(this)">
           </div>
 
           <div class="d-flex gap-2">
-            <button id="btnStartImport" class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="importExcelData()">⚡ 開始解析並分批上傳</button>
+            <button id="btnStartImport" class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="importExcelData()">⚡ 開始上傳</button>
             <button class="btn btn-outline-success btn-sm fw-bold" onclick="exportReport()">匯出盤差 Excel</button>
           </div>
 
@@ -547,16 +547,16 @@
         </div>
 
         <div class="p-3 border rounded bg-light mt-3">
-          <div class="small fw-bold text-secondary mb-2">⚠️ 數據重置管理 (人員名單與日常自訂條件將永久保留)：</div>
+          <div class="small fw-bold text-secondary mb-2">數據管理：</div>
           <div class="row g-2">
             <div class="col-6">
               <button class="btn btn-outline-warning text-dark btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetOnlyCountedData()">
-                🧹 僅清除已盤庫存<br><span style="font-size: 0.72rem; font-weight: normal;">(保留匯入商品，數量全歸零)</span>
+                🧹 僅清除盤點紀錄<br><span style="font-size: 0.72rem; font-weight: normal;">(保留匯入商品，數量全歸零)</span>
               </button>
             </div>
             <div class="col-6">
               <button class="btn btn-outline-danger btn-sm w-100 fw-bold py-2 shadow-sm" onclick="resetAllImportedData()">
-                🗑️ 清除所有匯入資料<br><span style="font-size: 0.72rem; font-weight: normal;">(完整清空 Excel 庫存資料庫)</span>
+                🗑️ 清除上方匯入與盤點資料<br><span style="font-size: 0.72rem; font-weight: normal;">(完整清空 Excel 庫存資料庫)</span>
               </button>
             </div>
           </div>
@@ -871,12 +871,28 @@
             <span class="small text-muted">共設定 <strong id="totalRepRulesCount" class="text-primary">0</strong> 筆商品條件</span>
             <div class="d-flex gap-1 align-items-center">
               <button class="btn btn-primary btn-sm fw-bold shadow-sm" onclick="saveCurrentRulesAsNewPackage()">📦 打包目前補貨條件為快選</button>
-              <button class="btn btn-outline-danger btn-sm py-0" onclick="clearAllReplenishRules()">取消套用條件</button>
+              <button class="btn btn-sm py-0 fw-bold" onclick="clearAllReplenishRules()" style="color: #c2410c; border: 1px solid #c2410c; background-color: #fff; height: 31px;" onmouseover="this.style.backgroundColor='#c2410c';this.style.color='#fff'" onmouseout="this.style.backgroundColor='#fff';this.style.color='#c2410c'">解除條件</button>
             </div>
           </div>
 
           <!-- 常用快選包專區 (「僅顯示大群組」預設關閉) -->
           <div class="p-2 border rounded bg-white mt-2">
+            <!-- 頂部超級組合群組專區 -->
+            <div class="p-2 mb-2 rounded border" style="background-color: #f8fafc; border-color: #cbd5e1 !important;">
+              <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                <div class="d-flex align-items-center gap-1">
+                  <span class="badge bg-secondary text-white" style="font-size: 0.75rem;">群組套組</span>
+                  <span class="small fw-bold text-dark" style="font-size: 0.8rem;">廠商群組一鍵套組 (批次啟用)：</span>
+                </div>
+                <button class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold shadow-sm" type="button" onclick="openCreateSuperGroupModal()" style="font-size: 0.75rem;">
+                  + 新增組合套組
+                </button>
+              </div>
+              <div id="repSuperGroupsContainer" class="d-flex flex-wrap gap-2 pt-1">
+                <span class="text-muted small" style="font-size: 0.75rem;">尚未建立組合套組，點擊「+ 新增組合套組」可勾選常態配合之多個廠商群組。</span>
+              </div>
+            </div>
+
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
               <div class="d-flex align-items-center gap-2">
                 <span class="small fw-bold text-secondary">我的補貨常用快選包：</span>
@@ -886,8 +902,8 @@
                 </div>
               </div>
               <div class="d-flex gap-1 align-items-center">
-                <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToRepModal()">🔄 從盤點複製</button>
-                <button class="btn btn-outline-success btn-sm py-0 fw-bold" onclick="openCreateGroupModal()">➕ 合成廠商大群組</button>
+                <button class="btn btn-outline-info btn-sm py-0 fw-bold" onclick="openImportToRepModal()">從盤點複製</button>
+                <button class="btn btn-outline-success btn-sm py-0 fw-bold" onclick="openCreateGroupModal()">+ 合成廠商大群組</button>
                 <span id="repPresetCountBadge" class="badge bg-secondary small">0 組</span>
               </div>
             </div>
@@ -1365,6 +1381,34 @@
   </div>
 </div>
 
+<!-- 彈出視窗 8-B: 打包與編輯多群組超級套組 (Super Group) 彈窗 -->
+<div class="modal fade" id="createSuperGroupModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-dark text-white py-2 px-3">
+        <h6 class="modal-title fw-bold mb-0" id="superGroupModalTitle">組合套組管理</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-dark">1. 套組名稱：</label>
+          <input type="text" id="newSuperGroupName" class="form-control form-control-sm fw-bold" placeholder="例: 週一補貨全套、矽水膠群組總合">
+          <div class="text-muted mt-1" style="font-size: 0.72rem;">出貨數量門檻將完全依據各群組原本設定獨立計算。</div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-bold text-dark">2. 勾選要納入的廠商群組：</label>
+          <input type="text" class="form-control form-control-sm mb-1" placeholder="過濾名稱..." onkeyup="filterModalList(this.value, 'superGroupSelectableList')">
+          <div id="superGroupSelectableList" class="border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;"></div>
+        </div>
+      </div>
+      <div class="modal-footer py-2 bg-light border-0">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary btn-sm fw-bold px-3 shadow-sm" onclick="saveCombinedSuperGroupPackage()">確認儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 彈出視窗 10: 合成盤點大群組包彈窗 -->
 <div class="modal fade" id="createInvGroupModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1409,6 +1453,37 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- 彈出視窗 11: 條件套用模式選擇 (解除原本 vs 直接疊加) -->
+<div class="modal fade" id="applyModeChoiceModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered mx-auto" style="max-width: 380px; width: 92%;">
+    <div class="modal-content shadow-lg border-0 rounded-3">
+      <div class="modal-header bg-light py-2 px-3">
+        <h6 class="modal-title fw-bold text-dark mb-0" style="font-size: 0.95rem;">條件套用方式確認</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="small text-dark mb-3">
+          目前已有其他條件套用中。準備啟用：<br>
+          <strong class="text-primary fs-6" id="choiceModalTargetName">-</strong>
+        </div>
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-primary py-2 fw-bold text-start d-flex justify-content-between align-items-center shadow-sm" onclick="handleApplyChoiceSubmit('clear')">
+            <span>解除原本</span>
+            <small class="text-white-50" style="font-size: 0.72rem;">清空目前條件，僅啟用此項目</small>
+          </button>
+          <button type="button" class="btn btn-outline-success py-2 fw-bold text-start d-flex justify-content-between align-items-center bg-white shadow-sm" onclick="handleApplyChoiceSubmit('append')">
+            <span>疊加</span>
+            <small class="text-muted" style="font-size: 0.72rem;">保留目前條件並追加此項目</small>
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer py-2 px-3 bg-light border-0">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消操作</button>
+      </div>
+    </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -3012,6 +3087,18 @@
 
   function getRulesArrayFromPackage(pkg) {
     if (!pkg) return [];
+    // 支援超級套組 (isSuperGroup)：包含多個大群組或小包
+    if (pkg.isSuperGroup && pkg.groupPackages) {
+      let combined = [];
+      const grpIds = Array.isArray(pkg.groupPackages) ? pkg.groupPackages : Object.values(pkg.groupPackages);
+      grpIds.forEach(gid => {
+        const gPkg = repPresetPackages[gid];
+        if (gPkg) {
+          combined = combined.concat(getRulesArrayFromPackage(gPkg));
+        }
+      });
+      return combined;
+    }
     if (pkg.isGroup && pkg.subPackages) {
       let combined = [];
       const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
@@ -3029,6 +3116,271 @@
 
   let currentEditingRepGroupId = null;
   let currentEditingInvGroupId = null;
+  let currentEditingSuperGroupId = null;
+
+  // ================= 組合套組 (Super Group) 專屬邏輯 (純開關整合，出貨量全依原群組) =================
+  function openCreateSuperGroupModal() {
+    currentEditingSuperGroupId = null;
+    document.getElementById("superGroupModalTitle").innerText = "新增組合套組";
+    document.getElementById("newSuperGroupName").value = "";
+
+    const container = document.getElementById("superGroupSelectableList");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const targetKeys = Object.keys(repPresetPackages).filter(k => !repPresetPackages[k].isSuperGroup);
+    if (targetKeys.length === 0) return alert("目前尚未建立任何快選包或廠商大群組！");
+
+    targetKeys.sort((a, b) => {
+      const pkgA = repPresetPackages[a], pkgB = repPresetPackages[b];
+      return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
+    });
+
+    targetKeys.forEach(pkgId => {
+      const pkg = repPresetPackages[pkgId];
+      const count = getRulesArrayFromPackage(pkg).length;
+      const div = document.createElement("div");
+      div.className = "form-check mb-1 d-flex align-items-center justify-content-between";
+      div.innerHTML = `
+        <div>
+          <input class="form-check-input super-group-checkbox" type="checkbox" value="${pkgId}" id="chk_spgrp_${pkgId}">
+          <label class="form-check-label small" for="chk_spgrp_${pkgId}">
+            <strong class="${pkg.isGroup ? 'text-primary' : 'text-dark'}">${pkg.isGroup ? '[大群組] ' : ''}${pkg.name}</strong>
+          </label>
+        </div>
+        <span class="badge ${pkg.isGroup ? 'bg-primary' : 'bg-secondary'}" style="font-size: 0.68rem;">${count} 款</span>
+      `;
+      container.appendChild(div);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('createSuperGroupModal')).show();
+  }
+
+  function editSuperGroup(spGroupId, event) {
+    if (event) event.stopPropagation();
+    currentEditingSuperGroupId = spGroupId;
+    const spPkg = repPresetPackages[spGroupId];
+    if (!spPkg) return;
+
+    document.getElementById("superGroupModalTitle").innerText = `編輯套組：${spPkg.name}`;
+    document.getElementById("newSuperGroupName").value = spPkg.name || "";
+
+    const container = document.getElementById("superGroupSelectableList");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const targetKeys = Object.keys(repPresetPackages).filter(k => !repPresetPackages[k].isSuperGroup);
+    let existingGroups = [];
+    if (spPkg.groupPackages) {
+      existingGroups = Array.isArray(spPkg.groupPackages) ? spPkg.groupPackages : Object.values(spPkg.groupPackages);
+    }
+
+    targetKeys.sort((a, b) => {
+      const pkgA = repPresetPackages[a], pkgB = repPresetPackages[b];
+      return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
+    });
+
+    targetKeys.forEach(pkgId => {
+      const pkg = repPresetPackages[pkgId];
+      const count = getRulesArrayFromPackage(pkg).length;
+      const isChecked = existingGroups.includes(pkgId) ? "checked" : "";
+
+      const div = document.createElement("div");
+      div.className = "form-check mb-1 d-flex align-items-center justify-content-between";
+      div.innerHTML = `
+        <div>
+          <input class="form-check-input super-group-checkbox" type="checkbox" value="${pkgId}" id="chk_spgrp_${pkgId}" ${isChecked}>
+          <label class="form-check-label small" for="chk_spgrp_${pkgId}">
+            <strong class="${pkg.isGroup ? 'text-primary' : 'text-dark'}">${pkg.isGroup ? '[大群組] ' : ''}${pkg.name}</strong>
+          </label>
+        </div>
+        <span class="badge ${pkg.isGroup ? 'bg-primary' : 'bg-secondary'}" style="font-size: 0.68rem;">${count} 款</span>
+      `;
+      container.appendChild(div);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('createSuperGroupModal')).show();
+  }
+
+  function saveCombinedSuperGroupPackage() {
+    const name = cleanString(document.getElementById("newSuperGroupName").value);
+    const checkedBoxes = document.querySelectorAll(".super-group-checkbox:checked");
+
+    if (!name) return alert("請輸入套組名稱！");
+    if (checkedBoxes.length === 0) return alert("請至少勾選一個廠商群組！");
+
+    const groupIds = [];
+    checkedBoxes.forEach(cb => groupIds.push(cb.value));
+
+    const payload = {
+      name: name,
+      isSuperGroup: true,
+      groupPackages: groupIds,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    if (currentEditingSuperGroupId) {
+      repPresetPackages[currentEditingSuperGroupId] = { ...repPresetPackages[currentEditingSuperGroupId], ...payload };
+      renderRepPresetPackages();
+      bootstrap.Modal.getInstance(document.getElementById('createSuperGroupModal')).hide();
+
+      repPresetsRef.child(currentEditingSuperGroupId).update(payload).then(() => {
+        showOperatorToast("套組已更新", `成功更新套組【${name}】！`, "success");
+      }).catch(err => alert("更新失敗: " + err.message));
+    } else {
+      const newKey = `super_grp_${Date.now()}`;
+      repPresetPackages[newKey] = payload;
+      renderRepPresetPackages();
+      bootstrap.Modal.getInstance(document.getElementById('createSuperGroupModal')).hide();
+
+      repPresetsRef.child(newKey).set({
+        ...payload,
+        createdAt: firebase.database.ServerValue.TIMESTAMP
+      }).then(() => {
+        showOperatorToast("套組已建立", `成功建立套組【${name}】！`, "success");
+      }).catch(err => alert("建立失敗: " + err.message));
+    }
+  }
+
+  function toggleApplySuperGroup(spGroupId) {
+    const spPkg = repPresetPackages[spGroupId];
+    if (!spPkg) return;
+
+    const currentlyActive = isPackageActive(spPkg);
+    if (currentlyActive) {
+      if (!confirm(`確定要停用套組【${spPkg.name}】嗎？`)) return;
+      showActionSpinner(`正在收回套組【${spPkg.name}】...`);
+
+      // 1. 蒐集此套組所包含的所有群組名稱與小包名稱
+      const targetGroupNames = new Set();
+      const targetSubNames = new Set();
+      const grpIds = Array.isArray(spPkg.groupPackages) ? spPkg.groupPackages : Object.values(spPkg.groupPackages);
+      grpIds.forEach(gid => {
+        const gPkg = repPresetPackages[gid];
+        if (gPkg) {
+          targetGroupNames.add(cleanString(gPkg.name).toLowerCase());
+          if (gPkg.subPackages) {
+            const subs = Array.isArray(gPkg.subPackages) ? gPkg.subPackages : Object.values(gPkg.subPackages);
+            subs.forEach(subId => {
+              const subPkg = repPresetPackages[subId];
+              if (subPkg) targetSubNames.add(cleanString(subPkg.name).toLowerCase());
+            });
+          }
+        }
+      });
+
+      // 2. 蒐集此套組涵蓋的所有品項識別特徵 (條碼、貨號、品名)
+      const targetItemIdentifiers = new Set();
+      const ruleList = getRulesArrayFromPackage(spPkg);
+      ruleList.forEach(r => {
+        if (r.name) targetItemIdentifiers.add(cleanString(r.name).toLowerCase());
+        if (r.barcode) targetItemIdentifiers.add(cleanString(r.barcode).toLowerCase());
+        if (r.itemCode) targetItemIdentifiers.add(cleanString(r.itemCode).toLowerCase());
+        if (r.keyword) targetItemIdentifiers.add(cleanString(r.keyword).toLowerCase());
+      });
+
+      // 3. 雙向全面比對目前套用區 (群組名匹配 OR 特徵匹配)，徹底刪除並核銷
+      const updatePayload = {};
+      Object.entries(customReplenishRules).forEach(([ruleKey, r]) => {
+        const gName = cleanString(r.groupPkgName || "").toLowerCase();
+        const sName = cleanString(r.subPkgName || "").toLowerCase();
+        const rName = cleanString(r.name || "").toLowerCase();
+        const rBc = cleanString(r.barcode || "").toLowerCase();
+        const rCode = cleanString(r.itemCode || "").toLowerCase();
+        const rKw = cleanString(r.keyword || "").toLowerCase();
+
+        const isMatchByGroup = targetGroupNames.has(gName) || targetSubNames.has(sName);
+        const isMatchByItem = targetItemIdentifiers.has(rName) || targetItemIdentifiers.has(rBc) || targetItemIdentifiers.has(rCode) || targetItemIdentifiers.has(rKw);
+
+        if (isMatchByGroup || isMatchByItem) {
+          updatePayload[ruleKey] = null;
+          delete customReplenishRules[ruleKey];
+        }
+      });
+
+      // 4. 本地 0 毫秒極速重繪畫面
+      renderRepPresetPackages();
+      renderReplenishRulesList();
+      setTimeout(calculateReplenishment, 16);
+
+      // 5. 背景同步寫入雲端核銷
+      repRulesRef.update(updatePayload).then(() => {
+        hideActionSpinner();
+        showOperatorToast("套組已停用", `已成功收回【${spPkg.name}】所有組合品項`, "warning");
+      }).catch(err => {
+        hideActionSpinner();
+        alert("操作失敗: " + err.message);
+      });
+    } else {
+      const hasActiveRules = customReplenishRules && Object.keys(customReplenishRules).length > 0;
+
+      const doApply = (shouldClear) => {
+        showActionSpinner(`正在套用套組【${spPkg.name}】...`);
+
+        if (shouldClear) {
+          customReplenishRules = {};
+          repRulesRef.remove();
+        }
+
+        const updatePayload = {};
+        const grpIds = Array.isArray(spPkg.groupPackages) ? spPkg.groupPackages : Object.values(spPkg.groupPackages);
+
+        grpIds.forEach(gid => {
+          const gPkg = repPresetPackages[gid];
+          if (!gPkg) return;
+          const origVendorMoq = parseFloat(gPkg.vendorMoq) || 1;
+
+          if (gPkg.isGroup && gPkg.subPackages) {
+            const subs = Array.isArray(gPkg.subPackages) ? gPkg.subPackages : Object.values(gPkg.subPackages);
+            subs.forEach(subId => {
+              const subPkg = repPresetPackages[subId];
+              if (subPkg && subPkg.rules) {
+                const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+                rArray.forEach(r => {
+                  const code = cleanString(r.barcode || r.keyword || r.itemCode);
+                  const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
+                  if (targetKey) {
+                    const ruleData = { ...r, barcode: code || "", groupPkgName: gPkg.name, subPkgName: subPkg.name, vendorMoq: origVendorMoq, isDirectBound: true, updatedAt: Date.now() };
+                    updatePayload[targetKey] = ruleData;
+                    customReplenishRules[targetKey] = ruleData;
+                  }
+                });
+              }
+            });
+          } else {
+            const ruleList = getRulesArrayFromPackage(gPkg);
+            ruleList.forEach(r => {
+              const code = cleanString(r.barcode || r.keyword || r.itemCode);
+              const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
+              if (targetKey) {
+                const ruleData = { ...r, barcode: code || "", groupPkgName: gPkg.name, subPkgName: gPkg.name, isSinglePackage: true, vendorMoq: origVendorMoq, isDirectBound: true, updatedAt: Date.now() };
+                updatePayload[targetKey] = ruleData;
+                customReplenishRules[targetKey] = ruleData;
+              }
+            });
+          }
+        });
+
+        renderRepPresetPackages();
+        renderReplenishRulesList();
+
+        repRulesRef.update(updatePayload).then(() => {
+          calculateReplenishment();
+          hideActionSpinner();
+          showOperatorToast("套組已啟用", `【${spPkg.name}】已全數生效`, "success");
+        }).catch(err => {
+          hideActionSpinner();
+          alert("操作失敗: " + err.message);
+        });
+      };
+
+      if (hasActiveRules) {
+        askApplyChoice(spPkg.name, doApply);
+      } else {
+        doApply(false);
+      }
+    }
+  }
 
   function openCreateGroupModal() {
     currentEditingRepGroupId = null;
@@ -3509,7 +3861,29 @@
     return matchCount > 0 && (matchCount >= Math.ceil(ruleList.length * 0.5));
   }
 
-  // 補貨快選包切換 (安全移除品項：絕對不刪除其他快選包中共有的品項)
+  // ================= 條件套用模式選擇 (解除原本 vs 疊加) 控制器 =================
+  let pendingApplyTask = null;
+
+  function askApplyChoice(displayName, onConfirmAction) {
+    pendingApplyTask = onConfirmAction;
+    document.getElementById("choiceModalTargetName").innerText = displayName;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('applyModeChoiceModal')).show();
+  }
+
+  function handleApplyChoiceSubmit(choiceMode) {
+    const modalEl = document.getElementById('applyModeChoiceModal');
+    if (modalEl) {
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+    }
+    if (typeof pendingApplyTask === 'function') {
+      const shouldClear = (choiceMode === 'clear');
+      pendingApplyTask(shouldClear);
+      pendingApplyTask = null;
+    }
+  }
+
+  // 補貨快選包切換 (修復：廠商大群組與小包均採雙向特徵比對，100% 乾淨收回)
   function toggleApplyRepPresetPackage(pkgId) {
     const pkg = repPresetPackages[pkgId];
     if (!pkg) return;
@@ -3519,107 +3893,167 @@
       if (!confirm(`確定要停用【${pkg.name}】嗎？`)) return;
       showActionSpinner(`正在收回【${pkg.name}】...`);
 
-      // 1. 找出「其他處於啟用狀態的快選包」所持有的實體 Key 集合
-      const preservedKeys = new Set();
-      Object.entries(repPresetPackages).forEach(([otherId, otherPkg]) => {
-        if (otherId !== pkgId && isPackageActive(otherPkg)) {
-          const otherRules = getRulesArrayFromPackage(otherPkg);
-          otherRules.forEach(or => {
-            const oCode = cleanString(or.barcode || or.keyword || or.itemCode);
-            const oKey = (or.isNameMode && (or.name || or.keyword)) 
-              ? `NAME_${toSafeDbKey(or.name || or.keyword)}` 
-              : (oCode ? toSafeDbKey(oCode) : null);
-            if (oKey) preservedKeys.add(oKey);
-          });
-        }
-      });
+      // 1. 蒐集本大群組所包含的名稱特徵（群組名、底下小包名）
+      const targetGroupNames = new Set([cleanString(pkg.name).toLowerCase()]);
+      const targetSubNames = new Set();
+      if (pkg.isGroup && pkg.subPackages) {
+        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+        subs.forEach(subId => {
+          const subPkg = repPresetPackages[subId];
+          if (subPkg) {
+            targetSubNames.add(cleanString(subPkg.name).toLowerCase());
+          }
+        });
+      }
 
-      // 2. 精準收回：只核銷本快選包的品項（若其他啟用的快選包有重疊則保留）
-      const updatePayload = {};
+      // 2. 蒐集此群組所屬所有商品特徵 (條碼、貨號、品名、關鍵字)
+      const targetItemIdentifiers = new Set();
       const ruleList = getRulesArrayFromPackage(pkg);
       ruleList.forEach(r => {
-        const code = cleanString(r.barcode || r.keyword || r.itemCode);
-        const targetKey = (r.isNameMode && (r.name || r.keyword)) 
-          ? `NAME_${toSafeDbKey(r.name || r.keyword)}` 
-          : (code ? toSafeDbKey(code) : null);
-        
-        if (targetKey) {
-          // 不受舊名稱干擾，直接比對品項 Key；未被其他已啟用包使用的品項全部核銷
-          if (!preservedKeys.has(targetKey)) {
-            updatePayload[targetKey] = null;
-            delete customReplenishRules[targetKey];
-          }
+        if (r.name) targetItemIdentifiers.add(cleanString(r.name).toLowerCase());
+        if (r.barcode) targetItemIdentifiers.add(cleanString(r.barcode).toLowerCase());
+        if (r.itemCode) targetItemIdentifiers.add(cleanString(r.itemCode).toLowerCase());
+        if (r.keyword) targetItemIdentifiers.add(cleanString(r.keyword).toLowerCase());
+      });
+
+      // 3. 雙向全面比對目前套用區 (群組名匹配 OR 特徵匹配)，徹底刪除並核銷
+      const updatePayload = {};
+      Object.entries(customReplenishRules).forEach(([ruleKey, r]) => {
+        const gName = cleanString(r.groupPkgName || "").toLowerCase();
+        const sName = cleanString(r.subPkgName || "").toLowerCase();
+        const rName = cleanString(r.name || "").toLowerCase();
+        const rBc = cleanString(r.barcode || "").toLowerCase();
+        const rCode = cleanString(r.itemCode || "").toLowerCase();
+        const rKw = cleanString(r.keyword || "").toLowerCase();
+
+        const isMatchByGroup = targetGroupNames.has(gName) || (targetSubNames.size > 0 && targetSubNames.has(sName));
+        const isMatchByItem = targetItemIdentifiers.has(rName) || targetItemIdentifiers.has(rBc) || targetItemIdentifiers.has(rCode) || targetItemIdentifiers.has(rKw);
+
+        if (isMatchByGroup || isMatchByItem) {
+          updatePayload[ruleKey] = null;
+          delete customReplenishRules[ruleKey];
         }
       });
 
-      // 3. 0 毫秒極速刷新本地介面
+      // 4. 本地 0 毫秒極速重繪畫面
       renderRepPresetPackages();
       renderReplenishRulesList();
       setTimeout(calculateReplenishment, 16);
 
-      // 4. 背景同步資料庫
+      // 5. 背景同步寫入雲端核銷
       repRulesRef.update(updatePayload).then(() => {
         hideActionSpinner();
-        showOperatorToast("已停用", `已成功收回【${pkg.name}】`, "warning");
+        showOperatorToast("已停用", `已成功收回【${pkg.name}】所有品項`, "warning");
       }).catch(err => {
         hideActionSpinner();
         alert("操作失敗: " + err.message);
       });
     } else {
-      if (!confirm(`確定要啟用【${pkg.name}】嗎？`)) return;
-      showActionSpinner(`正在套用【${pkg.name}】...`);
+      const hasActiveRules = customReplenishRules && Object.keys(customReplenishRules).length > 0;
 
-      const updatePayload = {};
-      const vMoq = parseFloat(pkg.vendorMoq) || 1;
+      const doApply = (shouldClear) => {
+        showActionSpinner(`正在套用【${pkg.name}】...`);
 
-      if (pkg.isGroup && pkg.subPackages) {
-        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
-        subs.forEach(subId => {
-          const subPkg = repPresetPackages[subId];
-          if (subPkg && subPkg.rules) {
-            const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
-            rArray.forEach(r => {
-              const code = cleanString(r.barcode || r.keyword || r.itemCode);
-              const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
-              if (targetKey) {
-                const ruleData = { ...r, barcode: code || "", groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: Date.now() };
-                updatePayload[targetKey] = ruleData;
-                customReplenishRules[targetKey] = ruleData;
-              }
-            });
-          }
-        });
-      } else {
-        const ruleList = getRulesArrayFromPackage(pkg);
-        ruleList.forEach(r => {
-          const code = cleanString(r.barcode || r.keyword || r.itemCode);
-          const gName = pkg.name;
-          const sName = pkg.name;
-          const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
-          if (targetKey) {
-            const ruleData = { ...r, barcode: code || "", groupPkgName: gName, subPkgName: sName, isSinglePackage: true, vendorMoq: vMoq, isDirectBound: true, updatedAt: Date.now() };
-            updatePayload[targetKey] = ruleData;
-            customReplenishRules[targetKey] = ruleData;
-          }
-        });
-      }
+        if (shouldClear) {
+          customReplenishRules = {};
+          repRulesRef.remove();
+        }
 
-      renderRepPresetPackages();
-      renderReplenishRulesList();
+        const updatePayload = {};
+        const vMoq = parseFloat(pkg.vendorMoq) || 1;
 
-      repRulesRef.update(updatePayload).then(() => {
-        calculateReplenishment();
-        hideActionSpinner();
-        showOperatorToast("已啟用", `【${pkg.name}】已生效`, "success");
-      }).catch(err => {
-        hideActionSpinner();
+        if (pkg.isGroup && pkg.subPackages) {
+          const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+          subs.forEach(subId => {
+            const subPkg = repPresetPackages[subId];
+            if (subPkg && subPkg.rules) {
+              const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+              rArray.forEach(r => {
+                const code = cleanString(r.barcode || r.keyword || r.itemCode);
+                const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
+                if (targetKey) {
+                  const ruleData = { ...r, barcode: code || "", groupPkgName: pkg.name, subPkgName: subPkg.name, vendorMoq: vMoq, isDirectBound: true, updatedAt: Date.now() };
+                  updatePayload[targetKey] = ruleData;
+                  customReplenishRules[targetKey] = ruleData;
+                }
+              });
+            }
+          });
+        } else {
+          const ruleList = getRulesArrayFromPackage(pkg);
+          ruleList.forEach(r => {
+            const code = cleanString(r.barcode || r.keyword || r.itemCode);
+            const gName = pkg.name;
+            const sName = pkg.name;
+            const targetKey = (r.isNameMode && r.name) ? `NAME_${toSafeDbKey(r.name)}` : (code ? toSafeDbKey(code) : null);
+            if (targetKey) {
+              const ruleData = { ...r, barcode: code || "", groupPkgName: gName, subPkgName: sName, isSinglePackage: true, vendorMoq: vMoq, isDirectBound: true, updatedAt: Date.now() };
+              updatePayload[targetKey] = ruleData;
+              customReplenishRules[targetKey] = ruleData;
+            }
+          });
+        }
+
+        renderRepPresetPackages();
+        renderReplenishRulesList();
+
+        repRulesRef.update(updatePayload).then(() => {
+          calculateReplenishment();
+          hideActionSpinner();
+          showOperatorToast("已啟用", `【${pkg.name}】已生效`, "success");
+        }).catch(err => {
+          hideActionSpinner();
         alert("操作失敗: " + err.message);
-      });
+        });
+      };
+
+      if (hasActiveRules) {
+        askApplyChoice(pkg.name, doApply);
+      } else {
+        doApply(false);
+      }
     }
   }
 
   // 渲染補貨快選包 (一般包改為一列 4 包：col-12 col-md-6 col-lg-3；大群組維持 col-12 col-md-6)
   function renderRepPresetPackages() {
+    // 1. 先渲染群組上方的「套組」舒適卡片專區 (簡約清晰商務風格，去除出貨量標籤與 Emoji)
+    const spContainer = document.getElementById("repSuperGroupsContainer");
+    if (spContainer) {
+      const spKeys = Object.keys(repPresetPackages).filter(k => repPresetPackages[k].isSuperGroup);
+      if (spKeys.length === 0) {
+        spContainer.innerHTML = `<span class="text-muted small py-1" style="font-size: 0.75rem;">尚未建立組合套組，點擊「+ 新增組合套組」可勾選常態配合之多個廠商群組。</span>`;
+      } else {
+        spContainer.innerHTML = spKeys.map(spId => {
+          const spPkg = repPresetPackages[spId];
+          const isActive = isPackageActive(spPkg);
+          const ruleList = getRulesArrayFromPackage(spPkg);
+          const grpCount = (spPkg.groupPackages || []).length;
+
+          const cardBg = isActive
+            ? "background-color: #0d6efd; color: #ffffff; border: 1px solid #0b5ed7; box-shadow: 0 2px 6px rgba(13, 110, 253, 0.25);"
+            : "background-color: #ffffff; color: #212529; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+
+          return `
+            <div class="rounded p-2 d-flex justify-content-between align-items-center" style="min-width: 220px; flex: 1 1 calc(25% - 10px); max-width: 100%; cursor: pointer; ${cardBg}" onclick="toggleApplySuperGroup('${spId}')" title="${spPkg.name}\n包含 ${grpCount} 個廠商群組，共 ${ruleList.length} 款品項\n點擊批次${isActive ? '停用' : '啟用'}">
+              <div class="text-truncate me-2">
+                <div class="d-flex align-items-center gap-1 mb-1">
+                  <span class="badge ${isActive ? 'bg-light text-primary' : 'bg-secondary text-white'} fw-bold" style="font-size: 0.65rem;">${isActive ? '已啟用' : '未啟用'}</span>
+                  <span class="${isActive ? 'text-white-50' : 'text-muted'}" style="font-size: 0.68rem;">${grpCount} 個群組</span>
+                </div>
+                <div class="fw-bold text-truncate" style="font-size: 0.85rem;">${spPkg.name}</div>
+                <div class="${isActive ? 'text-white-50' : 'text-muted'}" style="font-size: 0.7rem;">共 ${ruleList.length} 款品項</div>
+              </div>
+              <div class="btn-group btn-group-sm flex-shrink-0" onclick="event.stopPropagation()">
+                <button type="button" class="btn ${isActive ? 'btn-light text-primary' : 'btn-outline-primary'} py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="editSuperGroup('${spId}', event)">編輯</button>
+                <button type="button" class="btn ${isActive ? 'btn-light text-danger' : 'btn-outline-danger'} py-0 px-2 fw-bold" style="font-size: 0.7rem; height: 24px;" onclick="deleteRepPresetPackage('${spId}', '${spPkg.name.replace(/'/g, "\\'")}', event)">✕</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
     const container = document.getElementById("repPresetPackagesContainer");
     if (!container) return;
     container.innerHTML = "";
@@ -3627,10 +4061,13 @@
     const editingPkgId = document.getElementById("editingRepPackageId") ? document.getElementById("editingRepPackageId").value : "";
     const onlyShowGroups = document.getElementById("chkOnlyShowRepGroups") ? document.getElementById("chkOnlyShowRepGroups").checked : false;
 
-    let pkgKeys = Object.keys(repPresetPackages).sort((a, b) => {
-      const pkgA = repPresetPackages[a], pkgB = repPresetPackages[b];
-      return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
-    });
+    // 排除超級套組，讓下方一般常用包專區純粹顯示一般大群組與小包
+    let pkgKeys = Object.keys(repPresetPackages)
+      .filter(k => !repPresetPackages[k].isSuperGroup)
+      .sort((a, b) => {
+        const pkgA = repPresetPackages[a], pkgB = repPresetPackages[b];
+        return (pkgB.isGroup ? 1 : 0) - (pkgA.isGroup ? 1 : 0);
+      });
 
     if (onlyShowGroups) {
       pkgKeys = pkgKeys.filter(k => repPresetPackages[k].isGroup);
@@ -3828,7 +4265,7 @@
               <div class="text-truncate" style="max-width: 60%;">📦 ${gName}</div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-secondary">${totalItemsInGroup} 款 ▼</span>
-                <span class="btn btn-outline-danger py-0 px-2 fw-bold bg-white shadow-sm" style="font-size: 0.7rem;" onclick="removeActiveRepGroup('${gName}', event)">取消此包</span>
+                <span class="btn py-0 px-2 fw-bold shadow-sm" style="font-size: 0.7rem; color: #c2410c; border: 1px solid #c2410c; background-color: #fff;" onclick="removeActiveRepGroup('${gName}', event)">解除此包</span>
               </div>
             </button>
           </h2>
@@ -3866,7 +4303,7 @@
                 <div class="text-truncate" style="max-width: 65%;">${sName}</div>
                 <div class="d-flex align-items-center gap-2">
                   <span class="badge bg-secondary">${rules.length} 款 ▼</span>
-                  <span class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.65rem;" onclick="removeActiveRepSubGroup('${gName}', '${sName}', event)">取消此包</span>
+                  <span class="btn py-0 px-2 fw-bold" style="font-size: 0.65rem; color: #c2410c; border: 1px solid #c2410c; background-color: #fff;" onclick="removeActiveRepSubGroup('${gName}', '${sName}', event)">解除此包</span>
                 </div>
               </button>
               <div id="${subCollapseId}" class="collapse">
@@ -3882,7 +4319,7 @@
               <div class="text-truncate" style="max-width: 60%;">📁 ${gName}</div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-primary">${totalItemsInGroup} 款總計 ▼</span>
-                <span class="btn btn-danger py-0 px-2 fw-bold text-white shadow-sm" style="font-size: 0.7rem;" onclick="removeActiveRepGroup('${gName}', event)">取消群組</span>
+                <span class="btn py-0 px-2 fw-bold shadow-sm" style="font-size: 0.7rem; color: #c2410c; border: 1px solid #c2410c; background-color: #fff;" onclick="removeActiveRepGroup('${gName}', event)">解除群組</span>
               </div>
             </button>
           </h2>
@@ -4453,7 +4890,6 @@
         }
       });
 
-      // 立即刷新：1. 快選按鈕顏色 2. 樹狀套用區 3. 候選狀態與目標數量
       renderPresetPackages();
       renderFilterRules();
       refreshCandidateButtonsState();
@@ -4467,22 +4903,29 @@
         alert("操作失敗: " + err.message);
       });
     } else {
-      if (!confirm(`確定要啟用快選包【${pkg.name}】嗎？`)) return;
-      showActionSpinner(`正在套用【${pkg.name}】條件...`);
+      const hasActiveRules = filterRules && Object.keys(filterRules).length > 0;
 
-      const updatePayload = {};
+      const doApply = (shouldClear) => {
+        showActionSpinner(`正在套用【${pkg.name}】條件...`);
 
-      if (pkg.isGroup && pkg.subPackages) {
-        const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
-        subs.forEach(subId => {
-          const subPkg = presetPackages[subId];
-          if (subPkg && subPkg.rules) {
-            const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
-            rArray.forEach((r, i) => {
-              const uniqueKey = `group_${subId}_${i}_${Date.now()}`;
-              const rData = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name, createdAt: Date.now() };
-              updatePayload[uniqueKey] = rData;
-              filterRules[uniqueKey] = rData;
+        if (shouldClear) {
+          filterRules = {};
+          rulesRef.remove();
+        }
+
+        const updatePayload = {};
+
+        if (pkg.isGroup && pkg.subPackages) {
+          const subs = Array.isArray(pkg.subPackages) ? pkg.subPackages : Object.values(pkg.subPackages);
+          subs.forEach(subId => {
+            const subPkg = presetPackages[subId];
+            if (subPkg && subPkg.rules) {
+              const rArray = Array.isArray(subPkg.rules) ? subPkg.rules.filter(Boolean) : Object.values(subPkg.rules).filter(Boolean);
+              rArray.forEach((r, i) => {
+                const uniqueKey = `group_${subId}_${i}_${Date.now()}`;
+                const rData = { ...r, groupPkgName: pkg.name, subPkgName: subPkg.name, createdAt: Date.now() };
+                updatePayload[uniqueKey] = rData;
+                filterRules[uniqueKey] = rData;
             });
           }
         });
@@ -4496,20 +4939,26 @@
           });
         }
 
-      // 立即刷新：1. 快選按鈕顏色 2. 樹狀套用區 3. 候選狀態與目標數量
-      renderPresetPackages();
-      renderFilterRules();
-      refreshCandidateButtonsState();
-      recalculateStats();
+        renderPresetPackages();
+        renderFilterRules();
+        refreshCandidateButtonsState();
+        recalculateStats();
 
-      rulesRef.update(updatePayload).then(() => {
-        metaRef.update({ mode: "daily" });
-        hideActionSpinner();
-        showOperatorToast("已啟用", `【${pkg.name}】條件已全面生效`, "success");
-      }).catch(err => {
-        hideActionSpinner();
-        alert("操作失敗: " + err.message);
-      });
+        rulesRef.update(updatePayload).then(() => {
+          metaRef.update({ mode: "daily" });
+          hideActionSpinner();
+          showOperatorToast("已啟用", `【${pkg.name}】條件已全面生效`, "success");
+        }).catch(err => {
+          hideActionSpinner();
+          alert("操作失敗: " + err.message);
+        });
+      };
+
+      if (hasActiveRules) {
+        askApplyChoice(pkg.name, doApply);
+      } else {
+        doApply(false);
+      }
     }
   }
 
@@ -4801,7 +5250,7 @@
               <div class="text-truncate" style="max-width: 60%;">📦 ${gName}</div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-secondary">${totalItemsInGroup} 項 ▼</span>
-                <span class="btn btn-outline-danger py-0 px-2 fw-bold bg-white shadow-sm" style="font-size: 0.7rem;" onclick="removeActiveInvGroup('${gName}', event)">取消此包</span>
+                <span class="btn py-0 px-2 fw-bold shadow-sm" style="font-size: 0.7rem; color: #c2410c; border: 1px solid #c2410c; background-color: #fff;" onclick="removeActiveInvGroup('${gName}', event)">解除此包</span>
               </div>
             </button>
           </h2>
@@ -4835,7 +5284,7 @@
                 <div class="text-truncate" style="max-width: 65%;">🏷️ ${sName}</div>
                 <div class="d-flex align-items-center gap-2">
                   <span class="badge bg-secondary">${rules.length} 項 ▼</span>
-                  <span class="btn btn-outline-danger py-0 px-2 bg-white" style="font-size: 0.65rem;" onclick="removeActiveInvSubGroup('${gName}', '${sName}', event)">取消此包</span>
+                  <span class="btn py-0 px-2 fw-bold" style="font-size: 0.65rem; color: #c2410c; border: 1px solid #c2410c; background-color: #fff;" onclick="removeActiveInvSubGroup('${gName}', '${sName}', event)">解除此包</span>
                 </div>
               </button>
               <div id="${subCollapseId}" class="collapse ${isSubOpen ? 'show' : ''}">
@@ -4851,7 +5300,7 @@
               <div class="text-truncate" style="max-width: 60%;">📁 ${gName}</div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-primary">${totalItemsInGroup} 項總計 ▼</span>
-                <span class="btn btn-danger py-0 px-2 fw-bold text-white shadow-sm" style="font-size: 0.7rem;" onclick="removeActiveInvGroup('${gName}', event)">取消群組</span>
+                <span class="btn py-0 px-2 fw-bold shadow-sm" style="font-size: 0.7rem; color: #c2410c; border: 1px solid #c2410c; background-color: #fff;" onclick="removeActiveInvGroup('${gName}', event)">解除群組</span>
               </div>
             </button>
           </h2>
@@ -7070,7 +7519,28 @@
     repRulesRef.remove();
   }
 
-  // 補貨：取消大群組 (0毫秒本地秒刪 + 即時刷新)
+  // 盤點：取消套用大群組 (0毫秒本地秒刪 + 即時刷新)
+  function removeActiveInvGroup(gName, event) {
+    if (event) event.stopPropagation();
+    if (!confirm(`確定要取消套用大群組【${gName}】的所有條件嗎？`)) return;
+
+    const updatePayload = {};
+    Object.keys(filterRules).forEach(k => {
+      if ((filterRules[k].groupPkgName || "未分類群組") === gName) {
+        updatePayload[k] = null;
+        delete filterRules[k];
+      }
+    });
+
+    renderFilterRules();
+    renderPresetPackages();
+    refreshCandidateButtonsState();
+    recalculateStats();
+    showOperatorToast("已取消大群組", `已收回【${gName}】所有條件`, "warning");
+    rulesRef.update(updatePayload);
+  }
+
+  // 補貨：解除大群組 (0毫秒本地秒刪 + 即時刷新)
   function removeActiveRepGroup(gName, event) {
     if (event) event.stopPropagation();
     const updatePayload = {};
@@ -7084,26 +7554,7 @@
     renderReplenishRulesList();
     renderRepPresetPackages();
     setTimeout(calculateReplenishment, 16);
-    showOperatorToast("已取消大群組", `已收回【${gName}】所有條件`, "warning");
-    repRulesRef.update(updatePayload);
-  }
-
-  // 補貨：取消此包 (0毫秒本地秒刪 + 即時刷新)
-  function removeActiveRepSubGroup(gName, sName, event) {
-    if (event) event.stopPropagation();
-    const updatePayload = {};
-    Object.keys(customReplenishRules).forEach(k => {
-      const r = customReplenishRules[k];
-      if ((r.groupPkgName || r.brand || "未分類單品") === gName && (r.subPkgName || "獨立條件") === sName) {
-        updatePayload[k] = null;
-        delete customReplenishRules[k];
-      }
-    });
-
-    renderReplenishRulesList();
-    renderRepPresetPackages();
-    setTimeout(calculateReplenishment, 16);
-    showOperatorToast("已取消小包", `已收回【${sName}】條件`, "warning");
+    showOperatorToast("已解除群組", `已收回【${gName}】所有條件`, "warning");
     repRulesRef.update(updatePayload);
   }
 
@@ -7129,10 +7580,10 @@
     rulesRef.remove();
   }
 
-  // 盤點：取消套用大群組 (0毫秒本地秒刪 + 即時刷新)
+  // 盤點：解除套用大群組 (0毫秒本地秒刪 + 即時刷新)
   function removeActiveInvGroup(gName, event) {
     if (event) event.stopPropagation();
-    if (!confirm(`確定要取消套用大群組【${gName}】的所有條件嗎？`)) return;
+    if (!confirm(`確定要解除大群組【${gName}】的所有條件嗎？`)) return;
 
     const updatePayload = {};
     Object.keys(filterRules).forEach(k => {
@@ -7146,7 +7597,7 @@
     renderPresetPackages();
     refreshCandidateButtonsState();
     recalculateStats();
-    showOperatorToast("已取消大群組", `已收回【${gName}】所有條件`, "warning");
+    showOperatorToast("已解除群組", `已收回【${gName}】所有條件`, "warning");
     rulesRef.update(updatePayload);
   }
 
