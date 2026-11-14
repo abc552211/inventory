@@ -1103,7 +1103,7 @@
                 <th style="width: 35px;">序</th>
                 <th style="width: 145px;">條碼 </th>
                 <th>貨號 / 中文品名</th>
-                <th style="width: 45px;">現存</th>
+                <th style="white-space: nowrap; min-width: 62px;">現存</th>
                 <th style="width: 45px;">水位</th>
                 <th style="width: 60px;">起訂/倍數</th>
                 <th style="width: 70px; background-color: #d1e7dd !important;">建議補貨</th>
@@ -4365,14 +4365,20 @@ function onDirectItemRowCheckChange(idx) {
 
     const ruleKeys = Object.keys(customReplenishRules || {});
 
-    // 建立品名庫存速查字典 (僅依據匯入庫存 systemQty 加總)
-    const nameStockDict = {};
+    // 建立品名庫存速查字典 (同時記錄全庫存 sysStk、未銷 resStk、實際可用 availStk)
+    const nameFullStockDict = {};
+    const nameAvailStockDict = {};
+    const nameResDict = {};
     const nameWhDict = {};
     Object.values(fullInventory).forEach(invItem => {
       const cName = cleanString(invItem.name);
       if (!cName) return;
-      const stk = parseFloat(invItem.systemQty) || 0;
-      nameStockDict[cName] = (nameStockDict[cName] || 0) + stk;
+      const sysStk = parseFloat(invItem.systemQty) || 0;
+      const resStk = parseFloat(invItem.reservedQty) || 0;
+      const availStk = Math.max(0, sysStk - resStk);
+      nameFullStockDict[cName] = (nameFullStockDict[cName] || 0) + sysStk;
+      nameAvailStockDict[cName] = (nameAvailStockDict[cName] || 0) + availStk;
+      nameResDict[cName] = (nameResDict[cName] || 0) + resStk;
       if (invItem.warehouse && !nameWhDict[cName]) nameWhDict[cName] = invItem.warehouse;
     });
 
@@ -4387,7 +4393,9 @@ function onDirectItemRowCheckChange(idx) {
       const brandName = cleanString(rule.brand) || "預設廠商";
       const groupKey = cleanString(rule.groupPkgName) || brandName;
 
+      let fullStock = 0;
       let currentStock = 0;
+      let reservedStock = 0;
       let displayCode = "";
       let displayName = rule.name || "";
       let itemWarehouse = rule.warehouse || "";
@@ -4395,14 +4403,20 @@ function onDirectItemRowCheckChange(idx) {
       if (rule.isNameMode) {
         displayCode = "[品名模式]";
         displayName = cleanString(rule.name || rule.keyword);
-        currentStock = nameStockDict[displayName] || 0;
+        fullStock = nameFullStockDict[displayName] || 0;
+        currentStock = nameAvailStockDict[displayName] || 0;
+        reservedStock = nameResDict[displayName] || 0;
         if (!itemWarehouse) itemWarehouse = nameWhDict[displayName] || "";
       } else {
         const targetCode = cleanString(rule.barcode || rule.keyword);
         const safeKey = barcodeToKeyMap[targetCode];
         const matchedItem = safeKey ? fullInventory[safeKey] : null;
 
-        currentStock = matchedItem ? (parseFloat(matchedItem.systemQty) || 0) : 0;
+        const sysStk = matchedItem ? (parseFloat(matchedItem.systemQty) || 0) : 0;
+        const resStk = matchedItem ? (parseFloat(matchedItem.reservedQty) || 0) : 0;
+        fullStock = sysStk;
+        currentStock = Math.max(0, sysStk - resStk);
+        reservedStock = resStk;
         displayCode = matchedItem ? (matchedItem.barcode || targetCode) : targetCode;
         displayName = matchedItem ? matchedItem.name : (rule.name || targetCode);
         itemWarehouse = matchedItem ? (matchedItem.warehouse || "") : "";
@@ -4441,7 +4455,9 @@ function onDirectItemRowCheckChange(idx) {
         groupKey: groupKey,
         isNameMode: !!rule.isNameMode,
         warehouse: itemWarehouse,
+        fullStock: fullStock,
         currentStock: currentStock,
+        reservedQty: reservedStock,
         maxStock: maxQty,
         safetyStock: safety,
         moq: moq,
@@ -4543,14 +4559,16 @@ function onDirectItemRowCheckChange(idx) {
       }
 
       let salesInfoHtml = "";
-      if (item.isNameMode) {
+      if (salesHistorySummary && Object.keys(salesHistorySummary).length > 0) {
         const salesData = getDynamicSalesSummary(item.name, filterMonths);
         if (salesData && salesData.totalQty > 0) {
-          salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[${salesData.range} 銷貨 ${salesData.totalQty} 支]</div>`;
-        } else {
-          salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.75rem; margin-top: 2px;">[${filterMonths}個月內無銷貨紀錄]</div>`;
+          salesInfoHtml = `<div class="text-muted fw-normal" style="font-size: 0.72rem; margin-top: 2px;">[${salesData.range} 銷貨 ${salesData.totalQty} 個]</div>`;
         }
       }
+
+      const reservedSubHtml = (item.reservedQty && item.reservedQty > 0)
+        ? `<div class="text-secondary fw-normal" style="font-size: 0.72rem; line-height: 1.1; margin-top: 2px;">${item.reservedQty} 未銷</div>`
+        : "";
 
       return `
         <tr>
@@ -4565,15 +4583,19 @@ function onDirectItemRowCheckChange(idx) {
             <div style="font-size: 0.9rem; line-height: 1.2;"><strong>${item.name || '-'}</strong></div>
             ${salesInfoHtml}
           </td>
-          <td class="fw-bold text-center align-middle ${item.currentStock === 0 ? 'text-danger' : ''}">${item.currentStock}</td>
+          <td class="fw-bold text-center align-middle ${(item.fullStock !== undefined ? item.fullStock : item.currentStock) === 0 ? 'text-danger' : ''}">
+            <div>${item.fullStock !== undefined ? item.fullStock : item.currentStock}</div>
+            ${reservedSubHtml}
+          </td>
           <td class="text-center fw-bold text-success align-middle">${item.maxStock}</td>
           <td class="text-center fw-bold text-primary align-middle">${item.safetyStock}</td>
           <td class="text-center align-middle"><span class="badge bg-light text-dark border">×${item.moq}</span></td>
-          <td class="fw-bold text-center fs-5 align-middle ${item.needQty > 0 ? 'text-danger' : (item.needQty < 0 ? 'text-primary' : 'text-muted')}">
-            ${item.needQty > 0 ? `+${item.needQty}` : item.needQty}
+          <td class="fw-bold text-center fs-5 align-middle ${item.needQty > 0 ? 'text-danger' : (item.needQty < 0 ? 'text-secondary opacity-75' : 'text-muted')}">
+            <div>${item.needQty > 0 ? `+${item.needQty}` : item.needQty}</div>
+            ${item.needQty < 0 ? `<div class="text-muted fw-normal" style="font-size: 0.7rem; line-height: 1.1; margin-top: 2px; white-space: nowrap;">[不需補貨]</div>` : ''}
           </td>
           <td class="text-center align-middle" style="line-height: 1.2;">
-            ${item.needQty < 0 ? `<span class="badge bg-info text-dark fw-bold" style="font-size: 0.72rem;">超庫存 (溢出 ${Math.abs(item.needQty)})</span>` : vendorStatusHtml}
+            ${item.needQty < 0 ? `<span class="badge bg-info text-dark fw-bold" style="font-size: 0.72rem; line-height: 1.2;">超庫存<br>(溢出 ${Math.abs(item.needQty)})</span>` : vendorStatusHtml}
           </td>
         </tr>
       `;
@@ -4597,7 +4619,7 @@ function onDirectItemRowCheckChange(idx) {
     }, 20);
   }
 
-  // 列印補貨申請單 (關閉瀏覽大框，避免多層彈窗重疊或列印衝突)
+  // 列印補貨申請單 (完全同步總表顯示：大字全庫存+未銷提示、全模式銷貨區間統計)
   function printReplenishSheet() {
     const browseModalEl = document.getElementById('replenishTableModal');
     if (browseModalEl) {
@@ -4638,17 +4660,18 @@ function onDirectItemRowCheckChange(idx) {
     }
 
     const vendorSummaryMap = {};
-    printList.forEach(item => {
-      const vKey = item.groupKey || item.brand || "常用廠商"; 
-      if (!vendorSummaryMap[vKey]) {
-        vendorSummaryMap[vKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
-      }
+    calculatedReplenishList.forEach(item => {
       if (item.needQty > 0) {
+        const vKey = item.groupKey || item.brand || "常用廠商"; 
+        if (!vendorSummaryMap[vKey]) {
+          vendorSummaryMap[vKey] = { totalQty: 0, threshold: item.vendorMoq || 1 };
+        }
         vendorSummaryMap[vKey].totalQty += item.needQty;
       }
     });
 
     const filterMonths = document.getElementById("excludeSalesMonthsVal") ? (parseInt(document.getElementById("excludeSalesMonthsVal").value, 10) || 6) : 6;
+    const hasSalesData = salesHistorySummary && Object.keys(salesHistorySummary).length > 0;
 
     printList.forEach((item, index) => {
       const tr = document.createElement("tr");
@@ -4668,15 +4691,20 @@ function onDirectItemRowCheckChange(idx) {
         }
       }
 
+      // 同步總表：所有模式（含一般條碼與品名模式）若有上傳銷貨檔且數量 > 0 才顯示區間統計
       let salesInfoHtml = "";
-      if (item.isNameMode) {
+      if (hasSalesData) {
         const salesData = getDynamicSalesSummary(item.name, filterMonths);
         if (salesData && salesData.totalQty > 0) {
-          salesInfoHtml = `<div style="font-size: 0.72rem; color: #444; background-color: #f1f5f9; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 2px 4px; margin-top: 4px; display: inline-block;">[${salesData.range} 銷售 ${salesData.totalQty} 支]</div>`;
-        } else {
-          salesInfoHtml = `<div style="font-size: 0.72rem; color: #666; background-color: #f1f5f9; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 2px 4px; margin-top: 4px; display: inline-block;">[${filterMonths}個月內無銷貨紀錄]</div>`;
+          salesInfoHtml = `<div style="font-size: 0.72rem; color: #6c757d; margin-top: 2px;">[${salesData.range} 銷貨 ${salesData.totalQty} 個]</div>`;
         }
       }
+
+      // 同步總表：大數字顯示全庫存 (fullStock)，下方小字顯示未銷數量（單行自適應不折行）
+      const displayFullStock = item.fullStock !== undefined ? item.fullStock : item.currentStock;
+      const reservedSubHtml = (item.reservedQty && item.reservedQty > 0)
+        ? `<div style="font-size: 0.7rem; color: #6c757d; font-weight: normal; line-height: 1.1; margin-top: 2px; white-space: nowrap;">${item.reservedQty} 未銷</div>`
+        : "";
 
       tr.innerHTML = `
         <td class="text-center align-middle" style="height: 46px;">${index + 1}</td>
@@ -4691,14 +4719,18 @@ function onDirectItemRowCheckChange(idx) {
           <div style="line-height: 1.2; font-size: 0.98rem; font-weight: bold; color: #000;">${item.name || '-'}</div>
           ${salesInfoHtml}
         </td>
-        <td class="text-center fw-bold align-middle ${item.currentStock === 0 ? 'text-danger' : ''}" style="height: 46px;">${item.currentStock}</td>
+        <td class="text-center fw-bold align-middle ${displayFullStock === 0 ? 'text-danger' : ''}" style="height: 46px;">
+          <div>${displayFullStock}</div>
+          ${reservedSubHtml}
+        </td>
         <td class="text-center align-middle" style="height: 46px;">${item.safetyStock}</td>
         <td class="text-center small align-middle" style="height: 46px;">${item.moq}</td>
-        <td class="text-center fw-bold fs-6 align-middle" style="height: 46px; ${item.needQty > 0 ? 'background-color: #e8f5e9 !important; color: #198754;' : (item.needQty < 0 ? 'background-color: #cff4fc !important; color: #055160;' : 'color: #6c757d;')}">
-          ${item.needQty > 0 ? `+${item.needQty}` : item.needQty}
+        <td class="text-center fw-bold fs-6 align-middle" style="height: 46px; ${item.needQty > 0 ? 'background-color: #e8f5e9 !important; color: #198754;' : 'background-color: #ffffff !important; color: #8c959f;'}">
+          <div>${item.needQty > 0 ? `+${item.needQty}` : item.needQty}</div>
+          ${item.needQty < 0 ? `<div style="font-size: 0.68rem; color: #8c959f; font-weight: normal; line-height: 1.1; margin-top: 2px; white-space: nowrap;">[不需補貨]</div>` : ''}
         </td>
         <td class="text-center align-middle" style="height: 46px; line-height: 1.2;">
-          ${item.needQty < 0 ? `<div style="font-size: 0.72rem; color: #055160; font-weight: bold; background-color: #cff4fc; padding: 2px 4px; border-radius: 4px;">超庫存 (溢出 ${Math.abs(item.needQty)})</div>` : vendorStatusHtml}
+          ${item.needQty < 0 ? `<div style="font-size: 0.72rem; color: #055160; font-weight: bold; background-color: #cff4fc; padding: 2px 4px; border-radius: 4px; line-height: 1.2;">超庫存<br>(溢出 ${Math.abs(item.needQty)})</div>` : vendorStatusHtml}
         </td>
         <td class="text-center align-middle" style="height: 46px; background-color: #fffde7; border-left: 2px solid #ffc107 !important;"></td>
       `;
@@ -6926,21 +6958,64 @@ function onDirectItemRowCheckChange(idx) {
     inputEl.value = "";
   }
 
-  // 清除檔案 (同步清除雲端持久化記錄)
-  function clearUploadedFile(type) {
-    if (type === "inv") {
-      loadedInvFile = null;
-      metaRef.child("file_records/inv").remove();
-      metaRef.child("inventoryTime").remove();
-    } else if (type === "dep") {
-      loadedDepFile = null;
-      metaRef.child("file_records/dep").remove();
-    } else if (type === "sales") {
-      loadedSalesFile = null;
-      metaRef.child("file_records/sales").remove();
-      salesSummaryRef.remove();
+  // 清除檔案 (顯示明確作業遮罩 + 即時刷新卡片狀態)
+  async function clearUploadedFile(type) {
+    const labelMap = { inv: "庫存檔案", dep: "訂金未銷檔案", sales: "銷貨紀錄檔案" };
+    const targetLabel = labelMap[type] || "檔案";
+
+    showActionSpinner(`正在清除${targetLabel}記錄...`);
+
+    try {
+      if (type === "inv") {
+        loadedInvFile = null;
+        if (metaData && metaData.file_records) delete metaData.file_records.inv;
+        if (metaData) delete metaData.inventoryTime;
+
+        document.getElementById("txtInvFileName").innerText = "尚未載入";
+        document.getElementById("txtInvFileName").className = "small font-monospace text-truncate text-muted";
+        document.getElementById("badgeInvStatus").className = "badge bg-secondary";
+        document.getElementById("badgeInvStatus").innerText = "未就緒";
+        document.getElementById("btnClearInvFile").style.display = "none";
+        document.getElementById("displayInventoryTime").innerText = "尚未建立基準檔案";
+
+        await Promise.all([
+          metaRef.child("file_records/inv").remove(),
+          metaRef.child("inventoryTime").remove()
+        ]);
+      } else if (type === "dep") {
+        loadedDepFile = null;
+        if (metaData && metaData.file_records) delete metaData.file_records.dep;
+
+        document.getElementById("txtDepFileName").innerText = "尚未載入 (非必填)";
+        document.getElementById("txtDepFileName").className = "small font-monospace text-truncate text-muted";
+        document.getElementById("badgeDepStatus").className = "badge bg-secondary";
+        document.getElementById("badgeDepStatus").innerText = "未就緒";
+        document.getElementById("btnClearDepFile").style.display = "none";
+
+        await metaRef.child("file_records/dep").remove();
+      } else if (type === "sales") {
+        loadedSalesFile = null;
+        salesHistorySummary = {};
+        if (metaData && metaData.file_records) delete metaData.file_records.sales;
+
+        document.getElementById("txtSalesFileName").innerText = "尚未載入 (非必填)";
+        document.getElementById("txtSalesFileName").className = "small font-monospace text-truncate text-muted";
+        document.getElementById("badgeSalesStatus").className = "badge bg-secondary";
+        document.getElementById("badgeSalesStatus").innerText = "未就緒";
+        document.getElementById("btnClearSalesFile").style.display = "none";
+
+        await Promise.all([
+          metaRef.child("file_records/sales").remove(),
+          salesSummaryRef.remove()
+        ]);
+      }
+
+      showOperatorToast("已清除檔案", `已成功移除${targetLabel}記錄，可重新選取上傳。`, "warning");
+    } catch (err) {
+      alert("清除檔案時發生錯誤: " + err.message);
+    } finally {
+      hideActionSpinner();
     }
-    showOperatorToast("已清除檔案", "已移除該檔案記錄，可重新選取上傳。", "warning");
   }
 
   // 全能日期解析器 (支援：民國年、西元、Excel序號、各式符號)
@@ -7005,13 +7080,16 @@ function onDirectItemRowCheckChange(idx) {
 
     const fileRecs = (metaData && metaData.file_records) ? metaData.file_records : {};
     
-    // 防呆：若既沒有新選取檔案，雲端也沒有先前記錄
-    if (!loadedInvFile && !fileRecs.inv) {
-      return alert("尚未載入【庫存檔案 (含 StockQuickSearch)】！請先選取庫存檔案。");
+    // 防呆：若既沒有新選取任何檔案，雲端也沒有庫存記錄
+    if (!loadedInvFile && !loadedDepFile && !loadedSalesFile) {
+      if (!fileRecs.inv) {
+        return alert("尚未載入【庫存檔案 (含 StockQuickSearch)】！請先選取庫存檔案。");
+      }
+      return alert("請先點擊上方選擇要上傳或更新的檔案（庫存 / 訂金 / 銷貨紀錄）！");
     }
 
-    if (!loadedInvFile && fileRecs.inv) {
-      return alert("目前已有庫存檔案記錄，若要覆蓋更新，請先點擊庫存卡片右側的「清除」按鈕，再選取新檔。");
+    if (!loadedInvFile && !fileRecs.inv) {
+      return alert("尚未載入【庫存檔案 (含 StockQuickSearch)】！請先選取庫存檔案。");
     }
 
     btn.disabled = true;
@@ -7023,7 +7101,10 @@ function onDirectItemRowCheckChange(idx) {
     await new Promise(r => setTimeout(r, 60));
 
     try {
-      const invRows = await readExcelRows(loadedInvFile);
+      let invRows = [];
+      if (loadedInvFile) {
+        invRows = await readExcelRows(loadedInvFile);
+      }
       let depRows = [];
       if (loadedDepFile) {
         depRows = await readExcelRows(loadedDepFile);
@@ -7085,7 +7166,7 @@ function onDirectItemRowCheckChange(idx) {
         }
       });
 
-      // 2. 歷史銷貨紀錄解析 (欄位 C:品名, D:數量, P:日期 / 支援動態月份切換)
+      // 2. 歷史銷貨紀錄解析 (純中文品名比對，使用 getRowValue 容錯去除隱藏字元)
       const salesSummaryPayload = {};
       if (salesRows.length > 0) {
         let maxFileDate = null;
@@ -7093,11 +7174,11 @@ function onDirectItemRowCheckChange(idx) {
 
         salesRows.forEach(row => {
           const rowVals = Object.values(row);
-          const pName = cleanString(row["品名"] || row["中文品名"] || row["商品名稱"] || rowVals[2] || "");
-          const rawQty = row["數量"] || row["銷貨數量"] || rowVals[3] || 0;
+          const pName = cleanString(getRowValue(row, ["品名", "中文品名", "商品名稱"]) || rowVals[2] || "");
+          const rawQty = getRowValue(row, ["數量", "銷貨數量"]) || rowVals[3] || 0;
           const qty = parseFloat(cleanString(rawQty)) || 0;
           
-          const rawDate = row["日期"] || row["銷貨日期"] || row["單據日期"] || row["交易日期"] || rowVals[15] || rowVals[14] || "";
+          const rawDate = getRowValue(row, ["銷貨日期", "單據日期", "交易日期", "日期"]) || rowVals[15] || rowVals[14] || "";
           const dateObj = parseDateValue(rawDate);
 
           if (pName && qty > 0 && dateObj && !pName.includes("本次案件") && !pName.includes("製表") && !pName.includes("小計")) {
@@ -7137,112 +7218,154 @@ function onDirectItemRowCheckChange(idx) {
         }
       }
 
-      // 3. 庫存解析
-      const allItems = [];
-      const usedKeys = {};
-      let totalStockSum = 0;
-
-      invRows.forEach((row, index) => {
-        let itemCode = getRowValue(row, ["貨號", "商品代號", "型號"]);
-        let barcode = getRowValue(row, ["條碼編號", "條碼", "國際條碼"]);
-        
-        if (!barcode) barcode = itemCode;
-        if (!itemCode) itemCode = barcode;
-        if (!barcode && !itemCode) return;
-
-        const name = getRowValue(row, ["中文品名", "品名", "商品名稱"]);
-        if (!name || name.trim() === "") return;
-
-        const brand = getRowValue(row, ["品牌", "廠牌"]);
-        const warehouse = getRowValue(row, ["分倉", "倉庫"]);
-        const systemQty = parseFloat(getRowValue(row, ["庫存量", "現有庫存", "數量"]) || 0);
-        const safetyStock = parseFloat(getRowValue(row, ["安全存量", "安全水位"]) || 0);
-        
-        const reservedQty = depMap[barcode] || depMap[itemCode] || 0;
-        const reservedCustomer = depCustomerMap[barcode] || depCustomerMap[itemCode] || "";
-        const reservedOrderNo = depOrderMap[barcode] || depOrderMap[itemCode] || "";
-        const reservedDetails = depDetailsMap[barcode] ? Object.values(depDetailsMap[barcode]) : (depDetailsMap[itemCode] ? Object.values(depDetailsMap[itemCode]) : []);
-        
-        totalStockSum += systemQty;
-
-        let baseSafeKey = toSafeDbKey(barcode);
-        let finalSafeKey = baseSafeKey;
-        if (usedKeys[finalSafeKey]) finalSafeKey = `${baseSafeKey}_${index + 1}`;
-        usedKeys[finalSafeKey] = true;
-
-        allItems.push({
-          key: finalSafeKey,
-          data: {
-            barcode: barcode,
-            itemCode: itemCode,
-            name: name,
-            brand: brand || "",
-            warehouse: warehouse || "",
-            systemQty: systemQty,
-            safetyStock: safetyStock,
-            reservedQty: reservedQty,
-            reservedCustomer: reservedCustomer,
-            reservedOrderNo: reservedOrderNo,
-            reservedDetails: reservedDetails,
-            countedQty: 0,
-            lastStaff: ""
-          }
-        });
-      });
-
-      const totalItems = allItems.length;
-      progressBar.style.width = "50%";
-      progressBar.innerText = `50% 準備寫入雲端 (庫存:${totalItems}種品項)...`;
-      await new Promise(r => setTimeout(r, 60));
-
-      await invRef.remove();
-      await logsRef.remove();
-      if (Object.keys(salesSummaryPayload).length > 0) {
-        await salesSummaryRef.set(salesSummaryPayload);
-      }
-
-      const chunkSize = 200;
-      for (let i = 0; i < totalItems; i += chunkSize) {
-        const chunk = allItems.slice(i, i + chunkSize);
-        const updatePayload = {};
-        chunk.forEach(item => { updatePayload[item.key] = item.data; });
-        await invRef.update(updatePayload);
-
-        const currentUploaded = Math.min(i + chunkSize, totalItems);
-        const pct = Math.round(50 + (currentUploaded / totalItems) * 45);
-        progressBar.style.width = `${pct}%`;
-        progressBar.innerText = `寫入中: ${currentUploaded} / ${totalItems} (${pct}%)...`;
-        status.innerText = `正在寫入雲端: ${currentUploaded} / ${totalItems} 種品項...`;
-      }
-
       const now = new Date();
       const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-      
-      // 將 3 個檔案各自的檔名與上傳時間寫入雲端 meta/file_records
       const updatedFileRecords = { ...(metaData.file_records || {}) };
+
+      // 情況 A：有選取新「庫存檔案」-> 完整重建庫存與相關附屬檔案
       if (loadedInvFile) {
+        const allItems = [];
+        const usedKeys = {};
+        let totalStockSum = 0;
+
+        invRows.forEach((row, index) => {
+          let itemCode = getRowValue(row, ["貨號", "商品代號", "型號"]);
+          let barcode = getRowValue(row, ["條碼編號", "條碼", "國際條碼"]);
+          
+          if (!barcode) barcode = itemCode;
+          if (!itemCode) itemCode = barcode;
+          if (!barcode && !itemCode) return;
+
+          const name = getRowValue(row, ["中文品名", "品名", "商品名稱"]);
+          if (!name || name.trim() === "") return;
+
+          const brand = getRowValue(row, ["品牌", "廠牌"]);
+          const warehouse = getRowValue(row, ["分倉", "倉庫"]);
+          const systemQty = parseFloat(getRowValue(row, ["庫存量", "現有庫存", "數量"]) || 0);
+          const safetyStock = parseFloat(getRowValue(row, ["安全存量", "安全水位"]) || 0);
+          
+          const reservedQty = depMap[barcode] || depMap[itemCode] || 0;
+          const reservedCustomer = depCustomerMap[barcode] || depCustomerMap[itemCode] || "";
+          const reservedOrderNo = depOrderMap[barcode] || depOrderMap[itemCode] || "";
+          const reservedDetails = depDetailsMap[barcode] ? Object.values(depDetailsMap[barcode]) : (depDetailsMap[itemCode] ? Object.values(depDetailsMap[itemCode]) : []);
+          
+          totalStockSum += systemQty;
+
+          let baseSafeKey = toSafeDbKey(barcode);
+          let finalSafeKey = baseSafeKey;
+          if (usedKeys[finalSafeKey]) finalSafeKey = `${baseSafeKey}_${index + 1}`;
+          usedKeys[finalSafeKey] = true;
+
+          allItems.push({
+            key: finalSafeKey,
+            data: {
+              barcode: barcode,
+              itemCode: itemCode,
+              name: name,
+              brand: brand || "",
+              warehouse: warehouse || "",
+              systemQty: systemQty,
+              safetyStock: safetyStock,
+              reservedQty: reservedQty,
+              reservedCustomer: reservedCustomer,
+              reservedOrderNo: reservedOrderNo,
+              reservedDetails: reservedDetails,
+              countedQty: 0,
+              lastStaff: ""
+            }
+          });
+        });
+
+        const totalItems = allItems.length;
+        progressBar.style.width = "50%";
+        progressBar.innerText = `50% 準備寫入雲端 (庫存:${totalItems}種品項)...`;
+        await new Promise(r => setTimeout(r, 60));
+
+        await invRef.remove();
+        await logsRef.remove();
+        if (Object.keys(salesSummaryPayload).length > 0) {
+          salesHistorySummary = salesSummaryPayload;
+          await salesSummaryRef.set(salesSummaryPayload);
+        }
+
+        const chunkSize = 200;
+        for (let i = 0; i < totalItems; i += chunkSize) {
+          const chunk = allItems.slice(i, i + chunkSize);
+          const updatePayload = {};
+          chunk.forEach(item => { updatePayload[item.key] = item.data; });
+          await invRef.update(updatePayload);
+
+          const currentUploaded = Math.min(i + chunkSize, totalItems);
+          const pct = Math.round(50 + (currentUploaded / totalItems) * 45);
+          progressBar.style.width = `${pct}%`;
+          progressBar.innerText = `寫入中: ${currentUploaded} / ${totalItems} (${pct}%)...`;
+          status.innerText = `正在寫入雲端: ${currentUploaded} / ${totalItems} 種品項...`;
+        }
+
         updatedFileRecords.inv = { name: loadedInvFile.name, time: timeStr };
-      }
-      if (loadedDepFile) {
-        updatedFileRecords.dep = { name: loadedDepFile.name, time: timeStr };
-      }
-      if (loadedSalesFile) {
-        updatedFileRecords.sales = { name: loadedSalesFile.name, time: timeStr };
-      }
+        if (loadedDepFile) updatedFileRecords.dep = { name: loadedDepFile.name, time: timeStr };
+        if (loadedSalesFile) updatedFileRecords.sales = { name: loadedSalesFile.name, time: timeStr };
 
-      await metaRef.update({ 
-        inventoryTime: timeStr,
-        file_records: updatedFileRecords
-      });
+        await metaRef.update({ 
+          inventoryTime: timeStr,
+          file_records: updatedFileRecords
+        });
 
-      loadedInvFile = null;
-      loadedDepFile = null;
-      loadedSalesFile = null;
+        loadedInvFile = null;
+        loadedDepFile = null;
+        loadedSalesFile = null;
 
-      progressBar.style.width = "100%";
-      progressBar.innerText = "100% 匯入完成！";
-      status.innerHTML = `<span class="text-success fw-bold">成功載入！共 <strong>${totalItems}</strong> 種品項，庫存總量 <strong>${totalStockSum}</strong> 件（基準時間：${timeStr}）。</span>`;
-      alert(`庫存解析匯入成功！\n共載入 ${totalItems} 種商品品項，庫存總量共 ${totalStockSum} 件。`);
+        progressBar.style.width = "100%";
+        progressBar.innerText = "100% 匯入完成！";
+        status.innerHTML = `<span class="text-success fw-bold">成功載入！共 <strong>${totalItems}</strong> 種品項，庫存總量 <strong>${totalStockSum}</strong> 件（基準時間：${timeStr}）。</span>`;
+        alert(`庫存解析匯入成功！\n共載入 ${totalItems} 種商品品項，庫存總量共 ${totalStockSum} 件。`);
+
+      } else {
+        // 情況 B：單獨補傳/更新「訂金未銷」或「銷貨紀錄」（不覆蓋現有庫存與已盤數據）
+        progressBar.style.width = "60%";
+        progressBar.innerText = "60% 正在更新附屬紀錄...";
+
+        if (loadedDepFile) {
+          const invUpdates = {};
+          Object.entries(fullInventory).forEach(([key, item]) => {
+            const bCode = cleanString(item.barcode);
+            const iCode = cleanString(item.itemCode);
+            const resQty = depMap[bCode] || depMap[iCode] || 0;
+            const resCust = depCustomerMap[bCode] || depCustomerMap[iCode] || "";
+            const resOrder = depOrderMap[bCode] || depOrderMap[iCode] || "";
+            const resDetails = depDetailsMap[bCode] ? Object.values(depDetailsMap[bCode]) : (depDetailsMap[iCode] ? Object.values(depDetailsMap[iCode]) : []);
+
+            invUpdates[`${key}/reservedQty`] = resQty;
+            invUpdates[`${key}/reservedCustomer`] = resCust;
+            invUpdates[`${key}/reservedOrderNo`] = resOrder;
+            invUpdates[`${key}/reservedDetails`] = resDetails;
+            item.reservedQty = resQty;
+          });
+          if (Object.keys(invUpdates).length > 0) await invRef.update(invUpdates);
+          updatedFileRecords.dep = { name: loadedDepFile.name, time: timeStr };
+        }
+
+        if (loadedSalesFile) {
+          const salesCount = Object.keys(salesSummaryPayload).length;
+          if (salesCount === 0) {
+            throw new Error("銷貨檔案中未解析到任何有效紀錄，請確認檔案內含「品名」、「數量」與「銷貨日期」欄位。");
+          }
+          salesHistorySummary = salesSummaryPayload;
+          await salesSummaryRef.set(salesSummaryPayload);
+          updatedFileRecords.sales = { name: loadedSalesFile.name, time: timeStr };
+        }
+
+        await metaRef.update({ file_records: updatedFileRecords });
+
+        loadedDepFile = null;
+        loadedSalesFile = null;
+
+        progressBar.style.width = "100%";
+        progressBar.innerText = "100% 更新完成！";
+        const salesSkuCount = Object.keys(salesSummaryPayload).length;
+        status.innerHTML = `<span class="text-success fw-bold">附屬檔案更新成功！${salesSkuCount > 0 ? `已載入 <strong>${salesSkuCount}</strong> 種品項之歷史銷貨統計。` : ''}</span>`;
+        alert(`附屬檔案更新成功！${salesSkuCount > 0 ? `\n共解析 ${salesSkuCount} 種品項的銷貨紀錄，補貨總表已同步更新。` : ''}`);
+      }
 
     } catch (e) {
       console.error(e);
